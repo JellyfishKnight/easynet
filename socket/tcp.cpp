@@ -1,8 +1,8 @@
 #include "tcp.hpp"
 
-namespace socket {
+namespace net {
 
 
 
 
-} // namespace socket
+} // namespace net

@@ -1,5 +1,5 @@
 #include "udp.hpp"
 
-namespace socket {
+namespace net {
 
-} // namespace socket
+} // namespace net
