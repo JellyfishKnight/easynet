@@ -81,9 +81,53 @@ void TcpClient::connect() {
     }
 
     if (m_status != SocketStatus::CLOSED) {
-        
+        throw std::runtime_error("Socket is not closed");
+    }
+
+    if (::connect(m_sockfd, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
+        throw std::runtime_error("Failed to connect");
+    }
+
+    m_status = SocketStatus::CONNECTED;
+}
+
+void TcpClient::close() {
+    if (m_status == SocketStatus::CLOSED) {
+        return;
+    }
+
+    if (::close(m_sockfd) == -1) {
+        throw std::runtime_error("Failed to close socket");
+    }
+
+    m_status = SocketStatus::CLOSED;
+}
+
+void TcpClient::send(const std::vector<uint8_t> &data) {
+    if (m_status != SocketStatus::CONNECTED) {
+        throw std::runtime_error("Socket is not connected");
+    }
+
+    if (::send(m_sockfd, data.data(), data.size(), 0) == -1) {
+        throw std::runtime_error("Failed to send data");
     }
 }
 
+void TcpClient::recv(std::vector<uint8_t>& data) {
+    if (m_status != SocketStatus::CONNECTED) {
+        throw std::runtime_error("Socket is not connected");
+    }
+
+    if (data.empty()) {
+        throw std::runtime_error("Data buffer size need to be greater than 0");
+    }
+    
+    auto n = ::recv(m_sockfd, data.data(), data.size(), 0);
+    if (n == -1) {
+        throw std::runtime_error("Failed to receive data");
+    }
+
+    data.resize(n);
+}
 
 } // namespace net
