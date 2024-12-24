@@ -1,13 +1,22 @@
 #pragma once
 
+#include <cstdint>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
 #include <string>
+#include <vector>
 
 namespace net {
+
+enum class SocketStatus {
+    CLOSED,
+    CONNECTED,
+    LISTENING,
+    ACCEPTED
+};
 
 class TcpClient {
 public:
@@ -23,31 +32,61 @@ public:
 
     ~TcpClient();
 
-    void connect(const char* ip, int port);
-    void send(const char* data, int size);
-    void recv(char* data, int size);
+    void change_ip(const std::string& ip);
+
+    void change_port(int port);
+
+    void connect();
+
+    void send(const std::vector<uint8_t>& data);
+
+    void recv(std::vector<uint8_t>& data);
+    
     void close();
 
 private:
     int m_sockfd;
     struct sockaddr_in m_servaddr;
+
+    SocketStatus m_status;
 };
 
 class TcpServer {
 public:
-    TcpServer();
+    TcpServer(const std::string& ip, int port);
+
+    TcpServer(const TcpServer&) = delete;
+
+    TcpServer& operator=(const TcpServer&) = delete;
+
+    TcpServer& operator=(TcpServer&&);
+
+    TcpServer(TcpServer&&);
+    
     ~TcpServer();
 
+    void change_ip(const std::string& ip);
+
+    void change_port(int port);
+
     void bind(int port);
+
     void listen();
+
     void accept();
-    void send(const char* data, int size);
-    void recv(char* data, int size);
+
+    void send(const std::vector<uint8_t>& data);
+
+    void recv(std::vector<uint8_t>& data);
+    
     void close();
 private:
     int m_sockfd;
+
     struct sockaddr_in m_servaddr;
     struct sockaddr_in m_cliaddr;
+
+    SocketStatus m_status;
 };
 
 
