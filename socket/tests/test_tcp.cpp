@@ -2,6 +2,7 @@
 #include "tcp.hpp"
 #include <thread>
 #include <chrono>
+#include <iostream>
 
 // 测试 TcpServer 类
 class TcpServerTest : public ::testing::Test {
@@ -9,7 +10,7 @@ protected:
     // 创建一个 TcpServer 实例，并在其上启动监听
     void SetUp() override {
         try {
-            server = std::make_unique<net::TcpServer>("127.0.0.1", 2789);
+            server = std::make_unique<net::TcpServer>("127.0.0.1", 15238);
             server->listen(10);
         } catch (const std::exception& e) {
             FAIL() << e.what();
@@ -38,7 +39,7 @@ TEST_F(TcpServerTest, TestServerAcceptConnection) {
     }
 
     // 创建客户端连接
-    net::TcpClient client("127.0.0.1", 2789);
+    net::TcpClient client("127.0.0.1", 15238);
     try {
         client.connect();
         ASSERT_EQ(client.status(), net::SocketStatus::CONNECTED);
@@ -48,7 +49,7 @@ TEST_F(TcpServerTest, TestServerAcceptConnection) {
 
     // 接受客户端连接
     try {
-        server->accept(&client.addr());
+        server->accept();
         ASSERT_EQ(server->status(), net::SocketStatus::CONNECTED);
     } catch (const std::exception& e) {
         FAIL() << e.what();
@@ -61,7 +62,7 @@ TEST_F(TcpServerTest, TestServerAcceptConnection) {
 TEST_F(TcpServerTest, TestSendRecvData) {
     // 创建客户端并连接到服务器
     std::thread clientThread([]() {
-        net::TcpClient client("127.0.0.1", 8080);
+        net::TcpClient client("127.0.0.1", 15238);
         client.connect();
 
         std::vector<uint8_t> sendData = {1, 2, 3, 4, 5};
@@ -92,7 +93,7 @@ TEST_F(TcpServerTest, TestSendRecvData) {
 TEST_F(TcpServerTest, TestServerClose) {
     // 创建客户端并连接到服务器
     std::thread clientThread([]() {
-        net::TcpClient client("127.0.0.1", 8080);
+        net::TcpClient client("127.0.0.1", 15238);
         client.connect();
         ASSERT_EQ(client.status(), net::SocketStatus::CONNECTED);
         client.close();
@@ -112,13 +113,21 @@ TEST_F(TcpServerTest, TestServerClose) {
 
 // 测试客户端的 IP 和端口变更
 TEST_F(TcpServerTest, TestChangeIPandPort) {
-    net::TcpClient client("127.0.0.1", 8080);
+    net::TcpClient client("127.0.0.1", 15238);
     client.connect();
     ASSERT_EQ(client.status(), net::SocketStatus::CONNECTED);
 
+
+    client.close();
     // 改变客户端的 IP 和端口
-    client.change_ip("127.0.0.2");
+    client.change_ip("127.0.0.1");
     client.change_port(9090);
+
+    server->close();
+    ASSERT_EQ(server->status(), net::SocketStatus::CLOSED);
+    server->change_ip("127.0.0.1");
+    server->change_port(9090);
+    server->listen(10);
 
     // 重新连接
     client.connect();

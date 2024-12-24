@@ -7,6 +7,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <cstring>
+#include <iostream>
 
 namespace net {
 
@@ -61,36 +62,21 @@ const struct sockaddr_in& TcpClient::addr() const {
 }
 
 void TcpClient::change_ip(const std::string &ip) {
-    auto last_status = m_status;
     if (m_status != SocketStatus::CLOSED) {
-        ///TODO: logging
-        this->close();
+        throw std::runtime_error("Socket is not closed");
     }
     
     if (inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }
-
-    if (last_status == SocketStatus::CONNECTED) {
-        ///TODO: logging
-        this->connect();
-    }
 }
 
 void TcpClient::change_port(int port) {
-    auto last_status = m_status;
     if (m_status != SocketStatus::CLOSED) {
-        ///TODO: logging
-        this->close();
+        throw std::runtime_error("Socket is not closed");
     }
-
     m_servaddr.sin_port = htons(port);
-
-    if (last_status == SocketStatus::CONNECTED) {
-        ///TODO: logging
-        this->connect();
-    }
 }
 
 void TcpClient::connect() {
@@ -102,6 +88,14 @@ void TcpClient::connect() {
         throw std::runtime_error("Socket is not closed");
     }
 
+    if (m_sockfd == -1) {
+        m_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (m_sockfd == -1) {
+            const std::string error_msg(strerror(errno));
+            throw std::runtime_error("Failed to create socket: " + error_msg);
+        }
+    }
+    
     if (::connect(m_sockfd, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to connect: " + error_msg);
@@ -119,7 +113,7 @@ void TcpClient::close() {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to close socket: " + error_msg);
     }
-
+    m_sockfd = -1;
     m_status = SocketStatus::CLOSED;
 }
 
@@ -212,8 +206,6 @@ void TcpServer::change_ip(const std::string &ip) {
         ///TOODF: logging
         return ;
     }
-
-
     if (inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
@@ -254,6 +246,13 @@ void TcpServer::listen(uint32_t waiting_queue_size) {
         throw std::runtime_error("Socket is not closed");
     }
 
+    if (m_sockfd == -1) {
+        m_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (m_sockfd == -1) {
+            const std::string error_msg(strerror(errno));
+            throw std::runtime_error("Failed to create socket: " + error_msg);
+        }
+    }
     if (::bind(m_sockfd, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to bind: " + error_msg);
@@ -303,7 +302,7 @@ void TcpServer::close() {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to close socket: " + error_msg);
     }
-
+    m_sockfd = -1;
     m_status = SocketStatus::CLOSED;
 }
 
