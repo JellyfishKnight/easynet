@@ -16,12 +16,14 @@ endif()
 
 project(socket)
 
-
+set(SOURCES 
+    ./tcp.cpp
+    ./udp.cpp
+)
 
 add_library(${PROJECT_NAME} 
     STATIC 
-    ./tcp.cpp
-    ./udp.cpp)
+    ${SOURCES})
 
 target_include_directories(
     ${PROJECT_NAME}
@@ -33,5 +35,21 @@ target_compile_options(
     ${PROJECT_NAME}
     PRIVATE
     -stdlib=libc++ 
+)
+
+
+# Test
+find_package(GTest REQUIRED)
+
+add_executable(TcpTest tests/test_tcp.cpp ${SOURCES})
+
+target_include_directories(TcpTest PRIVATE 
+    ${GTEST_INCLUDE_DIRS} 
+    include
+)
+
+target_link_libraries(TcpTest PRIVATE 
+    ${GTEST_LIBRARIES} 
+    ${PROJECT_NAME}
 )
 

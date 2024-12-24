@@ -159,15 +159,6 @@ TcpServer::TcpServer(const std::string& ip, int port) {
     m_status = SocketStatus::CLOSED;
 }
 
-TcpServer::TcpServer(TcpServer&& other) {
-    m_sockfd = other.m_sockfd;
-    m_servaddr = other.m_servaddr;
-    m_status = other.m_status;
-
-    other.m_sockfd = -1;
-    other.m_status = SocketStatus::CLOSED;
-}
-
 TcpServer& TcpServer::operator=(TcpServer&& other) {
     if (this != &other) {
         m_sockfd = other.m_sockfd;
@@ -179,6 +170,15 @@ TcpServer& TcpServer::operator=(TcpServer&& other) {
     }
 
     return *this;
+}
+
+TcpServer::TcpServer(TcpServer&& other) {
+    m_sockfd = other.m_sockfd;
+    m_servaddr = other.m_servaddr;
+    m_status = other.m_status;
+
+    other.m_sockfd = -1;
+    other.m_status = SocketStatus::CLOSED;
 }
 
 const SocketStatus& TcpServer::status() const {
@@ -275,6 +275,12 @@ void TcpServer::close() {
     }
 
     m_status = SocketStatus::CLOSED;
+}
+
+TcpServer::~TcpServer() {
+    if (m_status != SocketStatus::CLOSED) {
+        close();
+    }
 }
 
 } // namespace net
