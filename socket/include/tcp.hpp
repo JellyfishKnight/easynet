@@ -9,14 +9,9 @@
 #include <string>
 #include <vector>
 
-namespace net {
+#include "common.hpp"
 
-enum class SocketStatus {
-    CLOSED,
-    CONNECTED,
-    LISTENING,
-    ACCEPTED
-};
+namespace net {
 
 class TcpClient {
 public:
@@ -138,7 +133,7 @@ public:
      * 
      * @param waiting_queue_size  The size of the waiting queue
     */
-    void listen(uint32_t waiting_queue_size);
+    void listen(uint32_t waiting_queue_size = 1);
 
     /**
      * @brief Accept incoming connection

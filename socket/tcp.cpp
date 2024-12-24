@@ -7,7 +7,6 @@
 #include <string>
 #include <sys/socket.h>
 #include <cstring>
-#include <iostream>
 
 namespace net {
 
@@ -246,6 +245,10 @@ void TcpServer::listen(uint32_t waiting_queue_size) {
         throw std::runtime_error("Socket is not closed");
     }
 
+    if (waiting_queue_size < 1) {
+        throw std::runtime_error("waiting_queue_size must be >= 1");
+    }
+    
     if (m_sockfd == -1) {
         m_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (m_sockfd == -1) {
