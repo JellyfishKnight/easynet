@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22.0)
 
-set(CXX_STANDARD 20)
 set(CXX_STANDARD_REQUIRED ON)
+set(CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # set Release during the competition
@@ -13,7 +13,6 @@ set(CMAKE_C_COMPILER "/usr/bin/clang")
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
-
 
 project(socket)
 
@@ -30,4 +29,9 @@ target_include_directories(
     include
 )
 
+target_compile_options(
+    ${PROJECT_NAME}
+    PRIVATE
+    -stdlib=libc++ 
+)
 
