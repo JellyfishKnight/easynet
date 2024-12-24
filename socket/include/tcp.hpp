@@ -32,6 +32,8 @@ public:
 
     ~TcpClient();
 
+    const SocketStatus& status() const;
+
     void change_ip(const std::string& ip);
 
     void change_port(int port);
@@ -62,16 +64,16 @@ public:
     TcpServer& operator=(TcpServer&&);
 
     TcpServer(TcpServer&&);
-    
+
     ~TcpServer();
+
+    const SocketStatus& status() const;
 
     void change_ip(const std::string& ip);
 
     void change_port(int port);
 
-    void bind(int port);
-
-    void listen();
+    void listen(uint32_t waiting_queue_size);
 
     void accept();
 
