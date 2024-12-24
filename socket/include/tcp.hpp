@@ -40,6 +40,13 @@ public:
     const SocketStatus& status() const;
 
     /**
+    * @brief Get the address object
+    * 
+    * @return const struct sockaddr_in&
+    */
+    const struct sockaddr_in& addr() const;
+
+    /**
      * @brief Change the ip object
      * 
      * @param ip  The new ip address
@@ -106,6 +113,13 @@ public:
     const SocketStatus& status() const;
 
     /**
+    * @brief Get the address object
+    * 
+    * @return const struct sockaddr_in&
+    */
+    const struct sockaddr_in& addr() const;
+
+    /**
      * @brief Change the ip object
      * 
      * @param ip  The new ip address
@@ -129,7 +143,7 @@ public:
     /**
      * @brief Accept incoming connection
     */
-    void accept();
+    void accept(const struct sockaddr_in* const client_addr = nullptr);
 
     /**
      * @brief Send data to the client

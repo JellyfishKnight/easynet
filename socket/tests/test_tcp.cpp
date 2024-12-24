@@ -38,22 +38,23 @@ TEST_F(TcpServerTest, TestServerAcceptConnection) {
     }
 
     // 创建客户端连接
+    net::TcpClient client("127.0.0.1", 2789);
     try {
-        net::TcpClient client("127.0.0.1", 2789);
         client.connect();
         ASSERT_EQ(client.status(), net::SocketStatus::CONNECTED);
-        client.close();
     } catch (const std::exception& e) {
         FAIL() << e.what();
     }
 
     // 接受客户端连接
     try {
-        server->accept();
+        server->accept(&client.addr());
         ASSERT_EQ(server->status(), net::SocketStatus::CONNECTED);
     } catch (const std::exception& e) {
         FAIL() << e.what();
     }
+
+    client.close();
 }
 
 // 测试发送和接收数据
