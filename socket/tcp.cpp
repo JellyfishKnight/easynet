@@ -130,4 +130,10 @@ void TcpClient::recv(std::vector<uint8_t>& data) {
     data.resize(n);
 }
 
+TcpClient::~TcpClient() {
+    if (m_status != SocketStatus::CLOSED) {
+        close();
+    }
+}
+
 } // namespace net
