@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <thread>
 #include "udp.hpp"
 
 
@@ -29,18 +30,20 @@ protected:
 TEST_F(UdpServerTest, TestServerAcceptConnection) {
     // 服务器需要先监听
     try {
-        ASSERT_EQ(server->status(), net::SocketStatus::CLOSED);
+        ASSERT_EQ(server->status(), net::SocketStatus::CONNECTED);
     } catch (const std::exception& e) {
         FAIL() << e.what();
     }
 
     // 创建客户端连接
-    net::UdpClient client("127.0.0.1", 15238);
-    try {
-        client.send({1, 2, 3, 4, 5});
-    } catch (const std::exception& e) {
-        FAIL() << e.what();
-    }
+    std::thread clientThread([]() {
+        net::UdpClient client("127.0.0.1", 15238);
+        try {
+            client.send({1, 2, 3, 4, 5});
+        } catch (const std::exception& e) {
+            FAIL() << e.what();
+        }
+    });
 
     std::vector<uint8_t> data(5);
     // 接受客户端连接
@@ -50,6 +53,7 @@ TEST_F(UdpServerTest, TestServerAcceptConnection) {
     } catch (const std::exception& e) {
         FAIL() << e.what();
     }
+    clientThread.join();
 }
 
 TEST_F(UdpServerTest, TestChangeIPandPort) {
@@ -68,9 +72,13 @@ TEST_F(UdpServerTest, TestChangeIPandPort) {
     // 改变客户端的 IP 和端口
     client.change_ip("127.0.0.1");
     client.change_port(9090);
-    client.
+    client.send({ 2, 3, 4, 5, 6 });
 
+    server->recv(data);
+    ASSERT_EQ(data, std::vector<uint8_t>({ 2, 3, 4, 5, 6 }));
+    client.close();
 }
+
 int main() {
     testing::InitGoogleTest();
     return RUN_ALL_TESTS();

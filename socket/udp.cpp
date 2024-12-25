@@ -1,7 +1,9 @@
 #include "udp.hpp"
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <cstring>
+#include <vector>
 
 
 namespace net {
@@ -22,7 +24,7 @@ UdpServer::UdpServer(const std::string& ip, int port) {
         throw std::runtime_error("Invalid address: " + error_msg);
     }
 
-    m_status = SocketStatus::CLOSED;
+    m_status = SocketStatus::CONNECTED;
 }
 
 UdpServer::UdpServer(UdpServer&& other) {
@@ -80,6 +82,23 @@ void UdpServer::change_port(int port) {
     m_servaddr.sin_port = htons(port);
 }
 
+void UdpServer::bind() {
+    if (m_sockfd == -1) {
+        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (m_sockfd == -1) {
+            const std::string error_msg(strerror(errno));
+            throw std::runtime_error("Failed to create socket: " + error_msg);
+        }
+    }
+
+    if (::bind(m_sockfd, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
+        const std::string error_msg(strerror(errno));
+        throw std::runtime_error("Failed to bind: " + error_msg);
+    }
+
+    m_status = SocketStatus::CONNECTED;
+}
+
 void UdpServer::send(const std::vector<uint8_t>& data) {
     if (m_status != SocketStatus::CONNECTED) {
         throw std::runtime_error("Socket is not connected");
@@ -91,11 +110,35 @@ void UdpServer::send(const std::vector<uint8_t>& data) {
             const std::string error_msg(strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
+        bind();
+        m_status = SocketStatus::CONNECTED;
     }
 
     if (sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to send data: " + error_msg);
+    }
+}
+
+void UdpServer::recv(std::vector<uint8_t>& data) {
+    if (data.empty()) {
+        throw std::runtime_error("Data buffer size need to be greater than 0");
+    }
+
+    if (m_sockfd == -1) {
+        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (m_sockfd == -1) {
+            const std::string error_msg(strerror(errno));
+            throw std::runtime_error("Failed to create socket: " + error_msg);
+        }
+        bind();
+        m_status = SocketStatus::CONNECTED;
+    }
+
+    auto n = recvfrom(m_sockfd, data.data(), data.size(), 0, nullptr, nullptr);
+    if (n == -1) {
+        const std::string error_msg(strerror(errno));
+        throw std::runtime_error("Failed to receive data: " + error_msg);
     }
 }
 
@@ -128,7 +171,7 @@ UdpClient::UdpClient(const std::string& ip, int port) {
         throw std::runtime_error("Invalid address: " + error_msg);
     }
 
-    m_status = SocketStatus::CLOSED;
+    m_status = SocketStatus::CONNECTED;
 }
 
 UdpClient::UdpClient(UdpClient&& other) {
@@ -181,16 +224,13 @@ void UdpClient::change_port(int port) {
 }
 
 void UdpClient::send(const std::vector<uint8_t>& data) {
-    if (m_status != SocketStatus::CONNECTED) {
-        throw std::runtime_error("Socket is not connected");
-    }
-
     if (m_sockfd == -1) {
         m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (m_sockfd == -1) {
             const std::string error_msg(strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
+        m_status = SocketStatus::CONNECTED;
     }
 
     if (sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
@@ -200,10 +240,6 @@ void UdpClient::send(const std::vector<uint8_t>& data) {
 }
 
 void UdpClient::recv(std::vector<uint8_t>& data) {
-    if (m_status != SocketStatus::CONNECTED) {
-        throw std::runtime_error("Socket is not connected");
-    }
-
     if (data.empty()) {
         throw std::runtime_error("Data buffer size need to be greater than 0");
     }
@@ -214,6 +250,7 @@ void UdpClient::recv(std::vector<uint8_t>& data) {
             const std::string error_msg(strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
+        m_status = SocketStatus::CONNECTED;
     }
 
     auto n = recvfrom(m_sockfd, data.data(), data.size(), 0, nullptr, nullptr);
@@ -236,5 +273,10 @@ void UdpClient::close() {
     m_status = SocketStatus::CLOSED;
 }
 
+UdpClient::~UdpClient() {
+    if (m_status != SocketStatus::CLOSED) {
+        close();
+    }
+}
 
 } // namespace net

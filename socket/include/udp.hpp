@@ -125,6 +125,11 @@ public:
     void change_port(int port);
 
     /**
+     * @brief Bind the server to the address
+    */
+    void bind(); 
+
+    /**
      * @brief Send data to the client
      * 
      * @param data  The data to be sent

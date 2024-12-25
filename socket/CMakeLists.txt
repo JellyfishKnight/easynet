@@ -53,3 +53,15 @@ target_link_libraries(TcpTest PRIVATE
     ${PROJECT_NAME}
 )
 
+add_executable(UdpTest tests/test_udp.cpp ${SOURCES})
+
+target_include_directories(UdpTest PRIVATE 
+    ${GTEST_INCLUDE_DIRS} 
+    include
+)
+
+target_link_libraries(UdpTest PRIVATE 
+    ${GTEST_LIBRARIES} 
+    ${PROJECT_NAME}
+)
+
