@@ -4,8 +4,8 @@ set(CXX_STANDARD_REQUIRED ON)
 set(CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# set Release during the competition
-set(CMAKE_BUILD_TYPE Release)
+# set Debug during the competition
+set(CMAKE_BUILD_TYPE Debug)
 # set compiler as clang 
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_C_COMPILER "/usr/bin/clang")

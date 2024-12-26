@@ -1,10 +1,10 @@
 #include "http_client.hpp"
 #include <stdexcept>
+#include <iostream>
 namespace net {
 
 HttpClient::HttpClient(const std::string& ip, int port) {
     m_client = std::make_unique<net::TcpClient>(ip, port);
-    m_client->connect();
     m_ip = ip;
     m_port = port;
 }
@@ -38,10 +38,7 @@ void HttpClient::send_request(const HttpRequest& request) {
 
 HttpResponse HttpClient::recv_response() {
     std::vector<uint8_t> data(1024);
-    auto n = m_client->recv(data);
-    if (n == -1) {
-        throw std::runtime_error("Failed to receive data");
-    }
+    m_client->recv(data);
     std::string res_str(data.begin(), data.end());
     return parse_response(res_str);
 }

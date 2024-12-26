@@ -35,7 +35,7 @@ TEST_F(HttpTest, TestServerAcceptConnection) {
     }
 
     server->start();
-    
+
     std::thread clientThread([]() {
         net::HttpClient client("127.0.0.1", 15238);
         client.connect();

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 #include <functional>
 
@@ -55,6 +56,7 @@ private:
 
     std::unordered_map<std::string, std::function<void(const HttpRequest&)>> m_url_callbacks;
 
+    std::thread m_loop_thread;
     // thread pool 
     //static 
 };

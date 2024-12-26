@@ -66,8 +66,8 @@ void HttpServer::handle_request(const std::string &request_str) {
 }
 
 void HttpServer::start(int frequency) {
-    std::thread main_thread([this, frequency] {
-        m_server->accept();
+    m_loop_thread = std::thread([this, frequency] {
+        m_server->accept(); 
         if (frequency == 0) {
             while (true) {
                 if (m_server->status() == net::SocketStatus::CLOSED) {
