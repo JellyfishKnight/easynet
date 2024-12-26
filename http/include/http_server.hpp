@@ -46,8 +46,7 @@ public:
     const net::SocketStatus& status() const;
 
 private:
-    std::unique_ptr<net::TcpClient> m_server;
-    net::SocketStatus m_tcp_status;
+    std::unique_ptr<net::TcpServer> m_server;
     std::string m_ip;
     int m_port;
 

@@ -29,23 +29,16 @@ protected:
 
 TEST_F(HttpTest, TestServerAcceptConnection) {
     try {
-        ASSERT_EQ(server->status(), net::SocketStatus::CONNECTED);
+        ASSERT_EQ(server->status(), net::SocketStatus::LISTENING);
     } catch (const std::exception& e) {
         FAIL() << e.what();
     }
 
-    std::thread serverThread([this]() {
-        try {
-            server->start();
-        } catch (const std::exception& e) {
-            FAIL() << e.what();
-        }
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
+    server->start();
+    
     std::thread clientThread([]() {
         net::HttpClient client("127.0.0.1", 15238);
+        client.connect();
         try {
             net::HttpRequest req;
             req.method = net::HttpMethod::GET;
@@ -58,7 +51,7 @@ TEST_F(HttpTest, TestServerAcceptConnection) {
         }
     });
 
-    serverThread.join();
+
     clientThread.join();
 }
 

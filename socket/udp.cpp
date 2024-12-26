@@ -10,17 +10,17 @@ namespace net {
 
 UdpServer::UdpServer(const std::string& ip, int port) {
     // create socket
-    m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (m_sockfd == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to create socket: " + error_msg);
     }
 
     // set server address
     m_servaddr.sin_family = AF_INET;
     m_servaddr.sin_port = htons(port);
-    if (inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
-        const std::string error_msg(strerror(errno));
+    if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }
 
@@ -68,8 +68,8 @@ void UdpServer::change_ip(const std::string& ip) {
         ///TOODF: logging
         return ;
     }
-    if (inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
-        const std::string error_msg(strerror(errno));
+    if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }
 }
@@ -84,15 +84,15 @@ void UdpServer::change_port(int port) {
 
 void UdpServer::bind() {
     if (m_sockfd == -1) {
-        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (m_sockfd == -1) {
-            const std::string error_msg(strerror(errno));
+            const std::string error_msg(::strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
     }
 
     if (::bind(m_sockfd, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to bind: " + error_msg);
     }
 
@@ -105,17 +105,17 @@ void UdpServer::send(const std::vector<uint8_t>& data) {
     }
 
     if (m_sockfd == -1) {
-        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (m_sockfd == -1) {
-            const std::string error_msg(strerror(errno));
+            const std::string error_msg(::strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
         bind();
         m_status = SocketStatus::CONNECTED;
     }
 
-    if (sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
-        const std::string error_msg(strerror(errno));
+    if (::sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to send data: " + error_msg);
     }
 }
@@ -126,18 +126,18 @@ int UdpServer::recv(std::vector<uint8_t>& data) {
     }
 
     if (m_sockfd == -1) {
-        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (m_sockfd == -1) {
-            const std::string error_msg(strerror(errno));
+            const std::string error_msg(::strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
         bind();
         m_status = SocketStatus::CONNECTED;
     }
 
-    auto n = recvfrom(m_sockfd, data.data(), data.size(), 0, nullptr, nullptr);
+    auto n = ::recvfrom(m_sockfd, data.data(), data.size(), 0, nullptr, nullptr);
     if (n == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to receive data: " + error_msg);
     }
     return n;
@@ -149,7 +149,7 @@ void UdpServer::close() {
     }
 
     if (::close(m_sockfd) == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to close socket: " + error_msg);
     }
     m_sockfd = -1;
@@ -158,17 +158,17 @@ void UdpServer::close() {
 
 UdpClient::UdpClient(const std::string& ip, int port) {
     // create socket
-    m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (m_sockfd == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to create socket: " + error_msg);
     }
 
     // set server address
     m_servaddr.sin_family = AF_INET;
     m_servaddr.sin_port = htons(port);
-    if (inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
-        const std::string error_msg(strerror(errno));
+    if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }
 
@@ -210,8 +210,8 @@ void UdpClient::change_ip(const std::string& ip) {
         throw std::runtime_error("Socket is not closed");
     }
 
-    if (inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
-        const std::string error_msg(strerror(errno));
+    if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }
 }
@@ -226,17 +226,17 @@ void UdpClient::change_port(int port) {
 
 int UdpClient::send(const std::vector<uint8_t>& data) {
     if (m_sockfd == -1) {
-        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (m_sockfd == -1) {
-            const std::string error_msg(strerror(errno));
+            const std::string error_msg(::strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
         m_status = SocketStatus::CONNECTED;
     }
 
-    auto n = sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr));
+    auto n = ::sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr));
     if (n == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to send data: " + error_msg);
     }
     return n;
@@ -248,17 +248,17 @@ int UdpClient::recv(std::vector<uint8_t>& data) {
     }
 
     if (m_sockfd == -1) {
-        m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (m_sockfd == -1) {
-            const std::string error_msg(strerror(errno));
+            const std::string error_msg(::strerror(errno));
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
         m_status = SocketStatus::CONNECTED;
     }
 
-    auto n = recvfrom(m_sockfd, data.data(), data.size(), 0, nullptr, nullptr);
+    auto n = ::recvfrom(m_sockfd, data.data(), data.size(), 0, nullptr, nullptr);
     if (n == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to receive data: " + error_msg);
     }
     return n;
@@ -270,7 +270,7 @@ void UdpClient::close() {
     }
 
     if (::close(m_sockfd) == -1) {
-        const std::string error_msg(strerror(errno));
+        const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to close socket: " + error_msg);
     }
     m_sockfd = -1;

@@ -5,14 +5,12 @@ namespace net {
 HttpClient::HttpClient(const std::string& ip, int port) {
     m_client = std::make_unique<net::TcpClient>(ip, port);
     m_client->connect();
-    m_tcp_status = m_client->status();
     m_ip = ip;
     m_port = port;
 }
 
 HttpClient::HttpClient(HttpClient&& other) {
     m_client = std::move(other.m_client);
-    m_tcp_status = other.m_tcp_status;
     m_ip = other.m_ip;
     m_port = other.m_port;
 }
@@ -20,7 +18,6 @@ HttpClient::HttpClient(HttpClient&& other) {
 HttpClient& HttpClient::operator=(HttpClient&& other) {
     if (this != &other) {
         m_client = std::move(other.m_client);
-        m_tcp_status = other.m_tcp_status;
         m_ip = other.m_ip;
         m_port = other.m_port;
     }
@@ -28,7 +25,7 @@ HttpClient& HttpClient::operator=(HttpClient&& other) {
 }
 
 HttpClient::~HttpClient() {
-    if (m_tcp_status != net::SocketStatus::CLOSED) {
+    if (m_client->status() != net::SocketStatus::CLOSED) {
         close();
     }
 }
@@ -54,11 +51,15 @@ void HttpClient::add_response_callback(int id, std::function<void(const HttpResp
 }
 
 const net::SocketStatus& HttpClient::status() const {
-    return m_tcp_status;
+    return m_client->status();
 }
 
 void HttpClient::close() {
     m_client->close();
+}
+
+void HttpClient::connect() {
+    m_client->connect();
 }
 
 } // namespace net

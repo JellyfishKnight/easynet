@@ -1,15 +1,17 @@
 #include "http_server.hpp"
 #include "http_client.hpp"
 #include "http_utils.hpp"
+#include "tcp.hpp"
 #include <chrono>
+#include <iostream>
+#include <ostream>
 #include <thread>
 
 namespace net {
 
 HttpServer::HttpServer(const std::string& ip, int port) {
-    m_server = std::make_unique<net::TcpClient>(ip, port);
-    m_server->connect();
-    m_tcp_status = m_server->status();
+    m_server = std::make_unique<net::TcpServer>(ip, port);
+    m_server->listen(10);
     m_ip = ip;
     m_port = port;
     
@@ -17,7 +19,6 @@ HttpServer::HttpServer(const std::string& ip, int port) {
 
 HttpServer::HttpServer(HttpServer&& other) {
     m_server = std::move(other.m_server);
-    m_tcp_status = other.m_tcp_status;
     m_ip = other.m_ip;
     m_port = other.m_port;
     m_buffer_size = other.m_buffer_size;
@@ -28,7 +29,6 @@ HttpServer::HttpServer(HttpServer&& other) {
 HttpServer& HttpServer::operator=(HttpServer&& other) {
     if (this != &other) {
         m_server = std::move(other.m_server);
-        m_tcp_status = other.m_tcp_status;
         m_ip = other.m_ip;
         m_port = other.m_port;
         m_buffer_size = other.m_buffer_size;
@@ -39,7 +39,7 @@ HttpServer& HttpServer::operator=(HttpServer&& other) {
 }
 
 HttpServer::~HttpServer() {
-    if (m_tcp_status != net::SocketStatus::CLOSED) {
+    if (m_server->status() != net::SocketStatus::CLOSED) {
         close();
     }
 }
@@ -67,17 +67,14 @@ void HttpServer::handle_request(const std::string &request_str) {
 
 void HttpServer::start(int frequency) {
     std::thread main_thread([this, frequency] {
+        m_server->accept();
         if (frequency == 0) {
             while (true) {
                 if (m_server->status() == net::SocketStatus::CLOSED) {
                     break;
                 }
                 std::vector<uint8_t> data(m_buffer_size);
-                auto n = m_server->recv(data);
-                if (n == -1) {
-                    // log error
-                    continue;
-                }
+                m_server->recv(data);
                 std::string request_str(data.begin(), data.end());
                 handle_request(request_str);
             }
@@ -124,7 +121,7 @@ void HttpServer::set_buffer_size(std::size_t size) {
 void HttpServer::disable_thread_pool() {}
 
 const net::SocketStatus& HttpServer::status() const {
-    return m_tcp_status;
+    return m_server->status();
 }
 
 } // namespace net

@@ -31,6 +31,8 @@ public:
 
     HttpResponse recv_response();
 
+    void connect();
+
     void close();
 
     void add_response_callback(int id, std::function<void(const HttpResponse& response)> callback);
@@ -39,7 +41,6 @@ public:
     
 private:
     std::unique_ptr<net::TcpClient> m_client;
-    net::SocketStatus m_tcp_status;
     std::string m_ip;
     int m_port;
 
