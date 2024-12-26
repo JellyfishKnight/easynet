@@ -18,6 +18,7 @@ project(http)
 
 set(SOURCES 
     ./http_server.cpp
+    ./http_client.cpp
     ./http_utils.cpp
 )
 

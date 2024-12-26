@@ -4,8 +4,10 @@
 #include "http_utils.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace http {
@@ -30,8 +32,16 @@ public:
 
     void close();
 
+    void add_response_callback(int id, std::function<void(const HttpResponse& response)> callback);
+
+private:
+    std::unique_ptr<net::TcpClient> m_client;
+    net::SocketStatus m_tcp_status;
+    std::string m_ip;
+    int m_port;
+
+    std::unordered_map<int, std::function<void(const HttpResponse& response)>> m_response_callbacks;
 };
 
-
-
 } // namespace http
+
