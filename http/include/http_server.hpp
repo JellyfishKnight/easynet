@@ -3,6 +3,7 @@
 #include "tcp.hpp"
 #include "http_utils.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -33,15 +34,23 @@ public:
 
     void close();
 
-    void start();
-
+    void start(int frequency = 0);
+    
     void enable_thread_pool();
+
+    void disable_thread_pool();
+
+    void set_buffer_size(std::size_t size);
+
 
 private:
     std::unique_ptr<net::TcpClient> m_server;
     net::SocketStatus m_tcp_status;
     std::string m_ip;
     int m_port;
+
+    std::size_t m_buffer_size;
+    bool m_thread_pool_enabled;
 
     std::unordered_map<std::string, std::function<void(const HttpRequest&)>> m_url_callbacks;
 
