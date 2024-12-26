@@ -31,37 +31,22 @@ target_include_directories(
     include
 )
 
-target_compile_options(
-    ${PROJECT_NAME}
-    PRIVATE
-    -stdlib=libc++ 
-)
-
-
 # Test
 find_package(GTest REQUIRED)
 
-add_executable(TcpTest tests/test_tcp.cpp ${SOURCES})
+add_executable(TcpTest tests/test_tcp.cpp)
 
-target_include_directories(TcpTest PRIVATE 
-    ${GTEST_INCLUDE_DIRS} 
-    include
-)
-
-target_link_libraries(TcpTest PRIVATE 
+target_link_libraries(TcpTest PUBLIC 
     ${GTEST_LIBRARIES} 
-    ${PROJECT_NAME}
+    socket
 )
 
-add_executable(UdpTest tests/test_udp.cpp ${SOURCES})
 
-target_include_directories(UdpTest PRIVATE 
-    ${GTEST_INCLUDE_DIRS} 
-    include
-)
+add_executable(UdpTest tests/test_udp.cpp )
 
-target_link_libraries(UdpTest PRIVATE 
+target_link_libraries(UdpTest PUBLIC 
     ${GTEST_LIBRARIES} 
-    ${PROJECT_NAME}
+    socket
 )
+
 

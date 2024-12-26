@@ -5,7 +5,7 @@
 #include <string>
 #include <sstream>
 
-namespace http {
+namespace net {
 
 const std::unordered_map<std::string, HttpMethod> method_map = {
     {"GET", HttpMethod::GET},
@@ -93,7 +93,34 @@ std::string create_response(const HttpResponse& response) {
 }
 
 HttpResponse parse_response(const std::string& response) {
-    
+    HttpResponse res;
+    std::istringstream response_stream(response);
+    std::string line;
+    std::getline(response_stream, line);
+    std::istringstream line_stream(line);
+    std::string version;
+    int code;
+    line_stream >> version >> code;
+    res.version = version;
+    res.code = static_cast<HttpReturnCode>(code);
+    while (std::getline(response_stream, line)) {
+        if (line.empty()) {
+            break;
+        }
+        std::size_t pos = line.find(":");
+        if (pos == std::string::npos) {
+            throw std::runtime_error("Failed to parse response header");
+        }
+        std::string key = line.substr(0, pos);
+        std::string value = line.substr(pos + 1);
+        res.headers[key] = value;
+    }
+    std::string body;
+    while (std::getline(response_stream, line)) {
+        body += line;
+    }
+    res.body = body;
+    return res;
 }
 
-} // namespace http
+} // namespace net

@@ -20,3 +20,5 @@ project(net)
 add_subdirectory(socket)
 add_subdirectory(utils)
 add_subdirectory(http)
+
+target_link_libraries(http PUBLIC socket)

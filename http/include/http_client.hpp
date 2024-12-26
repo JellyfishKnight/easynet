@@ -1,6 +1,5 @@
 #pragma once
 
-#include "tcp.hpp"
 #include "http_utils.hpp"
 
 #include <cstdint>
@@ -10,7 +9,9 @@
 #include <unordered_map>
 #include <vector>
 
-namespace http {
+#include "tcp.hpp"
+
+namespace net {
 
 class HttpClient {
 public:
@@ -34,6 +35,8 @@ public:
 
     void add_response_callback(int id, std::function<void(const HttpResponse& response)> callback);
 
+    const net::SocketStatus& status() const;
+    
 private:
     std::unique_ptr<net::TcpClient> m_client;
     net::SocketStatus m_tcp_status;
@@ -43,5 +46,5 @@ private:
     std::unordered_map<int, std::function<void(const HttpResponse& response)>> m_response_callbacks;
 };
 
-} // namespace http
+} // namespace net
 

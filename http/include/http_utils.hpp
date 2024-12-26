@@ -5,7 +5,7 @@
 #include <vector>
 #include <unordered_map>
 
-namespace http {
+namespace net {
 
 enum class HttpReturnCode : uint16_t {
     CONTINUE = 100,
@@ -99,4 +99,4 @@ std::string create_request(const HttpRequest& request);
 HttpRequest parse_request(const std::string& request);
 
 
-} // namespace http
+} // namespace net

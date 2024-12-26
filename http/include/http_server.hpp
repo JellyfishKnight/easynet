@@ -1,6 +1,5 @@
 #pragma once
 
-#include "tcp.hpp"
 #include "http_utils.hpp"
 
 #include <cstddef>
@@ -8,21 +7,23 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 
-namespace http {
+#include "tcp.hpp"
 
-template<bool enable_epoll = false>
+namespace net {
+
 class HttpServer {
 public:
     HttpServer(const std::string& ip, int port);
 
-    HttpServer(const http::HttpServer<enable_epoll>&) = delete;
+    HttpServer(const HttpServer&) = delete;
 
-    HttpServer& operator=(const http::HttpServer<enable_epoll>&) = delete;
+    HttpServer& operator=(const HttpServer&) = delete;
 
-    HttpServer& operator=(http::HttpServer<enable_epoll>&&);
+    HttpServer& operator=(HttpServer&&);
 
-    HttpServer(http::HttpServer<enable_epoll>&&);
+    HttpServer(HttpServer&&);
 
     ~HttpServer();
 
@@ -42,6 +43,7 @@ public:
 
     void set_buffer_size(std::size_t size);
 
+    const net::SocketStatus& status() const;
 
 private:
     std::unique_ptr<net::TcpClient> m_server;
@@ -60,4 +62,4 @@ private:
 
 
 
-} // namespace http
+} // namespace net

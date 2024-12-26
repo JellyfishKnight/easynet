@@ -16,6 +16,7 @@ endif()
 
 project(http)
 
+
 set(SOURCES 
     ./http_server.cpp
     ./http_client.cpp
@@ -32,41 +33,22 @@ target_include_directories(
     include
 )
 
-target_compile_options(
-    ${PROJECT_NAME}
-    PRIVATE
-    -stdlib=libc++ 
-)
-
-target_link_libraries(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME} PUBLIC 
     socket
 )
 
 
-# # Test
-# find_package(GTest REQUIRED)
+# Test
+find_package(GTest REQUIRED)
 
-# add_executable(TcpTest tests/test_tcp.cpp ${SOURCES})
+add_executable(HttpTest tests/http_test.cpp ${SOURCES})
 
-# target_include_directories(TcpTest PRIVATE 
-#     ${GTEST_INCLUDE_DIRS} 
-#     include
-# )
+target_link_libraries(HttpTest PUBLIC 
+    ${GTEST_LIBRARIES} 
+    socket
+)
 
-# target_link_libraries(TcpTest PRIVATE 
-#     ${GTEST_LIBRARIES} 
-#     ${PROJECT_NAME}
-# )
-
-# add_executable(UdpTest tests/test_udp.cpp ${SOURCES})
-
-# target_include_directories(UdpTest PRIVATE 
-#     ${GTEST_INCLUDE_DIRS} 
-#     include
-# )
-
-# target_link_libraries(UdpTest PRIVATE 
-#     ${GTEST_LIBRARIES} 
-#     ${PROJECT_NAME}
-# )
-
+target_include_directories(HttpTest PUBLIC 
+    ${GTEST_INCLUDE_DIRS} 
+    include
+)

@@ -1,6 +1,6 @@
 #include "http_client.hpp"
-
-namespace http {
+#include <stdexcept>
+namespace net {
 
 HttpClient::HttpClient(const std::string& ip, int port) {
     m_client = std::make_unique<net::TcpClient>(ip, port);
@@ -53,5 +53,12 @@ void HttpClient::add_response_callback(int id, std::function<void(const HttpResp
     m_response_callbacks[id] = callback;
 }
 
+const net::SocketStatus& HttpClient::status() const {
+    return m_tcp_status;
+}
 
-} // namespace http
+void HttpClient::close() {
+    m_client->close();
+}
+
+} // namespace net

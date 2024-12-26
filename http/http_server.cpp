@@ -4,19 +4,18 @@
 #include <chrono>
 #include <thread>
 
-namespace http {
+namespace net {
 
-template<bool enbale_epoll>
-HttpServer<enbale_epoll>::HttpServer(const std::string& ip, int port) {
+HttpServer::HttpServer(const std::string& ip, int port) {
     m_server = std::make_unique<net::TcpClient>(ip, port);
     m_server->connect();
     m_tcp_status = m_server->status();
     m_ip = ip;
     m_port = port;
+    
 }
 
-template<bool enbale_epoll>
-HttpServer<enbale_epoll>::HttpServer(HttpServer<enbale_epoll>&& other) {
+HttpServer::HttpServer(HttpServer&& other) {
     m_server = std::move(other.m_server);
     m_tcp_status = other.m_tcp_status;
     m_ip = other.m_ip;
@@ -26,8 +25,7 @@ HttpServer<enbale_epoll>::HttpServer(HttpServer<enbale_epoll>&& other) {
     m_url_callbacks = std::move(other.m_url_callbacks);
 }
 
-template<bool enable_epoll>
-HttpServer<enable_epoll>& HttpServer<enable_epoll>::operator=(HttpServer<enable_epoll>&& other) {
+HttpServer& HttpServer::operator=(HttpServer&& other) {
     if (this != &other) {
         m_server = std::move(other.m_server);
         m_tcp_status = other.m_tcp_status;
@@ -40,15 +38,13 @@ HttpServer<enable_epoll>& HttpServer<enable_epoll>::operator=(HttpServer<enable_
     return *this;
 }
 
-template<bool enbale_epoll>
-HttpServer<enbale_epoll>::~HttpServer() {
+HttpServer::~HttpServer() {
     if (m_tcp_status != net::SocketStatus::CLOSED) {
         close();
     }
 }
 
-template<bool enbale_epoll>
-void HttpServer<enbale_epoll>::handle_request(const std::string &request_str) {
+void HttpServer::handle_request(const std::string &request_str) {
     auto req = parse_request(request_str);
 
     if (m_url_callbacks.find(req.url) != m_url_callbacks.end()) {
@@ -69,8 +65,7 @@ void HttpServer<enbale_epoll>::handle_request(const std::string &request_str) {
     }
 }
 
-template<bool enable_epoll>
-void HttpServer<enable_epoll>::start(int frequency) {
+void HttpServer::start(int frequency) {
     std::thread main_thread([this, frequency] {
         if (frequency == 0) {
             while (true) {
@@ -105,31 +100,31 @@ void HttpServer<enable_epoll>::start(int frequency) {
     });
 }
 
-template<bool enable_epoll>
-void HttpServer<enable_epoll>::send_response(const HttpResponse& response) {
+void HttpServer::send_response(const HttpResponse& response) {
     std::string res = create_response(response);
     std::vector<uint8_t> data(res.begin(), res.end());
     m_server->send(data);
 }
 
-template<bool enable_epoll>
-void HttpServer<enable_epoll>::add_url_callback(const std::string& url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::add_url_callback(const std::string& url, std::function<void(const HttpRequest&)> callback) {
     m_url_callbacks[url] = callback;
 }
 
-template<bool enable_epoll>
-void HttpServer<enable_epoll>::close() {
+void HttpServer::close() {
     m_server->close();
 }
 
 /*not complete*/
-template<bool enable_epoll>
-void HttpServer<enable_epoll>::enable_thread_pool() {}
+void HttpServer::enable_thread_pool() {}
 
-template<bool enable_epoll>
-void HttpServer<enable_epoll>::set_buffer_size(std::size_t size) {
+void HttpServer::set_buffer_size(std::size_t size) {
     m_buffer_size = size;
 }
 
+void HttpServer::disable_thread_pool() {}
 
-} // namespace http
+const net::SocketStatus& HttpServer::status() const {
+    return m_tcp_status;
+}
+
+} // namespace net
