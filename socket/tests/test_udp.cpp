@@ -10,6 +10,7 @@ protected:
     void SetUp() override {
         try {
             server = std::make_unique<net::UdpServer>("127.0.0.1", 15238);
+            server->bind();
         } catch (const std::exception& e) {
             FAIL() << e.what();
         }
@@ -35,25 +36,30 @@ TEST_F(UdpServerTest, TestServerAcceptConnection) {
         FAIL() << e.what();
     }
 
+    std::thread serverThread([this]() {
+            // 接受客户端连接
+        try {
+            std::vector<uint8_t> data(5);
+            auto n = server->recv(data);
+            ASSERT_EQ(data, std::vector<uint8_t>({ 1, 2, 3, 4, 5 }));
+        } catch (const std::exception& e) {
+            FAIL() << e.what();
+        }
+    });
+                             
+
     // 创建客户端连接
     std::thread clientThread([]() {
         net::UdpClient client("127.0.0.1", 15238);
         try {
-            client.send({1, 2, 3, 4, 5});
+            auto n = client.send({ 1, 2, 3, 4, 5 });
         } catch (const std::exception& e) {
             FAIL() << e.what();
         }
     });
 
-    std::vector<uint8_t> data(5);
-    // 接受客户端连接
-    try {
-        server->recv(data);
-        ASSERT_EQ(data, std::vector<uint8_t>({1, 2, 3, 4, 5}));
-    } catch (const std::exception& e) {
-        FAIL() << e.what();
-    }
     clientThread.join();
+    serverThread.join();
 }
 
 TEST_F(UdpServerTest, TestChangeIPandPort) {
@@ -71,7 +77,7 @@ TEST_F(UdpServerTest, TestChangeIPandPort) {
     client.close();
     // 改变客户端的 IP 和端口
     client.change_ip("127.0.0.1");
-    client.change_port(9090);
+    client.change_port(15238);
     client.send({ 2, 3, 4, 5, 6 });
 
     server->recv(data);

@@ -120,7 +120,7 @@ void UdpServer::send(const std::vector<uint8_t>& data) {
     }
 }
 
-void UdpServer::recv(std::vector<uint8_t>& data) {
+int UdpServer::recv(std::vector<uint8_t>& data) {
     if (data.empty()) {
         throw std::runtime_error("Data buffer size need to be greater than 0");
     }
@@ -140,6 +140,7 @@ void UdpServer::recv(std::vector<uint8_t>& data) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to receive data: " + error_msg);
     }
+    return n;
 }
 
 void UdpServer::close() {
@@ -223,7 +224,7 @@ void UdpClient::change_port(int port) {
     m_servaddr.sin_port = htons(port);
 }
 
-void UdpClient::send(const std::vector<uint8_t>& data) {
+int UdpClient::send(const std::vector<uint8_t>& data) {
     if (m_sockfd == -1) {
         m_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (m_sockfd == -1) {
@@ -233,13 +234,15 @@ void UdpClient::send(const std::vector<uint8_t>& data) {
         m_status = SocketStatus::CONNECTED;
     }
 
-    if (sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
+    auto n = sendto(m_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr));
+    if (n == -1) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to send data: " + error_msg);
     }
+    return n;
 }
 
-void UdpClient::recv(std::vector<uint8_t>& data) {
+int UdpClient::recv(std::vector<uint8_t>& data) {
     if (data.empty()) {
         throw std::runtime_error("Data buffer size need to be greater than 0");
     }
@@ -258,6 +261,7 @@ void UdpClient::recv(std::vector<uint8_t>& data) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to receive data: " + error_msg);
     }
+    return n;
 }
 
 void UdpClient::close() {
