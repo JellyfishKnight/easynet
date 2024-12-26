@@ -40,7 +40,7 @@ TEST_F(UdpServerTest, TestServerAcceptConnection) {
             // 接受客户端连接
         try {
             std::vector<uint8_t> data(5);
-            auto n = server->recv(data);
+            server->recv(data);
             ASSERT_EQ(data, std::vector<uint8_t>({ 1, 2, 3, 4, 5 }));
         } catch (const std::exception& e) {
             FAIL() << e.what();
@@ -52,7 +52,7 @@ TEST_F(UdpServerTest, TestServerAcceptConnection) {
     std::thread clientThread([]() {
         net::UdpClient client("127.0.0.1", 15238);
         try {
-            auto n = client.send({ 1, 2, 3, 4, 5 });
+            client.send({ 1, 2, 3, 4, 5 });
         } catch (const std::exception& e) {
             FAIL() << e.what();
         }

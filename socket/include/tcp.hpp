@@ -65,14 +65,14 @@ public:
      * 
      * @param data  The data to be sent
     */
-    void send(const std::vector<uint8_t>& data);
+    int send(const std::vector<uint8_t>& data);
 
     /**
      * @brief Receive data from the server
      * 
      * @param data  The data to be received
     */
-    void recv(std::vector<uint8_t>& data);
+    int recv(std::vector<uint8_t>& data);
 
     /**
      * @brief Close the connection

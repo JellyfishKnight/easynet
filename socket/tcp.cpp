@@ -116,18 +116,20 @@ void TcpClient::close() {
     m_status = SocketStatus::CLOSED;
 }
 
-void TcpClient::send(const std::vector<uint8_t> &data) {
+int TcpClient::send(const std::vector<uint8_t> &data) {
     if (m_status != SocketStatus::CONNECTED) {
         throw std::runtime_error("Socket is not connected");
     }
 
-    if (::send(m_sockfd, data.data(), data.size(), 0) == -1) {
+    auto n = ::send(m_sockfd, data.data(), data.size(), 0);
+    if (n == -1) {
         const std::string error_msg(strerror(errno));
         throw std::runtime_error("Failed to send data: " + error_msg);
     }
+    return n;
 }
 
-void TcpClient::recv(std::vector<uint8_t>& data) {
+int TcpClient::recv(std::vector<uint8_t>& data) {
     if (m_status != SocketStatus::CONNECTED) {
         throw std::runtime_error("Socket is not connected");
     }
@@ -143,6 +145,7 @@ void TcpClient::recv(std::vector<uint8_t>& data) {
     }
 
     data.resize(n);
+    return n;
 }
 
 TcpClient::~TcpClient() {
