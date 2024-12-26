@@ -82,11 +82,18 @@ HttpRequest parse_request(const std::string& request) {
 }
 
 std::string create_response(const HttpResponse& response) {
-
+    std::string res;
+    res += response.version + " " + std::to_string(static_cast<int>(response.code)) + "\r\n";
+    for (const auto& [key, value] : response.headers) {
+        res += key + ": " + value + "\r\n";
+    }
+    res += "\r\n";
+    res += response.body;
+    return res;
 }
 
 HttpResponse parse_response(const std::string& response) {
-
+    
 }
 
 } // namespace http

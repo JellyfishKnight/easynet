@@ -71,14 +71,22 @@ enum class HttpReturnCode : uint16_t {
     LOOP_DETECTED = 508,
 };
 
-struct HttpResponse {};
+struct HttpResponse {
+    HttpReturnCode code;
+    std::string body;
+    std::string version;
+    std::unordered_map<std::string, std::string> headers;
+};
+
+std::string create_response(const HttpResponse& response);
+
+HttpResponse parse_response(const std::string& response);
 
 enum class HttpMethod : uint8_t { GET = 0, POST, PUT, DELETE, HEAD, OPTIONS, CONNECT, TRACE, PATCH };
 
 enum class HttpVersion : uint8_t { HTTP_1_0 = 0, HTTP_1_1, HTTP_2_0 };
 
 struct HttpRequest {
-
     std::string url;
     HttpMethod method;
     std::string body;
@@ -86,16 +94,9 @@ struct HttpRequest {
     std::unordered_map<std::string, std::string> headers;
 };
 
-
 std::string create_request(const HttpRequest& request);
 
 HttpRequest parse_request(const std::string& request);
-
-std::string create_response(const HttpResponse& response);
-
-HttpResponse parse_response(const std::string& response);
-
-
 
 
 } // namespace http
