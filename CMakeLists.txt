@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.0)
 
-set(CXX_STANDARD 20)
+set(CXX_STANDARD 17)
 set(CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -14,11 +14,124 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-
 project(net)
 
-add_subdirectory(socket)
-add_subdirectory(utils)
-add_subdirectory(http)
+# build utils
+aux_source_directory(./utils utils_src)
 
-target_link_libraries(http PUBLIC socket)
+add_library(
+  utils STATIC
+  ${utils_src}
+)
+
+target_include_directories(
+  utils PUBLIC
+  ./utils/include
+)
+
+# build socket
+aux_source_directory(./socket socket_src)
+
+add_library(
+  socket STATIC
+  ${socket_src}
+)
+
+target_include_directories(
+  socket PUBLIC
+  ./socket/include
+)
+
+target_link_libraries(
+  socket
+  utils
+)
+
+# build http
+
+aux_source_directory(./http http_src)
+
+add_library(
+  http STATIC
+  ${http_src}
+)
+
+target_include_directories(
+  http PUBLIC
+  ./http/include
+)
+
+target_link_libraries(
+  http
+  utils
+  socket
+)
+
+
+# build test
+
+find_package(GTest REQUIRED)
+
+add_executable(
+  TcpTest
+  socket/tests/test_tcp.cpp
+)
+
+target_link_libraries(
+  TcpTest
+  GTest::GTest
+  socket
+  utils
+)
+
+add_executable(
+  UdpTest
+  socket/tests/test_udp.cpp
+)
+
+target_link_libraries(
+  UdpTest
+  GTest::GTest
+  socket
+  utils
+)
+
+add_executable(
+  HttpTest
+  http/tests/http_test.cpp
+)
+
+target_link_libraries(
+  HttpTest
+  GTest::GTest
+  http
+  utils
+  socket
+)
+
+# build custom client and server
+
+add_executable(
+  tcp_client
+  tcp_client.cpp
+)
+
+target_link_libraries(
+  tcp_client
+  utils
+  socket
+  http
+  )
+
+add_executable(
+  tcp_server
+  tcp_server.cpp
+)
+
+target_link_libraries(
+  tcp_server
+  socket
+  utils
+  http
+)
+

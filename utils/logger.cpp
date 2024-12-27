@@ -1,7 +1,5 @@
 #include "logger.hpp"
 
-#include <format>
-
 namespace utils {
 
 

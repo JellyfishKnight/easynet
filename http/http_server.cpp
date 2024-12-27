@@ -68,34 +68,27 @@ void HttpServer::handle_request(const std::string &request_str) {
     }
 }
 
-void HttpServer::start(int frequency) {
+void HttpServer::start() {
     m_server->accept();
-    m_loop_thread = std::thread([this, frequency] {
-        if (frequency == 0) {
+    // m_loop_thread = std::thread([this] {
             std::vector<uint8_t> data(m_buffer_size);
             while (m_server->status() != net::SocketStatus::CLOSED) {
-                auto n = m_server->recv(data);
+                int n ;
+                try {
+                    n = m_server->recv(data);
+                } catch (const std::runtime_error& e) {
+                    std::cout << e.what() << std::endl;
+                    break;
+                }
                 if (n == -1) {
                     // log error
                     continue;
                 }
                 std::string request_str(data.begin(), data.end());
+                // std::cout << request_str << std::endl;
                 // handle_request(request_str);
             }
-        } else {
-            while (m_server->status() != net::SocketStatus::CLOSED) {
-                std::vector<uint8_t> data(m_buffer_size);
-                auto n = m_server->recv(data);
-                if (n == -1) {
-                    // log error
-                    continue;
-                }
-                std::string request_str(data.begin(), data.end());
-                handle_request(request_str);
-                std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(1.0 / frequency * 1000)));
-            }
-        }
-    });
+    // });
 }
 
 void HttpServer::send_response(const HttpResponse& response) {

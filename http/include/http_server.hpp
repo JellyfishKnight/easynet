@@ -36,7 +36,7 @@ public:
 
     void close();
 
-    void start(int frequency = 0);
+    void start();
     
     void enable_thread_pool();
 
