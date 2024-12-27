@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.0)
 
-set(CXX_STANDARD 17)
+set(CXX_STANDARD 20)
 set(CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -11,7 +11,7 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_C_COMPILER "/usr/bin/clang")
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -stdlib=libc++)
 endif()
 
 project(net)
@@ -80,9 +80,9 @@ target_link_libraries(
 
 # install headers
 
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/utils/include/ DESTINATION ${INCLUDE_OUTPUT_PATH})
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/socket/include/ DESTINATION ${INCLUDE_OUTPUT_PATH})
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/http/include/ DESTINATION ${INCLUDE_OUTPUT_PATH})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/utils/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/utils)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/socket/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/socket)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/http/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/http)
 
 
 # build test
