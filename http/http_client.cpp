@@ -33,7 +33,7 @@ HttpClient::~HttpClient() {
 void HttpClient::send_request(const HttpRequest& request) {
     std::string req_str = create_request(request);
     std::vector<uint8_t> data(req_str.begin(), req_str.end());
-    m_client->send(data);
+    std::cout << m_client->send(data);
 }
 
 HttpResponse HttpClient::recv_response() {

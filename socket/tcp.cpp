@@ -138,7 +138,7 @@ int TcpClient::recv(std::vector<uint8_t>& data) {
     if (data.empty()) {
         throw std::runtime_error("Data buffer size need to be greater than 0");
     }
-    
+
     auto n = ::recv(m_sockfd, data.data(), data.size(), 0);
     if (n == -1) {
         const std::string error_msg(::strerror(errno));

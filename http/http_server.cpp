@@ -5,16 +5,18 @@
 #include <chrono>
 #include <iostream>
 #include <ostream>
+#include <stdexcept>
 #include <thread>
 
 namespace net {
 
 HttpServer::HttpServer(const std::string& ip, int port) {
     m_server = std::make_unique<net::TcpServer>(ip, port);
-    m_server->listen(10);
     m_ip = ip;
     m_port = port;
-    
+    m_buffer_size = 1024;
+
+    m_server->listen(10);
 }
 
 HttpServer::HttpServer(HttpServer&& other) {
@@ -42,6 +44,7 @@ HttpServer::~HttpServer() {
     if (m_server->status() != net::SocketStatus::CLOSED) {
         close();
     }
+    m_loop_thread.join();
 }
 
 void HttpServer::handle_request(const std::string &request_str) {
@@ -66,23 +69,21 @@ void HttpServer::handle_request(const std::string &request_str) {
 }
 
 void HttpServer::start(int frequency) {
+    m_server->accept();
     m_loop_thread = std::thread([this, frequency] {
-        m_server->accept(); 
         if (frequency == 0) {
-            while (true) {
-                if (m_server->status() == net::SocketStatus::CLOSED) {
-                    break;
+            std::vector<uint8_t> data(m_buffer_size);
+            while (m_server->status() != net::SocketStatus::CLOSED) {
+                auto n = m_server->recv(data);
+                if (n == -1) {
+                    // log error
+                    continue;
                 }
-                std::vector<uint8_t> data(m_buffer_size);
-                m_server->recv(data);
                 std::string request_str(data.begin(), data.end());
-                handle_request(request_str);
+                // handle_request(request_str);
             }
         } else {
-            while (true) {
-                if (m_server->status() == net::SocketStatus::CLOSED) {
-                    break;
-                }
+            while (m_server->status() != net::SocketStatus::CLOSED) {
                 std::vector<uint8_t> data(m_buffer_size);
                 auto n = m_server->recv(data);
                 if (n == -1) {

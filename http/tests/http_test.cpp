@@ -3,14 +3,15 @@
 #include "http_utils.hpp"
 
 #include <gtest/gtest.h>
+#include <stdexcept>
 #include <thread>
 
 class HttpTest: public ::testing::Test {
 protected:
     void SetUp() override {
         try {
-            server = std::make_unique<net::HttpServer>("127.0.0.1", 15238);
-        } catch (const std::exception& e) {
+            server = std::make_unique<net::HttpServer>("127.0.0.1", 15789);
+        } catch (const std::runtime_error& e) {
             FAIL() << e.what();
         }
     }
@@ -18,7 +19,7 @@ protected:
     void TearDown() override {
         try {
             server->close();
-        } catch (const std::exception& e) {
+        } catch (const std::runtime_error& e) {
             FAIL() << e.what();
         }
     }
@@ -30,26 +31,29 @@ protected:
 TEST_F(HttpTest, TestServerAcceptConnection) {
     try {
         ASSERT_EQ(server->status(), net::SocketStatus::LISTENING);
-    } catch (const std::exception& e) {
+    } catch (const std::runtime_error& e) {
         FAIL() << e.what();
     }
 
-    server->start();
 
-    std::thread clientThread([]() {
-        net::HttpClient client("127.0.0.1", 15238);
-        client.connect();
+    std::thread clientThread([this]() {
+        net::HttpClient client("127.0.0.1", 15789);
         try {
+            client.connect();
             net::HttpRequest req;
             req.method = net::HttpMethod::GET;
             req.url = "/test";
             client.send_request(req);
             auto res = client.recv_response();
             ASSERT_EQ(static_cast<int>(res.code), 200);
-        } catch (const std::exception& e) {
+            // server->close();
+        } catch (const std::runtime_error& e) {
             FAIL() << e.what();
         }
     });
+
+    server->start();
+
 
 
     clientThread.join();

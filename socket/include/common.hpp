@@ -3,7 +3,7 @@
 namespace net {
 
 
-enum class SocketStatus {
+enum class SocketStatus : int {
     CLOSED = 0,
     CONNECTED,
     LISTENING,
