@@ -16,6 +16,16 @@ endif()
 
 project(net)
 
+# set library output path
+set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+set(INCLUDE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/include)
+
+message(STATUS "LIBRARY_OUTPUT_PATH: ${INCLUDE_OUTPUT_PATH}")
+message(STATUS "LIBRARY_OUTPUT_PATH: ${LIBRARY_OUTPUT_PATH}")
+message(STATUS "LIBRARY_OUTPUT_PATH: ${EXECUTABLE_OUTPUT_PATH}")
+
+
 # build utils
 aux_source_directory(./utils utils_src)
 
@@ -68,6 +78,13 @@ target_link_libraries(
 )
 
 
+# install headers
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/utils/include/ DESTINATION ${INCLUDE_OUTPUT_PATH})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/socket/include/ DESTINATION ${INCLUDE_OUTPUT_PATH})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/http/include/ DESTINATION ${INCLUDE_OUTPUT_PATH})
+
+
 # build test
 
 find_package(GTest REQUIRED)
@@ -113,7 +130,7 @@ target_link_libraries(
 
 add_executable(
   tcp_client
-  tcp_client.cpp
+  demo/http_client.cpp
 )
 
 target_link_libraries(
@@ -125,7 +142,7 @@ target_link_libraries(
 
 add_executable(
   tcp_server
-  tcp_server.cpp
+  demo/http_server.cpp
 )
 
 target_link_libraries(
