@@ -44,7 +44,6 @@ HttpServer::~HttpServer() {
     if (m_server->status() != net::SocketStatus::CLOSED) {
         close();
     }
-    m_loop_thread.join();
 }
 
 void HttpServer::handle_request(const std::string &request_str) {
@@ -70,25 +69,28 @@ void HttpServer::handle_request(const std::string &request_str) {
 
 void HttpServer::start() {
     m_server->accept();
-    // m_loop_thread = std::thread([this] {
-            std::vector<uint8_t> data(m_buffer_size);
-            while (m_server->status() != net::SocketStatus::CLOSED) {
-                int n ;
-                try {
-                    n = m_server->recv(data);
-                } catch (const std::runtime_error& e) {
-                    std::cout << e.what() << std::endl;
-                    break;
-                }
-                if (n == -1) {
-                    // log error
-                    continue;
-                }
-                std::string request_str(data.begin(), data.end());
-                // std::cout << request_str << std::endl;
-                // handle_request(request_str);
-            }
-    // });
+    std::vector<uint8_t> data(m_buffer_size);
+    while (m_server->status() != net::SocketStatus::CLOSED) {
+        int n ;
+        try {
+            n = m_server->recv(data);
+        } catch (const std::runtime_error& e) {
+            std::cout << e.what() << std::endl;
+            break;
+        }
+        if (n == -1) {
+            // log error
+            continue;
+        }
+        if (n == 0) {
+            // log error
+            std::cout << "Connection reset by peer." << std::endl;
+            break;
+        }
+        std::string request_str(data.begin(), data.end());
+        std::cout << request_str << std::endl;
+        // handle_request(request_str);
+    }
 }
 
 void HttpServer::send_response(const HttpResponse& response) {

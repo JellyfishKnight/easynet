@@ -43,7 +43,7 @@ TEST_F(HttpTest, TestServerAcceptConnection) {
             net::HttpRequest req;
             req.method = net::HttpMethod::GET;
             req.url = "/test";
-            // client.send_request(req);
+            client.send_request(req);
             // auto res = client.recv_response();
             // ASSERT_EQ(static_cast<int>(res.code), 200);
             std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -54,11 +54,14 @@ TEST_F(HttpTest, TestServerAcceptConnection) {
         }
     });
 
-    server->start();
+    std::thread serverThread([this]() {
+        server->start();
+    });
 
-    
 
-    // clientThread.join();
+
+    clientThread.join();
+    serverThread.join();
 }
 
 int main() {

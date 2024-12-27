@@ -4,28 +4,34 @@
 #include <istream>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 namespace net {
 
 const std::unordered_map<std::string, HttpMethod> method_map = {
-    {"GET", HttpMethod::GET},
-    {"POST", HttpMethod::POST},
-    {"PUT", HttpMethod::PUT},
-    {"DELETE", HttpMethod::DELETE},
-    {"HEAD", HttpMethod::HEAD},
-    {"OPTIONS", HttpMethod::OPTIONS},
-    {"CONNECT", HttpMethod::CONNECT},
-    {"TRACE", HttpMethod::TRACE},
-    {"PATCH", HttpMethod::PATCH},
+    { "GET", HttpMethod::GET },         { "POST", HttpMethod::POST },
+    { "PUT", HttpMethod::PUT },         { "DELETE", HttpMethod::DELETE },
+    { "HEAD", HttpMethod::HEAD },       { "OPTIONS", HttpMethod::OPTIONS },
+    { "CONNECT", HttpMethod::CONNECT }, { "TRACE", HttpMethod::TRACE },
+    { "PATCH", HttpMethod::PATCH },
+};
+
+const std::unordered_map<HttpMethod, std::string> method_map_reverse = {
+    { HttpMethod::GET, "GET" },         { HttpMethod::POST, "POST" },
+    { HttpMethod::PUT, "PUT" },         { HttpMethod::DELETE, "DELETE" },
+    { HttpMethod::HEAD, "HEAD" },       { HttpMethod::OPTIONS, "OPTIONS" },
+    { HttpMethod::CONNECT, "CONNECT" }, { HttpMethod::TRACE, "TRACE" },
+    { HttpMethod::PATCH, "PATCH" },
 };
 
 std::string create_request(const HttpRequest& request) {
     std::string req;
-    req += request.url + " " + request.version + "\r\n";
+    req += method_map_reverse.at(request.method) + " " + request.url + " " + request.version + "\r\n";
     for (const auto& [key, value] : request.headers) {
         req += key + ": " + value + "\r\n";
     }
     req += "\r\n";
+    req += request.body;
     return req;
 }
 
