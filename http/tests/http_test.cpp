@@ -43,19 +43,24 @@ TEST_F(HttpTest, TestServerAcceptConnection) {
             net::HttpRequest req;
             req.method = net::HttpMethod::GET;
             req.url = "/test";
+            req.version = "HTTP/1.1";
+            req.body = "Hello, World!";
+            req.headers["Content-Length"] = std::to_string(req.body.size());
             client.send_request(req);
-            // auto res = client.recv_response();
-            // ASSERT_EQ(static_cast<int>(res.code), 200);
-            std::this_thread::sleep_for(std::chrono::seconds(5));
+            auto res = client.recv_response();
+            ASSERT_EQ(static_cast<int>(res.code), 404);
             client.close();
-            // server->close();
         } catch (const std::runtime_error& e) {
             FAIL() << e.what();
         }
     });
 
     std::thread serverThread([this]() {
-        server->start();
+        try {
+            server->start();
+        } catch (const std::runtime_error& e) {
+            FAIL() << e.what();
+        }
     });
 
 

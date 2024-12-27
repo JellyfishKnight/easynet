@@ -48,7 +48,6 @@ HttpServer::~HttpServer() {
 
 void HttpServer::handle_request(const std::string &request_str) {
     auto req = parse_request(request_str);
-
     if (m_url_callbacks.find(req.url) != m_url_callbacks.end()) {
         if (m_thread_pool_enabled) {
             ///TODO: add the request to the thread pool
@@ -88,8 +87,7 @@ void HttpServer::start() {
             break;
         }
         std::string request_str(data.begin(), data.end());
-        std::cout << request_str << std::endl;
-        // handle_request(request_str);
+        handle_request(request_str);
     }
 }
 

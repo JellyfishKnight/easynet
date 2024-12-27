@@ -66,7 +66,7 @@ bool parse_request_header(std::istream& stream, HttpRequest& request) {
         // find the position of the colon
         std::size_t pos = line.find(":");
         if (pos == std::string::npos) {
-            return false;
+            continue;
         }
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
@@ -115,7 +115,7 @@ HttpResponse parse_response(const std::string& response) {
         }
         std::size_t pos = line.find(":");
         if (pos == std::string::npos) {
-            throw std::runtime_error("Failed to parse response header");
+            continue;
         }
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
