@@ -163,10 +163,16 @@ TcpServer::TcpServer(const std::string& ip, int port) {
         throw std::runtime_error("Failed to create socket: " + error_msg);
     }
 
+    if (ip.empty()) {
+        throw std::runtime_error("IP address cannot be empty");
+    }
+
     // set server address
     m_servaddr.sin_family = AF_INET;
     m_servaddr.sin_port = htons(port);
-    if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
+    if (ip == "localhost") {
+        m_servaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    } else if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
         const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }

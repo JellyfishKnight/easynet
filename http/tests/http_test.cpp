@@ -63,8 +63,6 @@ TEST_F(HttpTest, TestServerAcceptConnection) {
         }
     });
 
-
-
     clientThread.join();
     serverThread.join();
 }

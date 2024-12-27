@@ -56,13 +56,13 @@ void HttpServer::handle_request(const std::string &request_str) {
         }
     } else {
         // return 404 not found
-        HttpResponse response;
-        response.code = HttpReturnCode::NOT_FOUND;
-        response.body = "404 Not Found";
-        response.version = "HTTP/1.1";
-        response.headers["Content-Length"] = std::to_string(response.body.size());
-        response.headers["Content-Type"] = "text/plain";
-        send_response(response);
+        // HttpResponse response;
+        // response.code = HttpReturnCode::NOT_FOUND;
+        // response.body = "404 Not Found";
+        // response.version = "HTTP/1.1";
+        // response.headers["Content-Length"] = std::to_string(response.body.size());
+        // response.headers["Content-Type"] = "text/plain";
+        // send_response(response);
     }
 }
 
