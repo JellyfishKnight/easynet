@@ -1,4 +1,5 @@
 #include "logger.hpp"
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include <memory>
@@ -39,7 +40,13 @@ void LoggerManager::log(const Logger& logger, LogLevel log_level, std::string me
     }
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
-    m_files[logger.logger_name] << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "] " << message << std::endl;
+
+    if (m_files.find(logger.logger_name) == m_files.end()) {
+        // log to console
+        std::cout << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "][" << logger.logger_name << "]:" << message << std::endl;
+    } else {
+        m_files[logger.logger_name] << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "][" << logger.logger_name << "]:" << message << std::endl;
+    }
 }
 
 void LoggerManager::async_log(LogLevel log_level, const Logger& logger, std::string message) {
@@ -59,8 +66,9 @@ LoggerManager::~LoggerManager() {
 }
 
 void LoggerManager::enable_async_logging() {
+    assert(instance != nullptr);
     m_log_thread = std::thread([&] {
-        while (true) {
+        while (instance != nullptr) {
             if (!m_log_queue.empty()) {
                 auto [log_level, logger, message] = m_log_queue.front();
                 log(logger, log_level, message);
