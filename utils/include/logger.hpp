@@ -6,6 +6,7 @@
 #include <string>
 #include <mutex>
 #include <chrono>
+#include <thread>
 #include <unordered_map>
 #include <queue>
 
@@ -24,7 +25,7 @@ enum class LogLevel : int { DEBUG = 0, INFO, WARNING, ERROR, FATAL };
 
 
 class LoggerManager {
-private:
+public:
     struct Logger {
         friend class LoggerManager;
 
@@ -33,7 +34,11 @@ private:
         std::string logger_name;
         std::string path;
     };
-public:
+
+    void enable_async_logging();
+
+    void disable_async_logging();
+
     Logger& get_logger(std::string logger_name, std::string path = "");
 
     static LoggerManager& get_instance();
@@ -58,6 +63,8 @@ private:
     static std::mutex m_file_mutex;
 
     static std::shared_ptr<LoggerManager> instance;
+
+    std::thread m_log_thread;
 };
 
 

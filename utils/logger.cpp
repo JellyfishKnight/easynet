@@ -55,6 +55,23 @@ LoggerManager::~LoggerManager() {
         file.close();
     }
     instance.reset();
+    m_log_thread.join();
+}
+
+void LoggerManager::enable_async_logging() {
+    m_log_thread = std::thread([&] {
+        while (true) {
+            if (!m_log_queue.empty()) {
+                auto [log_level, logger, message] = m_log_queue.front();
+                log(logger, log_level, message);
+                m_log_queue.pop();
+            }
+        }
+    });
+}
+
+void LoggerManager::disable_async_logging() {
+    m_log_thread.join();
 }
 
 std::shared_ptr<LoggerManager> LoggerManager::instance = nullptr;
