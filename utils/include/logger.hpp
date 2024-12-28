@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bits/types/FILE.h>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <mutex>
@@ -42,7 +44,7 @@ public:
 
     void set_log_path(Logger& logger, const std::string& path);
 
-    ~LoggerManager() = default;
+    ~LoggerManager();
 
 private:
     LoggerManager() = default;
@@ -51,8 +53,8 @@ private:
 
     static std::unordered_map<std::string, Logger> m_loggers;
 
-    static std::unordered_map<Logger, std::fstream> m_files;
-
+    static std::unordered_map<std::string, std::fstream> m_files;
+    
     static std::mutex m_file_mutex;
 
     static std::shared_ptr<LoggerManager> instance;
