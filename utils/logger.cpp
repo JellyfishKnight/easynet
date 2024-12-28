@@ -6,6 +6,10 @@
 
 namespace utils {
 
+LoggerManager::LoggerManager() {
+    get_instance();
+}
+
 LoggerManager& LoggerManager::get_instance() {
     if (instance == nullptr) {
         instance = std::shared_ptr<LoggerManager>(new LoggerManager());

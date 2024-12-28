@@ -12,11 +12,11 @@
 
 #include "print.hpp"
 
-#define LOG_DEBUG(logger, message) utils::LoggerManager::log(LogLevel::DEBUG, logger, (message))
-#define LOG_INFO(logger, message) utils::LoggerManager::log(LogLevel::INFO, logger, (message))
-#define LOG_WARNING(logger, message) utils::LoggerManager::log(LogLevel::WARNING, logger, (message))
-#define LOG_ERROR(logger, message) utils::LoggerManager::log(LogLevel::ERROR, logger, (message))
-#define LOG_FATAL(logger, message) utils::LoggerManager::log(LogLevel::FATAL, logger, (message))
+#define LOG_DEBUG(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::DEBUG, (message))
+#define LOG_INFO(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::INFO, (message))
+#define LOG_WARNING(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::WARNING, (message))
+#define LOG_ERROR(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::ERROR, (message))
+#define LOG_FATAL(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::FATAL, (message))
 
 
 namespace utils {
@@ -52,7 +52,7 @@ public:
     ~LoggerManager();
 
 private:
-    LoggerManager() = default;
+    LoggerManager();
     
     static std::queue<std::tuple<LogLevel, Logger, std::string>> m_log_queue;
 
