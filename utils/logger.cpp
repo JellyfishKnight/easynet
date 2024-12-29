@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <thread>
 
 namespace utils {
 
@@ -15,6 +16,10 @@ std::unordered_map<std::string, LoggerManager::Logger> LoggerManager::m_loggers;
 std::unordered_map<std::string, std::fstream> LoggerManager::m_files;
 
 std::mutex LoggerManager::m_file_mutex;
+
+std::thread LoggerManager::m_log_thread;
+
+bool LoggerManager::m_async_logging_enabled = false;
 
 LoggerManager::LoggerManager() {}
 
@@ -74,7 +79,7 @@ LoggerManager::~LoggerManager() {
         file.close();
     }
     delete instance;
-    
+
     m_log_thread.join();
 }
 
@@ -84,8 +89,9 @@ void LoggerManager::enable_async_logging() {
     if (m_log_thread.joinable()) {
         return;
     }
+    m_async_logging_enabled = true;
     m_log_thread = std::thread([&] {
-        while (instance != nullptr) {
+        while (instance != nullptr && m_async_logging_enabled) {
             if (!m_log_queue.empty()) {
                 auto [log_level, logger, message] = m_log_queue.front();
                 log(logger, log_level, message);
@@ -96,6 +102,7 @@ void LoggerManager::enable_async_logging() {
 }
 
 void LoggerManager::disable_async_logging() {
+    m_async_logging_enabled = false;
     m_log_thread.join();
 }
 

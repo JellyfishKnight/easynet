@@ -64,7 +64,9 @@ private:
 
     static LoggerManager* instance;
 
-    std::thread m_log_thread;
+    static std::thread m_log_thread;
+
+    static bool m_async_logging_enabled;
 };
 
 
