@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22.0)
 
-set(CXX_STANDARD 20)
-set(CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # set Debug during the competition
@@ -11,7 +11,8 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_C_COMPILER "/usr/bin/clang")
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -stdlib=libc++)
+  add_compile_options(-Wall -Wextra -Wpedantic -stdlib=libc++ -std=c++20)
+  add_compile_options(-Wno-c++17-extensions)
 endif()
 
 project(net)
