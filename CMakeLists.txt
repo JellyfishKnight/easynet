@@ -126,6 +126,23 @@ target_link_libraries(
   socket
 )
 
+add_executable(
+  LoggerTest
+  utils/tests/test_logger.cpp
+)
+
+target_include_directories(
+  LoggerTest PUBLIC
+  ./utils/include
+)
+
+target_link_libraries(
+  LoggerTest
+  GTest::GTest
+  utils
+)
+
+
 # build custom client and server
 
 add_executable(

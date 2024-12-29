@@ -6,13 +6,21 @@
 
 namespace utils {
 
-LoggerManager::LoggerManager() {
-    get_instance();
-}
+LoggerManager* LoggerManager::instance = nullptr;
+
+std::queue<std::tuple<LogLevel, LoggerManager::Logger, std::string>> LoggerManager::m_log_queue;
+
+std::unordered_map<std::string, LoggerManager::Logger> LoggerManager::m_loggers;
+
+std::unordered_map<std::string, std::fstream> LoggerManager::m_files;
+
+std::mutex LoggerManager::m_file_mutex;
+
+LoggerManager::LoggerManager() {}
 
 LoggerManager& LoggerManager::get_instance() {
     if (instance == nullptr) {
-        instance = std::shared_ptr<LoggerManager>(new LoggerManager());
+        instance = new LoggerManager();
     } 
     return *instance;
 }
@@ -65,12 +73,17 @@ LoggerManager::~LoggerManager() {
     for (auto& [logger_name, file] : m_files) {
         file.close();
     }
-    instance.reset();
+    delete instance;
+    
     m_log_thread.join();
 }
 
 void LoggerManager::enable_async_logging() {
     assert(instance != nullptr);
+    // if thread is already running, return
+    if (m_log_thread.joinable()) {
+        return;
+    }
     m_log_thread = std::thread([&] {
         while (instance != nullptr) {
             if (!m_log_queue.empty()) {
@@ -85,15 +98,5 @@ void LoggerManager::enable_async_logging() {
 void LoggerManager::disable_async_logging() {
     m_log_thread.join();
 }
-
-std::shared_ptr<LoggerManager> LoggerManager::instance = nullptr;
-
-std::queue<std::tuple<LogLevel, LoggerManager::Logger, std::string>> LoggerManager::m_log_queue;
-
-std::unordered_map<std::string, LoggerManager::Logger> LoggerManager::m_loggers;
-
-std::unordered_map<std::string, std::fstream> LoggerManager::m_files;
-
-std::mutex LoggerManager::m_file_mutex;
 
 } // namespace utils

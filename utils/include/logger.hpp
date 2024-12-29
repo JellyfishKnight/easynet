@@ -62,7 +62,7 @@ private:
     
     static std::mutex m_file_mutex;
 
-    static std::shared_ptr<LoggerManager> instance;
+    static LoggerManager* instance;
 
     std::thread m_log_thread;
 };
