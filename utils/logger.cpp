@@ -52,18 +52,19 @@ void LoggerManager::log(const Logger& logger, LogLevel log_level, std::string me
     };
 
     std::lock_guard<std::mutex> lock(m_file_mutex);
-    if (m_files.find(logger.logger_name) == m_files.end()) {
-        m_files[logger.logger_name].open(logger.path, std::ios::out | std::ios::app);
-    }
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
 
-    if (m_files.find(logger.logger_name) == m_files.end()) {
+    if (logger.path.empty()) {
         // log to console
         std::cout << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "][" << logger.logger_name << "]:" << message << std::endl;
-    } else {
-        m_files[logger.logger_name] << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "][" << logger.logger_name << "]:" << message << std::endl;
+        return;
     }
+    if (m_files.find(logger.logger_name) == m_files.end()) {
+        m_files[logger.logger_name].open(logger.path, std::ios::out | std::ios::app);
+    }
+
+    m_files[logger.logger_name] << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "][" << logger.logger_name << "]:" << message << std::endl;
 }
 
 void LoggerManager::async_log(LogLevel log_level, const Logger& logger, std::string message) {
