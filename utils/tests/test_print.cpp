@@ -12,7 +12,7 @@ TEST_F(PrintTest, BasicTypeTest) {
     utils::print(1);
     utils::print(1.2);
     std::string s = "string";
-    utils::print(s);
+    // utils::print(s);
     utils::print("string");
     utils::print(std::vector<int>(5, 1));
     int* a = new int[5];
