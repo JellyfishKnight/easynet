@@ -143,6 +143,23 @@ target_link_libraries(
   utils
 )
 
+add_executable(
+  PrintTest
+  utils/tests/test_print.cpp
+)
+
+target_include_directories(
+  PrintTest PUBLIC
+  ./utils/include
+)
+
+target_link_libraries(
+  PrintTest
+  GTest::GTest
+  utils
+)
+
+
 
 # build custom client and server
 
