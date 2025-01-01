@@ -8,7 +8,7 @@ protected:
     void TearDown() {}
 };
 
-TEST_F(PrintTest, BasicTypeTest) {
+TEST_F(PrintTest, BasicPrintTest) {
     utils::print(1);
     utils::print(1.2);
     std::string s = "string";
@@ -20,6 +20,10 @@ TEST_F(PrintTest, BasicTypeTest) {
         a[i] = i;
     }
     utils::print(a, 5);
+}
+
+TEST_F(PrintTest, FormatPrintTest) {
+
 }
 
 int main() {
