@@ -26,6 +26,27 @@ namespace utils {
 
 enum class LogLevel : int { DEBUG = 0, INFO, WARNING, ERROR, FATAL };
 
+template <class T>
+struct with_source_location {
+private:
+    T inner;
+    std::source_location loc;
+
+public:
+    template <class U> requires std::constructible_from<T, U>
+    consteval with_source_location(U &&inner, std::source_location loc = std::source_location::current())
+        : inner(std::forward<U>(inner)), loc(std::move(loc)) {}
+
+    constexpr T const& format() const {
+        return inner;
+    }
+
+    constexpr std::source_location const& location() const {
+        return loc;
+    }
+};
+
+
 
 class LoggerManager {
 public:
@@ -85,9 +106,9 @@ public:
     void
     log(const Logger& logger,
         LogLevel log_level,
-        std::format_string<std::string> message,
+        with_source_location<std::format_string<Args...>> fmt,
         Args&&... args) {
-        log(logger, log_level, std::format(message, std::forward<Args>(args)...));
+        log(logger, log_level, std::format(fmt, std::forward<Args>(args)...));
     }
 
     void log(const Logger& logger, LogLevel log_level, std::string message) {
