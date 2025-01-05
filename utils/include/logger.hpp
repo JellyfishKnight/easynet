@@ -73,8 +73,8 @@ public:
         m_log_thread = std::thread([&] {
             while (instance != nullptr && m_async_logging_enabled) {
                 if (!m_log_queue.empty()) {
-                    auto [log_level, logger, message] = m_log_queue.front();
-                    // log(logger, log_level, message);
+                    const auto& [log_level, logger, message, loc] = m_log_queue.front();
+                    generate_log(logger, log_level, message, loc);
                     m_log_queue.pop();
                 }
             }
@@ -113,11 +113,18 @@ public:
         Args&&... args) {
         const auto& loc = fmt.location();
         auto msg = std::vformat(fmt.format().get(), std::make_format_args(args...));
-        log(logger, log_level, msg, loc);
+        generate_log(logger, log_level, msg, loc);
     }
 
-    void async_log(LogLevel log_level, const Logger& logger, std::string message) {
-        m_log_queue.push(std::make_tuple(log_level, logger, message));
+    template<typename... Args>
+    void async_log(
+        LogLevel log_level,
+        const Logger& logger,
+        with_source_location<std::format_string<Args...>> fmt,
+        Args&&... args
+    ) {
+        auto message = std::vformat(fmt.format().get(), std::make_format_args(args...));
+        m_log_queue.push(std::make_tuple(log_level, logger, message, fmt.location()));
     }
 
     void set_log_path(Logger& logger, const std::string& path) {
@@ -136,7 +143,7 @@ public:
 private:
     LoggerManager() {};
 
-    void log(const Logger& logger, LogLevel log_level, std::string message, const std::source_location &loc) {
+    void generate_log(const Logger& logger, LogLevel log_level, std::string message, const std::source_location &loc) {
         const static std::unordered_map<LogLevel, std::string> log_level_map = {
             { LogLevel::DEBUG, "DEBUG" },
             { LogLevel::INFO, "INFO" },
@@ -168,7 +175,7 @@ private:
     }
 
     
-    inline static std::queue<std::tuple<LogLevel, Logger, std::string>> m_log_queue = {};
+    inline static std::queue<std::tuple<LogLevel, Logger, std::string, std::source_location>> m_log_queue = {};
 
     inline static std::unordered_map<std::string, Logger> m_loggers = {};
 
@@ -195,6 +202,15 @@ void log_##name(const utils::LoggerManager::Logger& logger, utils::with_source_l
 }
 LOG_FOREACH_LOG_LEVEL(_FUNCTION)
 #undef _FUNCTION
+
+#define _FUNCTION(name) \
+template <typename... Args> \
+void async_log_##name(const utils::LoggerManager::Logger& logger, utils::with_source_location<std::format_string<Args...>> fmt, Args &&...args) { \
+    return utils::LoggerManager::get_instance().async_log(logger, utils::LogLevel::name, std::move(fmt), std::forward<Args>(args)...); \
+}
+LOG_FOREACH_LOG_LEVEL(_FUNCTION)
+#undef _FUNCTION
+
 
 #define LOG_DEBUG(logger, format, ...) log_DEBUG(logger, {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
 #define LOG_INFO(logger, format, ...) log_INFO(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
