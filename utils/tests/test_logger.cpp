@@ -20,7 +20,7 @@ protected:
 TEST_F(LoggerTest, TestLogger) {
     LOG_DEBUG(logger, "This is a debug message");
     LOG_INFO(logger, "This is an info message");
-    LOG_WARNING(logger, "This is a warning message");
+    LOG_WARN(logger, "This is a warning message");
     LOG_ERROR(logger, "This is an error message");
     LOG_FATAL(logger, "This is a fatal message");
 }
@@ -29,7 +29,7 @@ TEST_F(LoggerTest, TestAsyncLogger) {
     utils::LoggerManager::get_instance().enable_async_logging();
     LOG_DEBUG(logger, "This is a debug message");
     LOG_INFO(logger, "This is an info message");
-    LOG_WARNING(logger, "This is a warning message");
+    LOG_WARN(logger, "This is a warning message");
     LOG_ERROR(logger, "This is an error message");
     LOG_FATAL(logger, "This is a fatal message");
     utils::LoggerManager::get_instance().disable_async_logging();
@@ -41,13 +41,13 @@ TEST_F(LoggerTest, TestLoggerWithDifferentLoggers) {
 
     LOG_DEBUG(logger1, "This is a debug message");
     LOG_INFO(logger1, "This is an info message");
-    LOG_WARNING(logger1, "This is a warning message");
+    LOG_WARN(logger1, "This is a warning message");
     LOG_ERROR(logger1, "This is an error message");
     LOG_FATAL(logger1, "This is a fatal message");
 
     LOG_DEBUG(logger2, "This is a debug message");
     LOG_INFO(logger2, "This is an info message");
-    LOG_WARNING(logger2, "This is a warning message");
+    LOG_WARN(logger2, "This is a warning message");
     LOG_ERROR(logger2, "This is an error message");
     LOG_FATAL(logger2, "This is a fatal message");
 }
@@ -57,7 +57,7 @@ TEST_F(LoggerTest, TestLoggerWithDifferentPaths) {
 
     LOG_DEBUG(logger1, "This is a debug message");
     LOG_INFO(logger1, "This is an info message");
-    LOG_WARNING(logger1, "This is a warning message");
+    LOG_WARN(logger1, "This is a warning message");
     LOG_ERROR(logger1, "This is an error message");
     LOG_FATAL(logger1, "This is a fatal message");
 
@@ -65,7 +65,7 @@ TEST_F(LoggerTest, TestLoggerWithDifferentPaths) {
 
     LOG_DEBUG(logger1, "This is a debug message");
     LOG_INFO(logger1, "This is an info message");
-    LOG_WARNING(logger1, "This is a warning message");
+    LOG_WARN(logger1, "This is a warning message");
     LOG_ERROR(logger1, "This is an error message");
     LOG_FATAL(logger1, "This is a fatal message");
 }
@@ -78,8 +78,8 @@ TEST_F(LoggerTest, TestLoggerWithSamePaths) {
     LOG_DEBUG(logger2, "This is a debug message");
     LOG_INFO(logger1, "This is an info message");
     LOG_INFO(logger2, "This is an info message");
-    LOG_WARNING(logger1, "This is a warning message");
-    LOG_WARNING(logger2, "This is a warning message");
+    LOG_WARN(logger1, "This is a warning message");
+    LOG_WARN(logger2, "This is a warning message");
     LOG_ERROR(logger1, "This is an error message");
     LOG_ERROR(logger2, "This is an error message");
     LOG_FATAL(logger1, "This is a fatal message");
@@ -90,8 +90,8 @@ TEST_F(LoggerTest, TestLoggerWithSamePaths) {
     LOG_DEBUG(logger2, "This is a debug message");
     LOG_INFO(logger1, "This is an info message");
     LOG_INFO(logger2, "This is an info message");
-    LOG_WARNING(logger1, "This is a warning message");
-    LOG_WARNING(logger2, "This is a warning message");
+    LOG_WARN(logger1, "This is a warning message");
+    LOG_WARN(logger2, "This is a warning message");
     LOG_ERROR(logger1, "This is an error message");
     LOG_ERROR(logger2, "This is an error message");
     LOG_FATAL(logger1, "This is a fatal message");
@@ -107,8 +107,8 @@ TEST_F(LoggerTest, TestLoggerOutputToConsole) {
     LOG_DEBUG(logger2, "This is a debug message");
     LOG_INFO(logger1, "This is an info message");
     LOG_INFO(logger2, "This is an info message");
-    LOG_WARNING(logger1, "This is a warning message");
-    LOG_WARNING(logger2, "This is a warning message");
+    LOG_WARN(logger1, "This is a warning message");
+    LOG_WARN(logger2, "This is a warning message");
     LOG_ERROR(logger1, "This is an error message");
     LOG_ERROR(logger2, "This is an error message");
     LOG_FATAL(logger1, "This is a fatal message");
@@ -119,8 +119,8 @@ TEST_F(LoggerTest, TestLoggerOutputToConsole) {
     LOG_DEBUG(logger2, "This is a debug message");
     LOG_INFO(logger1, "This is an info message");
     LOG_INFO(logger2, "This is an info message");
-    LOG_WARNING(logger1, "This is a warning message");
-    LOG_WARNING(logger2, "This is a warning message");
+    LOG_WARN(logger1, "This is a warning message");
+    LOG_WARN(logger2, "This is a warning message");
     LOG_ERROR(logger1, "This is an error message");
     LOG_ERROR(logger2, "This is an error message");
     LOG_FATAL(logger1, "This is a fatal message");

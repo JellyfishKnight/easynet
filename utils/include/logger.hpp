@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstdlib>
 #include <format>
 #include <fstream>
 #include <memory>
@@ -15,14 +16,21 @@
 #include <iostream>
 
 
-
-#define LOG_DEBUG(logger, fmt, ...) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::DEBUG, fmt, ##__VA_ARGS__)
-
+#define LOG_FOREACH_LOG_LEVEL(f) \
+    f(DEBUG) \
+    f(INFO) \
+    f(WARN) \
+    f(ERROR) \
+    f(FATAL)
 
 
 namespace utils {
 
-enum class LogLevel : int { DEBUG = 0, INFO, WARNING, ERROR, FATAL };
+enum class LogLevel : int {
+#define _FUNCTION(name) name,
+    LOG_FOREACH_LOG_LEVEL(_FUNCTION)
+#undef _FUNCTION
+};
 
 template <class T>
 struct with_source_location {
@@ -32,7 +40,7 @@ private:
 
 public:
     template <class U> requires std::constructible_from<T, U>
-    consteval with_source_location(U &&inner, std::source_location loc = std::source_location::current())
+    consteval with_source_location(U &&inner, std::source_location loc)
         : inner(std::forward<U>(inner)), loc(std::move(loc)) {}
 
     constexpr T const& format() const {
@@ -43,8 +51,6 @@ public:
         return loc;
     }
 };
-
-
 
 class LoggerManager {
 public:
@@ -110,11 +116,31 @@ public:
         log(logger, log_level, msg, loc);
     }
 
+    void async_log(LogLevel log_level, const Logger& logger, std::string message) {
+        m_log_queue.push(std::make_tuple(log_level, logger, message));
+    }
+
+    void set_log_path(Logger& logger, const std::string& path) {
+        logger.path = path;
+    }
+
+    ~LoggerManager() {
+        for (auto& [logger_name, file] : m_files) {
+            file.close();
+        }
+        delete instance;
+
+        m_log_thread.join();
+    }
+
+private:
+    LoggerManager() {};
+
     void log(const Logger& logger, LogLevel log_level, std::string message, const std::source_location &loc) {
         const static std::unordered_map<LogLevel, std::string> log_level_map = {
             { LogLevel::DEBUG, "DEBUG" },
             { LogLevel::INFO, "INFO" },
-            { LogLevel::WARNING, "WARNING" },
+            { LogLevel::WARN, "WARN" },
             { LogLevel::ERROR, "ERROR" },
             { LogLevel::FATAL, "FATAL" }
         };
@@ -138,28 +164,9 @@ public:
         }
 
         m_files[logger.logger_name] << msg << std::endl;
+        std::cout << msg << std::endl;
     }
 
-
-    void async_log(LogLevel log_level, const Logger& logger, std::string message) {
-        m_log_queue.push(std::make_tuple(log_level, logger, message));
-    }
-
-    void set_log_path(Logger& logger, const std::string& path) {
-        logger.path = path;
-    }
-
-    ~LoggerManager() {
-        for (auto& [logger_name, file] : m_files) {
-            file.close();
-        }
-        delete instance;
-
-        m_log_thread.join();
-    }
-
-private:
-    LoggerManager() {};
     
     inline static std::queue<std::tuple<LogLevel, Logger, std::string>> m_log_queue = {};
 
@@ -174,7 +181,23 @@ private:
     inline static std::thread m_log_thread = {};
 
     inline static bool m_async_logging_enabled = false;
+
+    inline static LogLevel max_level = std::getenv("LOG_LEVEL") ? static_cast<LogLevel>(std::stoi(std::getenv("LOG_LEVEL"))) : LogLevel::INFO;
 };
 
-
 } // namespace utils
+
+
+#define _FUNCTION(name) \
+template <typename... Args> \
+void log_##name(const utils::LoggerManager::Logger& logger, utils::with_source_location<std::format_string<Args...>> fmt, Args &&...args) { \
+    return utils::LoggerManager::get_instance().log(logger, utils::LogLevel::name, std::move(fmt), std::forward<Args>(args)...); \
+}
+LOG_FOREACH_LOG_LEVEL(_FUNCTION)
+#undef _FUNCTION
+
+#define LOG_DEBUG(logger, format, ...) log_DEBUG(logger, {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
+#define LOG_INFO(logger, format, ...) log_INFO(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
+#define LOG_WARN(logger, format, ...) log_WARN(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
+#define LOG_ERROR(logger, format, ...) log_ERROR(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
+#define LOG_FATAL(logger, format, ...) log_FATAL(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
