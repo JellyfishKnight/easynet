@@ -15,11 +15,9 @@
 #include <iostream>
 
 
-#define LOG_DEBUG(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::DEBUG, (message))
-#define LOG_INFO(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::INFO, (message))
-#define LOG_WARNING(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::WARNING, (message))
-#define LOG_ERROR(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::ERROR, (message))
-#define LOG_FATAL(logger, message) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::FATAL, (message))
+
+#define LOG_DEBUG(logger, fmt, ...) utils::LoggerManager::get_instance().log(logger, utils::LogLevel::DEBUG, fmt, ##__VA_ARGS__)
+
 
 
 namespace utils {
@@ -70,7 +68,7 @@ public:
             while (instance != nullptr && m_async_logging_enabled) {
                 if (!m_log_queue.empty()) {
                     auto [log_level, logger, message] = m_log_queue.front();
-                    log(logger, log_level, message);
+                    // log(logger, log_level, message);
                     m_log_queue.pop();
                 }
             }
@@ -103,17 +101,16 @@ public:
     }
 
     template<typename... Args>
-    void
-    log(const Logger& logger,
+    void log(const Logger& logger,
         LogLevel log_level,
         with_source_location<std::format_string<Args...>> fmt,
         Args&&... args) {
-        auto const& loc = fmt.location();
+        const auto& loc = fmt.location();
         auto msg = std::vformat(fmt.format().get(), std::make_format_args(args...));
-        log(logger, log_level, msg);
+        log(logger, log_level, msg, loc);
     }
 
-    void log(const Logger& logger, LogLevel log_level, std::string message) {
+    void log(const Logger& logger, LogLevel log_level, std::string message, const std::source_location &loc) {
         const static std::unordered_map<LogLevel, std::string> log_level_map = {
             { LogLevel::DEBUG, "DEBUG" },
             { LogLevel::INFO, "INFO" },
@@ -129,7 +126,7 @@ public:
         std::ostringstream oss_time;
         oss_time << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
 
-        auto msg = std::format("{} [{}][{}]:{}", oss_time.str(), log_level_map.at(log_level), logger.logger_name, message);
+        auto msg = std::format("{} {}:{} [{}][{}]:{}", oss_time.str(), loc.file_name(), loc.line(), log_level_map.at(log_level), logger.logger_name, message);
 
         if (logger.path.empty()) {
             // log to console
