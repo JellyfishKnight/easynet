@@ -200,8 +200,8 @@ private:
 
 #define _FUNCTION(name) \
 template <typename... Args> \
-void log_##name(const utils::LoggerManager::Logger& logger, utils::with_source_location<std::format_string<Args...>> fmt, Args &&...args) { \
-    return utils::LoggerManager::get_instance().log(logger, utils::LogLevel::name, std::move(fmt), std::forward<Args>(args)...); \
+void log_##name(const ::utils::LoggerManager::Logger& logger, utils::with_source_location<std::format_string<Args...>> fmt, Args &&...args) { \
+    return ::utils::LoggerManager::get_instance().log(logger, utils::LogLevel::name, std::move(fmt), std::forward<Args>(args)...); \
 }
 LOG_FOREACH_LOG_LEVEL(_FUNCTION)
 #undef _FUNCTION
@@ -209,7 +209,7 @@ LOG_FOREACH_LOG_LEVEL(_FUNCTION)
 #define _FUNCTION(name) \
 template <typename... Args> \
 void async_log_##name(const utils::LoggerManager::Logger& logger, utils::with_source_location<std::format_string<Args...>> fmt, Args &&...args) { \
-    return utils::LoggerManager::get_instance().async_log(logger, utils::LogLevel::name, std::move(fmt), std::forward<Args>(args)...); \
+    return ::utils::LoggerManager::get_instance().async_log(logger, utils::LogLevel::name, std::move(fmt), std::forward<Args>(args)...); \
 }
 LOG_FOREACH_LOG_LEVEL(_FUNCTION)
 #undef _FUNCTION
@@ -220,3 +220,12 @@ LOG_FOREACH_LOG_LEVEL(_FUNCTION)
 #define LOG_WARN(logger, format, ...) log_WARN(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
 #define LOG_ERROR(logger, format, ...) log_ERROR(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
 #define LOG_FATAL(logger, format, ...) log_FATAL(logger,  {format, std::source_location::current()} __VA_OPT__(,) ##__VA_ARGS__)
+
+#define ENABLE_ASYNC_LOGGING() utils::LoggerManager::get_instance().enable_async_logging()
+#define DISABLE_ASYNC_LOGGING() utils::LoggerManager::get_instance().disable_async_logging()
+
+#define LOG_DEBUG_ASYNC(logger, format, ...) async_log_DEBUG(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+#define LOG_INFO_ASYNC(logger, format, ...) async_log_INFO(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+#define LOG_WARN_ASYNC(logger, format, ...) async_log_WARN(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+#define LOG_ERROR_ASYNC(logger, format, ...) async_log_ERROR(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+#define LOG_FATAL_ASYNC(logger, format, ...) async_log_FATAL(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
