@@ -144,14 +144,6 @@ private:
     LoggerManager() {};
 
     void generate_log(const Logger& logger, LogLevel log_level, std::string message, const std::source_location &loc) {
-        const static std::unordered_map<LogLevel, std::string> log_level_map = {
-            { LogLevel::DEBUG, "DEBUG" },
-            { LogLevel::INFO, "INFO" },
-            { LogLevel::WARN, "WARN" },
-            { LogLevel::ERROR, "ERROR" },
-            { LogLevel::FATAL, "FATAL" }
-        };
-
         if (log_level < min_level) {
             return;
         }
@@ -163,7 +155,7 @@ private:
         std::ostringstream oss_time;
         oss_time << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
 
-        auto msg = std::format("{} {}:{} [{}][{}]:{}", oss_time.str(), loc.file_name(), loc.line(), log_level_map.at(log_level), logger.logger_name, message);
+        auto msg = std::format("{} {}:{} [{}][{}]:{}", oss_time.str(), loc.file_name(), loc.line(), get_log_level_name(log_level), logger.logger_name, message);
 
         if (logger.path.empty()) {
             // log to console
@@ -176,6 +168,16 @@ private:
 
         m_files[logger.logger_name] << msg << std::endl;
         std::cout << msg << std::endl;
+    }
+
+    std::string get_log_level_name(LogLevel log_level) {
+        const static std::unordered_map<LogLevel, std::string> log_level_map = {
+#define _FUNCTION(name) \
+            { LogLevel::name, #name },
+LOG_FOREACH_LOG_LEVEL(_FUNCTION)
+#undef _FUNCTION
+        };
+        return log_level_map.at(log_level);
     }
     
     inline static std::queue<std::tuple<LogLevel, Logger, std::string, std::source_location>> m_log_queue = {};
