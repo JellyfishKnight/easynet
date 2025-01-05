@@ -108,7 +108,9 @@ public:
         LogLevel log_level,
         with_source_location<std::format_string<Args...>> fmt,
         Args&&... args) {
-        log(logger, log_level, std::format(fmt, std::forward<Args>(args)...));
+        auto const& loc = fmt.location();
+        auto msg = std::vformat(fmt.format().get(), std::make_format_args(args...));
+        log(logger, log_level, msg);
     }
 
     void log(const Logger& logger, LogLevel log_level, std::string message) {
@@ -124,16 +126,21 @@ public:
         auto now = std::chrono::system_clock::now();
         auto now_c = std::chrono::system_clock::to_time_t(now);
 
+        std::ostringstream oss_time;
+        oss_time << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
+
+        auto msg = std::format("{} [{}][{}]:{}", oss_time.str(), log_level_map.at(log_level), logger.logger_name, message);
+
         if (logger.path.empty()) {
             // log to console
-            std::cout << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "][" << logger.logger_name << "]:" << message << std::endl;
+            std::cout << msg << std::endl;
             return;
         }
         if (m_files.find(logger.logger_name) == m_files.end()) {
             m_files[logger.logger_name].open(logger.path, std::ios::out | std::ios::app);
         }
 
-        m_files[logger.logger_name] << std::ctime(&now_c) << " [" << log_level_map.at(log_level) << "][" << logger.logger_name << "]:" << message << std::endl;
+        m_files[logger.logger_name] << msg << std::endl;
     }
 
 
