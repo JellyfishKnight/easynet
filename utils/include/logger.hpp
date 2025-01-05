@@ -149,13 +149,9 @@ private:
         }
 
         std::lock_guard<std::mutex> lock(m_file_mutex);
-        auto now = std::chrono::system_clock::now();
-        auto now_c = std::chrono::system_clock::to_time_t(now);
+        std::chrono::zoned_time now{std::chrono::current_zone(), std::chrono::system_clock::now()};
 
-        std::ostringstream oss_time;
-        oss_time << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
-
-        auto msg = std::format("{} {}:{} [{}][{}]:{}", oss_time.str(), loc.file_name(), loc.line(), get_log_level_name(log_level), logger.logger_name, message);
+        auto msg = std::format("{} {}:{} [{}][{}]:{}", now, loc.file_name(), loc.line(), get_log_level_name(log_level), logger.logger_name, message);
 
         if (logger.path.empty()) {
             // log to console
