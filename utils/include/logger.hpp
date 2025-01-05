@@ -152,6 +152,10 @@ private:
             { LogLevel::FATAL, "FATAL" }
         };
 
+        if (log_level < min_level) {
+            return;
+        }
+
         std::lock_guard<std::mutex> lock(m_file_mutex);
         auto now = std::chrono::system_clock::now();
         auto now_c = std::chrono::system_clock::to_time_t(now);
@@ -173,7 +177,6 @@ private:
         m_files[logger.logger_name] << msg << std::endl;
         std::cout << msg << std::endl;
     }
-
     
     inline static std::queue<std::tuple<LogLevel, Logger, std::string, std::source_location>> m_log_queue = {};
 
@@ -189,7 +192,7 @@ private:
 
     inline static bool m_async_logging_enabled = false;
 
-    inline static LogLevel max_level = std::getenv("LOG_LEVEL") ? static_cast<LogLevel>(std::stoi(std::getenv("LOG_LEVEL"))) : LogLevel::INFO;
+    inline static LogLevel min_level = std::getenv("LOG_LEVEL") ? static_cast<LogLevel>(std::stoi(std::getenv("LOG_LEVEL"))) : LogLevel::INFO;
 };
 
 } // namespace utils
