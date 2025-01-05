@@ -23,7 +23,7 @@ TEST_F(PrintTest, BasicPrintTest) {
 }
 
 TEST_F(PrintTest, FormatPrintTest) {
-
+    // utils::print("this is format {}", 1);
 }
 
 int main() {
