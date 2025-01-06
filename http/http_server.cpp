@@ -85,39 +85,39 @@ HttpServer::~HttpServer() {
 }
 
 void HttpServer::Get(std::string url, std::function<void(const HttpRequest&)> callback) {
-    
+    m_get_callbacks[url] = callback;
 }
 
 void HttpServer::Post(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_post_callbacks[url] = callback;
 }
 
 void HttpServer::Put(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_put_callbacks[url] = callback;
 }
 
 void HttpServer::Delete(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_delete_callbacks[url] = callback;
 }
 
 void HttpServer::Head(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_head_callbacks[url] = callback;
 }
 
 void HttpServer::Options(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_options_callbacks[url] = callback;
 }
 
 void HttpServer::Connect(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_connect_callbacks[url] = callback;
 }
 
 void HttpServer::Trace(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_trace_callbacks[url] = callback;
 }
 
 void HttpServer::Patch(std::string url, std::function<void(const HttpRequest&)> callback) {
-
+    m_patch_callbacks[url] = callback;
 }
 
 void HttpServer::handle_request(const std::string &request_str) {
