@@ -25,7 +25,26 @@ HttpServer::HttpServer(HttpServer&& other) {
     m_port = other.m_port;
     m_buffer_size = other.m_buffer_size;
     m_thread_pool_enabled = other.m_thread_pool_enabled;
-    m_url_callbacks = std::move(other.m_url_callbacks);
+
+    m_get_callbacks = std::move(other.m_get_callbacks);
+    m_post_callbacks = std::move(other.m_post_callbacks);
+    m_put_callbacks = std::move(other.m_put_callbacks);
+    m_delete_callbacks = std::move(other.m_delete_callbacks);
+    m_head_callbacks = std::move(other.m_head_callbacks);
+    m_options_callbacks = std::move(other.m_options_callbacks);
+    m_connect_callbacks = std::move(other.m_connect_callbacks);
+    m_trace_callbacks = std::move(other.m_trace_callbacks);
+    m_patch_callbacks = std::move(other.m_patch_callbacks);
+
+    other.m_get_callbacks.clear();
+    other.m_post_callbacks.clear();
+    other.m_put_callbacks.clear();
+    other.m_delete_callbacks.clear();
+    other.m_head_callbacks.clear();
+    other.m_options_callbacks.clear();
+    other.m_connect_callbacks.clear();
+    other.m_trace_callbacks.clear();
+    other.m_patch_callbacks.clear();
 }
 
 HttpServer& HttpServer::operator=(HttpServer&& other) {
@@ -35,7 +54,26 @@ HttpServer& HttpServer::operator=(HttpServer&& other) {
         m_port = other.m_port;
         m_buffer_size = other.m_buffer_size;
         m_thread_pool_enabled = other.m_thread_pool_enabled;
-        m_url_callbacks = std::move(other.m_url_callbacks);
+
+        m_get_callbacks = std::move(other.m_get_callbacks);
+        m_post_callbacks = std::move(other.m_post_callbacks);
+        m_put_callbacks = std::move(other.m_put_callbacks);
+        m_delete_callbacks = std::move(other.m_delete_callbacks);
+        m_head_callbacks = std::move(other.m_head_callbacks);
+        m_options_callbacks = std::move(other.m_options_callbacks);
+        m_connect_callbacks = std::move(other.m_connect_callbacks);
+        m_trace_callbacks = std::move(other.m_trace_callbacks);
+        m_patch_callbacks = std::move(other.m_patch_callbacks);
+
+        other.m_get_callbacks.clear();
+        other.m_post_callbacks.clear();
+        other.m_put_callbacks.clear();
+        other.m_delete_callbacks.clear();
+        other.m_head_callbacks.clear();
+        other.m_options_callbacks.clear();
+        other.m_connect_callbacks.clear();
+        other.m_trace_callbacks.clear();
+        other.m_patch_callbacks.clear();
     }
     return *this;
 }
@@ -78,15 +116,17 @@ void HttpServer::Trace(std::string url, std::function<void(const HttpRequest&)> 
 
 }
 
-void HttpServer::Patch(std::string url, std::function<void(const HttpRequest&)> callback) {}
+void HttpServer::Patch(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
 
 void HttpServer::handle_request(const std::string &request_str) {
     auto req = parse_request(request_str);
-    if (m_url_callbacks.find(req.url) != m_url_callbacks.end()) {
+    if (m_url_callbacks.at(req.method).find(req.url) != m_url_callbacks.at(req.method).end()) {
         if (m_thread_pool_enabled) {
             ///TODO: add the request to the thread pool
         } else {
-            m_url_callbacks[req.url](req);        
+            m_url_callbacks.at(req.method).at(req.url)(req);        
         }
     } else {
         // return 404 not found
@@ -129,10 +169,6 @@ void HttpServer::send_response(const HttpResponse& response) {
     std::string res = create_response(response);
     std::vector<uint8_t> data(res.begin(), res.end());
     m_server->send(data);
-}
-
-void HttpServer::add_url_callback(const std::string& url, std::function<void(const HttpRequest&)> callback) {
-    m_url_callbacks[url] = callback;
 }
 
 void HttpServer::close() {

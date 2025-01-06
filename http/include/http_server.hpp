@@ -74,7 +74,7 @@ private:
     bool m_thread_pool_enabled;
 
     // call back group
-    using CallBackWithRoute = std::function<void(const HttpRequest&)>;
+    using CallBackWithRoute = std::unordered_map<std::string, std::function<void(const HttpRequest&)>>;
     CallBackWithRoute m_get_callbacks;
     CallBackWithRoute m_post_callbacks;
     CallBackWithRoute m_put_callbacks;
