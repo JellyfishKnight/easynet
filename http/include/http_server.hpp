@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 
@@ -28,11 +29,27 @@ public:
 
     ~HttpServer();
 
-    void handle_request(const std::string &request_str);
-
     void send_response(const HttpResponse& response);
-    
-    void add_url_callback(const std::string& url, std::function<void(const HttpRequest&)> callback);
+
+    void Get(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Post(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Put(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Delete(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Head(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Options(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Connect(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Trace(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    void Patch(std::string url, std::function<void(const HttpRequest&)> callback);
+
+    // void listen();
 
     void close();
 
@@ -47,6 +64,8 @@ public:
     const net::SocketStatus& status() const;
 
 private:
+    void handle_request(const std::string &request_str);
+
     std::unique_ptr<net::TcpServer> m_server;
     std::string m_ip;
     int m_port;
@@ -54,11 +73,33 @@ private:
     std::size_t m_buffer_size;
     bool m_thread_pool_enabled;
 
-    std::unordered_map<std::string, std::function<void(const HttpRequest&)>> m_url_callbacks;
+    // call back group
+    using CallBackWithRoute = std::function<void(const HttpRequest&)>;
+    CallBackWithRoute m_get_callbacks;
+    CallBackWithRoute m_post_callbacks;
+    CallBackWithRoute m_put_callbacks;
+    CallBackWithRoute m_delete_callbacks;
+    CallBackWithRoute m_head_callbacks;
+    CallBackWithRoute m_options_callbacks;
+    CallBackWithRoute m_connect_callbacks;
+    CallBackWithRoute m_trace_callbacks;
+    CallBackWithRoute m_patch_callbacks;
+    
+    const std::unordered_map<HttpMethod, CallBackWithRoute&> m_url_callbacks = {
+        { HttpMethod::GET, m_get_callbacks },
+        { HttpMethod::POST, m_post_callbacks },
+        { HttpMethod::PUT, m_put_callbacks },
+        { HttpMethod::DELETE, m_delete_callbacks },
+        { HttpMethod::HEAD, m_head_callbacks },
+        { HttpMethod::OPTIONS, m_options_callbacks },
+        { HttpMethod::CONNECT, m_connect_callbacks },
+        { HttpMethod::TRACE, m_trace_callbacks },
+        { HttpMethod::PATCH, m_patch_callbacks },
+    };
 
     std::thread m_loop_thread;
     // thread pool 
-    //static 
+    
 };
 
 

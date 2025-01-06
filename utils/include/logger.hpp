@@ -93,7 +93,7 @@ public:
     }
 
     Logger& get_logger(std::string logger_name, std::string path = "") {
-        if (m_loggers.find(logger_name) == m_loggers.end()) {
+        if (m_loggers.find(logger_name) == m_loggers.end()) [[likely]] {
             m_loggers[logger_name].logger_name = logger_name;
             m_loggers[logger_name].path = path;
         } else {
@@ -105,7 +105,7 @@ public:
     }
 
     static LoggerManager& get_instance() {
-        if (instance == nullptr) {
+        if (instance == nullptr) [[unlikely]] {
             instance = new LoggerManager();
         } 
         return *instance;

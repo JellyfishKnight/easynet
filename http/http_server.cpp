@@ -46,6 +46,40 @@ HttpServer::~HttpServer() {
     }
 }
 
+void HttpServer::Get(std::string url, std::function<void(const HttpRequest&)> callback) {
+    
+}
+
+void HttpServer::Post(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
+
+void HttpServer::Put(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
+
+void HttpServer::Delete(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
+
+void HttpServer::Head(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
+
+void HttpServer::Options(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
+
+void HttpServer::Connect(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
+
+void HttpServer::Trace(std::string url, std::function<void(const HttpRequest&)> callback) {
+
+}
+
+void HttpServer::Patch(std::string url, std::function<void(const HttpRequest&)> callback) {}
+
 void HttpServer::handle_request(const std::string &request_str) {
     auto req = parse_request(request_str);
     if (m_url_callbacks.find(req.url) != m_url_callbacks.end()) {

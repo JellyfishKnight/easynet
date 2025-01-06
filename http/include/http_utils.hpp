@@ -71,6 +71,73 @@ enum class HttpReturnCode : uint16_t {
     LOOP_DETECTED = 508,
 };
 
+inline constexpr auto get_return_code_string = [](const HttpReturnCode& code) -> std::string {
+    const static std::unordered_map<HttpReturnCode, std::string> return_code_string = {
+        { HttpReturnCode::CONTINUE, "Continue" },
+        { HttpReturnCode::SWITCHING_PROTOCOLS, "Switching Protocols" },
+        { HttpReturnCode::PROCESSING, "Processing" },
+        { HttpReturnCode::EARLY_HINTS, "Early Hints" },
+        { HttpReturnCode::OK, "OK" },
+        { HttpReturnCode::CREATED, "Created" },
+        { HttpReturnCode::ACCEPTED, "Accepted" },
+        { HttpReturnCode::NON_AUTHORITATIVE_INFORMATION, "Non-Authoritative Information" },
+        { HttpReturnCode::NO_CONTENT, "No Content" },
+        { HttpReturnCode::RESET_CONTENT, "Reset Content" },
+        { HttpReturnCode::PARTIAL_CONTENT, "Partial Content" },
+        { HttpReturnCode::MULTI_STATUS, "Multi-Status" },
+        { HttpReturnCode::ALREADY_REPORTED, "Already Reported" },
+        { HttpReturnCode::IM_USED, "IM Used" },
+        { HttpReturnCode::MULTIPLE_CHOICES, "Multiple Choices" },
+        { HttpReturnCode::MOVED_PERMANENTLY, "Moved Permanently" },
+        { HttpReturnCode::FOUND, "Found" },
+        { HttpReturnCode::SEE_OTHER, "See Other" },
+        { HttpReturnCode::NOT_MODIFIED, "Not Modified" },
+        { HttpReturnCode::USE_PROXY, "Use Proxy" },
+        { HttpReturnCode::SWITCH_PROXY, "Switch Proxy" },
+        { HttpReturnCode::TEMPORARY_REDIRECT, "Temporary Redirect" },
+        { HttpReturnCode::PERMANENT_REDIRECT, "Permanent Redirect" },
+        { HttpReturnCode::BAD_REQUEST, "Bad Request" },
+        { HttpReturnCode::UNAUTHORIZED, "Unauthorized" },
+        { HttpReturnCode::PAYMENT_REQUIRED, "Payment Required" },
+        { HttpReturnCode::FORBIDDEN, "Forbidden" },
+        { HttpReturnCode::NOT_FOUND, "Not Found" },
+        { HttpReturnCode::METHOD_NOT_ALLOWED, "Method Not Allowed" },
+        { HttpReturnCode::NOT_ACCEPTABLE, "Not Acceptable" },
+        { HttpReturnCode::PROXY_AUTHENTICATION_REQUIRED, "Proxy Authentication Required" },
+        { HttpReturnCode::REQUEST_TIMEOUT, "Request Timeout" },
+        { HttpReturnCode::CONFLICT, "Conflict" },
+        { HttpReturnCode::GONE, "Gone" },
+        { HttpReturnCode::LENGTH_REQUIRED, "Length" },
+        { HttpReturnCode::PRECONDITION_FAILED, "Precondition Failed" },
+        { HttpReturnCode::PAYLOAD_TOO_LARGE, "Payload Too Large" },
+        { HttpReturnCode::URI_TOO_LONG, "URI Too Long" },
+        { HttpReturnCode::UNSUPPORTED_MEDIA_TYPE, "Unsupported Media Type" },
+        { HttpReturnCode::RANGE_NOT_SATISFIABLE, "Range Not Satisfiable" },
+        { HttpReturnCode::EXPECTATION_FAILED, "Expectation Failed" },
+        { HttpReturnCode::IM_A_TEAPOT, "I'm a teapot" },
+        { HttpReturnCode::MISDIRECTED_REQUEST, "Misdirected Request" },
+        { HttpReturnCode::UNPROCESSABLE_ENTITY, "Unprocessable Entity" },
+        { HttpReturnCode::LOCKED, "Locked" },
+        { HttpReturnCode::FAILED_DEPENDENCY, "Failed Dependency" },
+        { HttpReturnCode::TOO_EARLY, "Too Early" },
+        { HttpReturnCode::UPGRADE_REQUIRED, "Upgrade Required" },
+        { HttpReturnCode::PRECONDITION_REQUIRED, "Precondition Required" },
+        { HttpReturnCode::TOO_MANY_REQUESTS, "Too Many Requests" },
+        { HttpReturnCode::REQUEST_HEADER_FIELDS_TOO_LARGE, "Request Header Fields Too Large" },
+        { HttpReturnCode::UNAVAILABLE_FOR_LEGAL_REASONS, "Unavailable For Legal Reasons" },
+        { HttpReturnCode::INTERNAL_SERVER_ERROR, "Internal Server Error" },
+        { HttpReturnCode::NOT_IMPLEMENTED, "Not Implemented" },
+        { HttpReturnCode::BAD_GATEWAY, "Bad Gateway" },
+        { HttpReturnCode::SERVICE_UNAVAILABLE, "Service Unavailable" },
+        { HttpReturnCode::GATEWAY_TIMEOUT, "Gateway Timeout" },
+        { HttpReturnCode::HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported" },
+        { HttpReturnCode::VARIANT_ALSO_NEGOTIATES, "Variant Also Negotiates" },
+        { HttpReturnCode::INSUFFICIENT_STORAGE, "Insufficient Storage" },
+        { HttpReturnCode::LOOP_DETECTED, "Loop Detected" },
+    };
+    return return_code_string.at(code);
+};
+
 struct HttpResponse {
     HttpReturnCode code;
     std::string body;
@@ -82,7 +149,47 @@ std::string create_response(const HttpResponse& response);
 
 HttpResponse parse_response(const std::string& response);
 
-enum class HttpMethod : uint8_t { GET = 0, POST, PUT, DELETE, HEAD, OPTIONS, CONNECT, TRACE, PATCH };
+enum class HttpMethod : uint8_t {
+    GET = 0,
+    POST,
+    PUT,
+    DELETE,
+    HEAD,
+    OPTIONS,
+    CONNECT,
+    TRACE,
+    PATCH
+};
+
+inline constexpr auto get_string_from_http_method = [](const HttpMethod& method) -> std::string {
+    const static std::unordered_map<HttpMethod, std::string> method_map = {
+        { HttpMethod::GET, "GET" },
+        { HttpMethod::POST, "POST" },
+        { HttpMethod::PUT, "PUT" },
+        { HttpMethod::DELETE, "DELETE" },
+        { HttpMethod::HEAD, "HEAD" },
+        { HttpMethod::OPTIONS, "OPTIONS" },
+        { HttpMethod::CONNECT, "CONNECT" },
+        { HttpMethod::TRACE, "TRACE" },
+        { HttpMethod::PATCH, "PATCH" },
+    };
+    return method_map.at(method);
+};
+
+inline constexpr auto get_http_method_from_string = [](const std::string& method) -> HttpMethod {
+    const static std::unordered_map<std::string, HttpMethod> method_map = {
+        { "GET", HttpMethod::GET },
+        { "POST", HttpMethod::POST },
+        { "PUT", HttpMethod::PUT },
+        { "DELETE", HttpMethod::DELETE },
+        { "HEAD", HttpMethod::HEAD },
+        { "OPTIONS", HttpMethod::OPTIONS },
+        { "CONNECT", HttpMethod::CONNECT },
+        { "TRACE", HttpMethod::TRACE },
+        { "PATCH", HttpMethod::PATCH },
+    };
+    return method_map.at(method);
+};
 
 enum class HttpVersion : uint8_t { HTTP_1_0 = 0, HTTP_1_1, HTTP_2_0 };
 

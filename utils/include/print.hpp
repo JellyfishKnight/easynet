@@ -61,7 +61,7 @@ inline void print(const char* value) {
 // print with format
 template<typename... Args>
 void print(const std::format_string<Args...>& fmt, Args&&... args) {
-    std::cout << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+    std::cout << std::format(std::move(fmt), std::forward<Args>(std::move(args))...) << std::endl;
 }
 
 
