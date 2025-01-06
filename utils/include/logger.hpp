@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstdint>
 #include <cstdlib>
 #include <format>
 #include <fstream>
@@ -22,6 +23,10 @@
     f(WARN) \
     f(ERROR) \
     f(FATAL)
+
+#if defined(__linux__)
+#define _IF_HAS_ANSI_COLORS(x) x
+#endif
 
 
 namespace utils {
@@ -152,17 +157,19 @@ private:
         std::chrono::zoned_time now{std::chrono::current_zone(), std::chrono::system_clock::now()};
 
         auto msg = std::format("{} {}:{} [{}][{}]:{}", now, loc.file_name(), loc.line(), get_log_level_name(log_level), logger.logger_name, message);
-
         if (logger.path.empty()) {
             // log to console
-            std::cout << msg << std::endl;
+            std::cout << _IF_HAS_ANSI_COLORS(k_level_ansi_colors[(std::uint8_t)log_level]) +
+                    msg + _IF_HAS_ANSI_COLORS(k_reset_ansi_color) << std::endl;
             return;
         }
         if (m_files.find(logger.logger_name) == m_files.end()) {
             m_files[logger.logger_name].open(logger.path, std::ios::out | std::ios::app);
         }
 
-        m_files[logger.logger_name] << msg << std::endl;
+        m_files[logger.logger_name]
+            << _IF_HAS_ANSI_COLORS(k_level_ansi_colors[(std::uint8_t)log_level] +)
+                    msg _IF_HAS_ANSI_COLORS(+ k_reset_ansi_color) << std::endl;
         std::cout << msg << std::endl;
     }
 
@@ -191,6 +198,29 @@ LOG_FOREACH_LOG_LEVEL(_FUNCTION)
     inline static bool m_async_logging_enabled = false;
 
     inline static LogLevel min_level = std::getenv("LOG_LEVEL") ? static_cast<LogLevel>(std::stoi(std::getenv("LOG_LEVEL"))) : LogLevel::INFO;
+
+#if defined(__linux__)
+    inline static constexpr char k_level_ansi_colors[static_cast<uint8_t>(LogLevel::FATAL) + 1][8] = {
+        "\033[32m",
+        "\033[34m",
+        "\033[33m",
+        "\033[31m",
+        "\033[31;1m",
+    };
+    inline static constexpr char k_reset_ansi_color[4] = "\033[m";
+#else 
+#define _IF_HAS_ANSI_COLORS(x)
+    inline static constexpr char k_level_ansi_colors[(std::uint8_t)log_level::fatal + 1][1] = {
+        "",
+        "",
+        "",
+        "",
+        "",
+    };
+    inline static constexpr char k_reset_ansi_color[1] = "";
+#endif
+
+
 };
 
 } // namespace utils
