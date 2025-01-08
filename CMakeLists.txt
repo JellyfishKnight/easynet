@@ -162,6 +162,23 @@ target_link_libraries(
   utils
 )
 
+add_executable(
+  ThreadPoolTest
+  utils/tests/test_thread_pool.cpp
+)
+
+target_include_directories(
+  ThreadPoolTest PUBLIC
+  ./utils/include
+)
+
+target_link_libraries(
+  ThreadPoolTest
+  GTest::GTest
+  utils
+)
+
+
 
 
 # build custom client and server
