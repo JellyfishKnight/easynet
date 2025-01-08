@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <mutex>
 #include <thread>
@@ -20,6 +21,12 @@ enum class QueueFullPolicy : uint8_t {
 
 
 class ThreadPool {
+private:
+    struct Task {
+        std::function<void()> task;
+        std::chrono::time_point<std::chrono::system_clock> create_time;
+        std::string name;
+    };
 public:
     ThreadPool(std::size_t nums_threads): m_max_workers_num(std::thread::hardware_concurrency()) {
         if (nums_threads > m_max_workers_num) {
@@ -51,9 +58,14 @@ public:
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
-
         std::future<ReturnType> result = task->get_future();
 
+        Task t {
+            .task = [task]() { (*task)(); },
+            .create_time = std::chrono::system_clock::now(),
+            .name = generate_random_name()
+        };
+        
         {
             std::lock_guard<std::mutex> lock(m_queue_mutex);
             if (m_stop) {
@@ -65,6 +77,31 @@ public:
         m_condition.notify_one();
         return result;
     }
+
+    template<typename F, typename... Args>
+    std::optional<std::future<std::result_of_t<F(Args...)>>> submit(const std::string& name, F&& f, Args&&... args) {
+        using ReturnType = std::result_of_t<F(Args...)>;
+        auto task = std::make_shared<std::packaged_task<ReturnType()>>(
+            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+        );
+        std::future<ReturnType> result = task->get_future();
+
+        Task t { .task = [task]() { (*task)(); },
+                 .create_time = std::chrono::system_clock::now(),
+                 .name = name };
+        
+        {
+            std::lock_guard<std::mutex> lock(m_queue_mutex);
+            if (m_stop) {
+                return std::nullopt;
+            }
+            m_tasks.emplace([task]() { (*task)(); });
+        }
+
+        m_condition.notify_one();
+        return result;
+    }
+
 
     void stop() {
         {
@@ -145,8 +182,13 @@ public:
     }
 
 private:
+    std::string generate_random_name() {
+        auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        return std::to_string(t);
+    }
+    
     std::vector<std::thread> m_workers;
-    std::queue<std::function<void()>> m_tasks;
+    std::queue<Task> m_tasks;
 
     std::mutex m_queue_mutex;
     std::condition_variable m_condition;
