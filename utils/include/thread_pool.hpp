@@ -11,11 +11,20 @@
 
 namespace utils {
 
+enum class QueueFullPolicy : uint8_t {
+    AbortPolicy = 0,
+    CallerRunsPolicy,
+    DiscardPolicy,
+    DiscardOldestPolicy
+};
 
 
 class ThreadPool {
 public:
-    ThreadPool(std::size_t nums_threads) {
+    ThreadPool(std::size_t nums_threads): m_max_workers_num(std::thread::hardware_concurrency()) {
+        if (nums_threads > m_max_workers_num) {
+            nums_threads = m_max_workers_num;
+        }
         for (std::size_t i = 0; i < nums_threads; i++) {
             m_workers.emplace_back([this] {
                 while (true) {
@@ -69,8 +78,20 @@ public:
         }
     }
 
+    void stop_now() {
+        m_stop = true;
+        m_condition.notify_all();
+
+        for (auto& worker: m_workers) {
+            worker.join();
+        }
+    }
+
     // it won't take effect immediately because this will wait for enought workers to finish their current task
     void resize_woker(std::size_t nums_threads) {
+        if (nums_threads > m_max_workers_num) {
+            nums_threads = m_max_workers_num;
+        }
         // lock has been got by sub function in "add worker" and "delete worker"
         if (nums_threads > m_workers.size()) {
             add_worker(nums_threads - m_workers.size());
@@ -80,6 +101,9 @@ public:
     }
 
     void add_worker(std::size_t nums_threads) {
+        if (nums_threads > m_max_workers_num) {
+            nums_threads = m_max_workers_num;
+        }
         std::lock_guard<std::mutex> lock(m_queue_mutex);
         for (std::size_t i = 0; i < nums_threads; i++) {
             m_workers.emplace_back([this] {
@@ -102,11 +126,18 @@ public:
     }
 
     void delete_worker(std::size_t nums_threads) {
+        if (m_workers.empty()) {
+            return ;
+        }
         std::lock_guard<std::mutex> lock(m_queue_mutex);
         for (std::size_t i = 0; i < nums_threads; i++) {
             m_workers.back().join();
             m_workers.pop_back();
         }
+    }
+
+    bool is_running() const {
+        return !m_stop;
     }
 
     ~ThreadPool() {
@@ -121,6 +152,9 @@ private:
     std::condition_variable m_condition;
 
     bool m_stop = false;
+
+    // let system decide
+    std::size_t m_max_workers_num;
 
 };
 
