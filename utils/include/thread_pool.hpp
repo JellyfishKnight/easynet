@@ -1,9 +1,12 @@
 #pragma once
 
+#include <cassert>
 #include <chrono>
 #include <cstddef>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 #include <future>
@@ -54,6 +57,10 @@ public:
 
     template<typename F, typename... Args>
     std::optional<std::future<std::result_of_t<F(Args...)>>> submit(F&& f, Args&&... args) {
+        if (m_tasks.size() >= m_max_tasks_num) {
+            ///TODO: discard policy
+        }
+
         using ReturnType = std::result_of_t<F(Args...)>;
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
@@ -65,6 +72,8 @@ public:
             .create_time = std::chrono::system_clock::now(),
             .name = generate_random_name()
         };
+
+        m_names[t.name] = true;
         
         {
             std::lock_guard<std::mutex> lock(m_queue_mutex);
@@ -79,7 +88,18 @@ public:
     }
 
     template<typename F, typename... Args>
-    std::optional<std::future<std::result_of_t<F(Args...)>>> submit(const std::string& name, F&& f, Args&&... args) {
+    std::optional<std::future<std::result_of_t<F(Args...)>>>
+    submit(const std::string& name, F&& f, Args&&... args) {
+        assert(name.empty() == false);
+
+        assert(m_names.find(name) == m_names.end());
+
+        m_names[name] = true;
+        
+        if (m_tasks.size() >= m_max_tasks_num) {
+            ///TODO: discard policy
+        }
+        
         using ReturnType = std::result_of_t<F(Args...)>;
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
@@ -160,6 +180,7 @@ public:
                 }
             });
         }
+        m_max_tasks_num = m_workers.size() * 10;
     }
 
     void delete_worker(std::size_t nums_threads) {
@@ -171,6 +192,7 @@ public:
             m_workers.back().join();
             m_workers.pop_back();
         }
+        m_max_tasks_num = m_workers.size() * 10;
     }
 
     bool is_running() const {
@@ -179,6 +201,10 @@ public:
 
     ~ThreadPool() {
         this->stop();
+    }
+
+    void set_queue_full_policy(QueueFullPolicy policy) {
+        m_queue_full_policy = policy;
     }
 
 private:
@@ -193,11 +219,15 @@ private:
     std::mutex m_queue_mutex;
     std::condition_variable m_condition;
 
+    std::unordered_map<std::string, bool> m_names;
+
     bool m_stop = false;
 
     // let system decide
     std::size_t m_max_workers_num;
+    std::size_t m_max_tasks_num;
 
+    QueueFullPolicy m_queue_full_policy = QueueFullPolicy::AbortPolicy;
 };
 
 
