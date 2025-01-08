@@ -58,7 +58,72 @@ public:
     }
 
     void stop() {
+        {
+            std::lock_guard<std::mutex> lock(m_queue_mutex);
+            m_stop = true;
+        }
+        m_condition.notify_all();
 
+        for (auto& worker: m_workers) {
+            worker.join();
+        }
+    }
+
+    /**
+     * @brief resize worker will kill all tasks running 
+     */
+    void resize_woker(std::size_t nums_threads) {
+        stop();
+        m_workers.clear();
+        m_stop = false;
+        for (std::size_t i = 0; i < nums_threads; i++) {
+            m_workers.emplace_back([this] {
+                while (true) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(this->m_queue_mutex);
+                        this->m_condition.wait(lock, [this] {
+                            return this->m_stop || !this->m_tasks.empty();
+                        });
+                        if (this->m_stop || this->m_tasks.empty()) {
+                            return ;
+                        }
+                        this->m_tasks.pop();
+                    }
+                    task();
+                }
+            });
+        }
+    }
+
+    void add_worker(std::size_t nums_threads) {
+        std::lock_guard<std::mutex> lock(m_queue_mutex);
+        for (std::size_t i = 0; i < nums_threads; i++) {
+            m_workers.emplace_back([this] {
+                while (true) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(this->m_queue_mutex);
+                        this->m_condition.wait(lock, [this] {
+                            return this->m_stop || !this->m_tasks.empty();
+                        });
+                        if (this->m_stop || this->m_tasks.empty()) {
+                            return ;
+                        }
+                        this->m_tasks.pop();
+                    }
+                    task();
+                }
+            });
+        }
+    }
+
+    void delete_worker(std::size_t nums_threads) {
+        std::lock_guard<std::mutex> lock(m_queue_mutex);
+        for (std::size_t i = 0; i < nums_threads; i++) {
+            m_workers.back().join();
+            m_workers.pop_back();
+        }
     }
 
     ~ThreadPool() {
