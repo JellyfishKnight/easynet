@@ -37,8 +37,8 @@ public:
     }
 
     template<typename F, typename... Args>
-    std::optional<std::future<typename std::result_of<F(Args...)>::type>> submit(F&& f, Args&&... args) {
-        using ReturnType = typename std::result_of<F(Args...)>::type;
+    std::optional<std::future<std::result_of_t<F(Args...)>>> submit(F&& f, Args&&... args) {
+        using ReturnType = std::result_of_t<F(Args...)>;
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
@@ -69,30 +69,13 @@ public:
         }
     }
 
-    /**
-     * @brief resize worker will kill all tasks running 
-     */
+    // it won't take effect immediately because this will wait for enought workers to finish their current task
     void resize_woker(std::size_t nums_threads) {
-        stop();
-        m_workers.clear();
-        m_stop = false;
-        for (std::size_t i = 0; i < nums_threads; i++) {
-            m_workers.emplace_back([this] {
-                while (true) {
-                    std::function<void()> task;
-                    {
-                        std::unique_lock<std::mutex> lock(this->m_queue_mutex);
-                        this->m_condition.wait(lock, [this] {
-                            return this->m_stop || !this->m_tasks.empty();
-                        });
-                        if (this->m_stop || this->m_tasks.empty()) {
-                            return ;
-                        }
-                        this->m_tasks.pop();
-                    }
-                    task();
-                }
-            });
+        // lock has been got by sub function in "add worker" and "delete worker"
+        if (nums_threads > m_workers.size()) {
+            add_worker(nums_threads - m_workers.size());
+        } else if (nums_threads < m_workers.size()) {
+            delete_worker(m_workers.size() - nums_threads);
         }
     }
 
