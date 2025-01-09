@@ -103,11 +103,28 @@ public:
 
     template<typename F, typename... Args>
     std::optional<std::future<std::result_of_t<F(Args...)>>> submit(F&& f, Args&&... args) {
+        using ReturnType = std::result_of_t<F(Args...)>;
         if (m_tasks.size() >= m_max_tasks_num) {
-            ///TODO: discard policy
+            switch (m_queue_full_policy) {
+                    case QueueFullPolicy::AbortPolicy:
+                        return std::nullopt;
+                    case QueueFullPolicy::CallerRunsPolicy: {
+                        auto func = std::make_shared<std::packaged_task<ReturnType()>>(
+                            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+                        );
+                        std::thread([func] {
+                            (*func)();
+                        }).detach();
+                        return func->get_future();
+                    }
+                    case QueueFullPolicy::DiscardPolicy:
+                        return std::nullopt;
+                    case QueueFullPolicy::DiscardOldestPolicy:
+                        m_tasks.pop();
+                    break;
+            }
         }
 
-        using ReturnType = std::result_of_t<F(Args...)>;
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
@@ -139,16 +156,21 @@ public:
         assert(m_names.find(name) == m_names.end());
 
         m_names[name] = true;
-        
+
+        using ReturnType = std::result_of_t<F(Args...)>;
         if (m_tasks.size() >= m_max_tasks_num) {
             switch (m_queue_full_policy) {
                 case QueueFullPolicy::AbortPolicy:
                     return std::nullopt;
-                case QueueFullPolicy::CallerRunsPolicy:
-                    // std::thread([this, f = std::forward<F>(f), args = std::make_tuple(std::forward<Args>(args)...)] {
-                    //     f(std::get<Args>(args)...);
-                    // }).detach();
-                    return std::nullopt;
+                case QueueFullPolicy::CallerRunsPolicy: {
+                    auto func = std::make_shared<std::packaged_task<ReturnType()>>(
+                        std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+                    );
+                    std::thread([func] {
+                        (*func)();
+                    }).detach();
+                    return func->get_future();
+                }
                 case QueueFullPolicy::DiscardPolicy:
                     return std::nullopt;
                 case QueueFullPolicy::DiscardOldestPolicy:
@@ -157,7 +179,6 @@ public:
             }
         }
         
-        using ReturnType = std::result_of_t<F(Args...)>;
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
