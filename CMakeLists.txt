@@ -6,17 +6,22 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # set Debug during the competition
 set(CMAKE_BUILD_TYPE Debug)
-# set compiler as clang 
-set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
-set(CMAKE_C_COMPILER "/usr/bin/clang")
+# set compiler as clang in UNIX
+if (UNIX)
+  set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+  set(CMAKE_C_COMPILER "/usr/bin/clang")
+endif ()
 
 message(STATUS "CMAKE_CXX_COMPILER: ${CMAKE_CXX_COMPILER}")
 message(STATUS "CMAKE_C_COMPILER: ${CMAKE_C_COMPILER}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 
+
 add_compile_options(-Wall -Wextra -Wpedantic)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -fexperimental-library")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -fexperimental-library")
+endif ()
 
 project(net)
 
@@ -91,93 +96,94 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/http/include/ DESTINATION ${INCLUDE_OUTP
 
 # build test
 
-find_package(GTest REQUIRED)
+if (UNIX)
+  find_package(GTest REQUIRED)
 
-add_executable(
-  TcpTest
-  socket/tests/test_tcp.cpp
-)
+  add_executable(
+    TcpTest
+    socket/tests/test_tcp.cpp
+  )
 
-target_link_libraries(
-  TcpTest
-  GTest::GTest
-  socket
-  utils
-)
+  target_link_libraries(
+    TcpTest
+    GTest::GTest
+    socket
+    utils
+  )
 
-add_executable(
-  UdpTest
-  socket/tests/test_udp.cpp
-)
+  add_executable(
+    UdpTest
+    socket/tests/test_udp.cpp
+  )
 
-target_link_libraries(
-  UdpTest
-  GTest::GTest
-  socket
-  utils
-)
+  target_link_libraries(
+    UdpTest
+    GTest::GTest
+    socket
+    utils
+  )
 
-add_executable(
-  HttpTest
-  http/tests/http_test.cpp
-)
+  add_executable(
+    HttpTest
+    http/tests/http_test.cpp
+  )
 
-target_link_libraries(
-  HttpTest
-  GTest::GTest
-  http
-  utils
-  socket
-)
+  target_link_libraries(
+    HttpTest
+    GTest::GTest
+    http
+    utils
+    socket
+  )
 
-add_executable(
-  LoggerTest
-  utils/tests/test_logger.cpp
-)
+  add_executable(
+    LoggerTest
+    utils/tests/test_logger.cpp
+  )
 
-target_include_directories(
-  LoggerTest PUBLIC
-  ./utils/include
-)
+  target_include_directories(
+    LoggerTest PUBLIC
+    ./utils/include
+  )
 
-target_link_libraries(
-  LoggerTest
-  GTest::GTest
-  utils
-)
+  target_link_libraries(
+    LoggerTest
+    GTest::GTest
+    utils
+  )
 
-add_executable(
-  PrintTest
-  utils/tests/test_print.cpp
-)
+  add_executable(
+    PrintTest
+    utils/tests/test_print.cpp
+  )
 
-target_include_directories(
-  PrintTest PUBLIC
-  ./utils/include
-)
+  target_include_directories(
+    PrintTest PUBLIC
+    ./utils/include
+  )
 
-target_link_libraries(
-  PrintTest
-  GTest::GTest
-  utils
-)
+  target_link_libraries(
+    PrintTest
+    GTest::GTest
+    utils
+  )
 
-add_executable(
-  ThreadPoolTest
-  utils/tests/test_thread_pool.cpp
-)
+  add_executable(
+    ThreadPoolTest
+    utils/tests/test_thread_pool.cpp
+  )
 
-target_include_directories(
-  ThreadPoolTest PUBLIC
-  ./utils/include
-)
+  target_include_directories(
+    ThreadPoolTest PUBLIC
+    ./utils/include
+  )
 
-target_link_libraries(
-  ThreadPoolTest
-  GTest::GTest
-  utils
-)
-
+  target_link_libraries(
+    ThreadPoolTest
+    GTest::GTest
+    utils
+  )
+endif ()
 
 
 
