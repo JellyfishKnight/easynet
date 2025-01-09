@@ -26,6 +26,8 @@
 
 #if defined(__linux__)
 #define _IF_HAS_ANSI_COLORS(x) x
+#else
+#define _IF_HAS_ANSI_COLORS(x)
 #endif
 
 
@@ -159,8 +161,8 @@ private:
         auto msg = std::format("{} {}:{} [{}][{}]:{}", now, loc.file_name(), loc.line(), get_log_level_name(log_level), logger.logger_name, message);
         if (logger.path.empty()) {
             // log to console
-            std::cout << _IF_HAS_ANSI_COLORS(k_level_ansi_colors[(std::uint8_t)log_level]) +
-                    msg + _IF_HAS_ANSI_COLORS(k_reset_ansi_color) << std::endl;
+            std::cout << _IF_HAS_ANSI_COLORS(k_level_ansi_colors[(std::uint8_t)log_level] +)
+                    msg _IF_HAS_ANSI_COLORS(+ k_reset_ansi_color) << std::endl;
             return;
         }
         if (m_files.find(logger.logger_name) == m_files.end()) {
@@ -210,7 +212,7 @@ LOG_FOREACH_LOG_LEVEL(_FUNCTION)
     inline static constexpr char k_reset_ansi_color[4] = "\033[m";
 #else 
 #define _IF_HAS_ANSI_COLORS(x)
-    inline static constexpr char k_level_ansi_colors[(std::uint8_t)log_level::fatal + 1][1] = {
+    inline static constexpr char k_level_ansi_colors[static_cast<uint8_t>(LogLevel::FATAL) + 1][1] = {
         "",
         "",
         "",
