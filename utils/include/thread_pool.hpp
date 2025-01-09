@@ -69,7 +69,7 @@ private:
     };
 
 public:
-    explicit ThreadPool(std::size_t nums_threads): m_max_workers_num(std::thread::hardware_concurrency()) {
+    explicit ThreadPool(std::size_t nums_threads): m_max_workers_num(std::thread::hardware_concurrency()), m_max_tasks_num(m_max_workers_num * 10) {
         if (nums_threads > m_max_workers_num) {
             nums_threads = m_max_workers_num;
         }
@@ -291,6 +291,14 @@ public:
         }
         m_names.erase(name);
         return true;
+    }
+
+    std::size_t max_workers_num() const {
+        return m_max_workers_num;
+    }
+
+    std::size_t max_tasks_num() const {
+        return m_max_tasks_num;
     }
 
 private:
