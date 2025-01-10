@@ -254,11 +254,12 @@ public:
                     if (this->m_stop || this->m_tasks.empty()) {
                         return ;
                     }
-                    m_task_pool.insert({m_tasks.}) = std::move(this->m_tasks.front());
+                    name = this->m_tasks.front().name;
+                    m_task_pool.insert({m_tasks.front().name, std::move(this->m_tasks.front())});
                     this->m_tasks.pop_front();
                 }
-                task();
-                task.status = TaskStatus::FINISHED;
+                m_task_pool[name]();
+                m_task_pool[name].status = TaskStatus::FINISHED;
             }
         };
         std::lock_guard<std::mutex> lock(m_queue_mutex);
@@ -314,14 +315,32 @@ public:
         std::lock_guard<std::mutex> lock(m_queue_mutex);
         for (auto it = m_tasks.begin(); it != m_tasks.end(); ++it) {
             if (it->name == name) {
-                if (it->status == TaskStatus::RUNNING) {
-                    return false;
-                }
                 m_tasks.erase(it);
                 return true;
             }
         }
-        return true;
+        if (m_task_pool.contains(name)) {
+            if (m_task_pool[name].status == TaskStatus::RUNNING) {
+                return false;
+            }
+            m_task_pool.erase(name);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    std::optional<TaskStatus> get_task_status(const std::string& name) {
+        std::lock_guard<std::mutex> lock(m_queue_mutex);
+        for (const auto& task: m_tasks) {
+            if (task.name == name) {
+                return task.status;
+            }
+        }
+        if (m_task_pool.contains(name)) {
+            return m_task_pool[name].status;
+        }
+        return std::nullopt;
     }
 
     [[nodiscard]] std::size_t max_workers_num() const {
@@ -337,6 +356,10 @@ private:
         const auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         return std::to_string(t);
     }
+
+    void remove_oldest_task() {
+
+    }
     
     std::vector<Worker> m_workers;
     std::deque<Task> m_tasks;
@@ -344,7 +367,7 @@ private:
     std::mutex m_queue_mutex;
     std::condition_variable m_condition;
 
-    bool m_stop = false;
+    bool m_stop = false;   
 
     // let system decide
     std::size_t m_max_workers_num;
