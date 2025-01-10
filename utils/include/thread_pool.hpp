@@ -6,6 +6,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <utility>
 #include <vector>
 #include <functional>
@@ -98,7 +99,14 @@ public:
                         return ;
                     }
                     name = this->m_tasks.front().name;
-                    m_task_pool.insert({m_tasks.front().name, std::move(this->m_tasks.front())});
+                    m_task_pool.insert({ m_tasks.front().name, std::move(this->m_tasks.front()) });
+                    if (m_task_pool.size() > m_max_tasks_num) [[unlikely]] {
+                        for (auto it = m_task_pool.begin(); it != m_task_pool.end(); ++it) {
+                            if (it->second.status == TaskStatus::FINISHED) {
+                                m_task_pool.erase(it);
+                            }
+                        }
+                    }
                     this->m_tasks.pop_front();
                 }
                 m_task_pool[name]();
@@ -250,7 +258,14 @@ public:
                         return ;
                     }
                     name = this->m_tasks.front().name;
-                    m_task_pool.insert({m_tasks.front().name, std::move(this->m_tasks.front())});
+                    m_task_pool.insert({ m_tasks.front().name, std::move(this->m_tasks.front()) });
+                    if (m_task_pool.size() > m_max_tasks_num) [[unlikely]] {
+                        for (auto it = m_task_pool.begin(); it != m_task_pool.end(); ++it) {
+                            if (it->second.status == TaskStatus::FINISHED) {
+                                m_task_pool.erase(it);
+                            }
+                        }
+                    }
                     this->m_tasks.pop_front();
                 }
                 m_task_pool[name]();
@@ -325,15 +340,15 @@ public:
         }
     }
 
-    std::optional<TaskStatus> get_task_status(const std::string& name) {
+    std::optional<std::tuple<TaskStatus, std::chrono::duration<double>>> get_task_status(const std::string& name) {
         std::lock_guard<std::mutex> lock(m_queue_mutex);
         for (const auto& task: m_tasks) {
             if (task.name == name) {
-                return task.status;
+                return std::make_tuple(task.status, std::chrono::duration<double>(std::chrono::system_clock::now() - task.create_time));
             }
         }
         if (m_task_pool.contains(name)) {
-            return m_task_pool[name].status;
+            return std::make_tuple(m_task_pool[name].status, std::chrono::duration<double>(std::chrono::system_clock::now() - m_task_pool[name].create_time));
         }
         return std::nullopt;
     }
