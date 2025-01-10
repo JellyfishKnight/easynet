@@ -44,12 +44,27 @@ private:
 
         Task() = default;
 
-        Task(const Task& other) = default;
+        Task(const Task& other) = delete;
+
+        Task operator=(const Task& other) = delete;
+
+        Task(Task&& other) noexcept
+            : create_time(other.create_time), name(std::move(other.name)) {
+            task = other.task;
+        }
+
+        Task& operator=(Task&& other) noexcept {
+            task = other.task;
+            create_time = other.create_time;
+            name = std::move(other.name);
+            return *this;
+        }
 
         Task(std::function<void()>&& task, const std::chrono::time_point<std::chrono::system_clock>& create_time, std::string name)
             : task(std::move(task)), create_time(create_time), name(std::move(name)) {}
 
-        void operator()() const {
+        void operator()() {
+            status = TaskStatus::RUNNING;
             task();
         }
 
@@ -75,7 +90,7 @@ public:
         }
         auto worker_func = [this] {
             while (true) {
-                std::function<void()> task;
+                Task task;
                 {
                     std::unique_lock<std::mutex> lock(this->m_queue_mutex);
                     this->m_condition.wait(lock, [this] {
@@ -84,10 +99,11 @@ public:
                     if (this->m_stop || this->m_tasks.empty()) {
                         return ;
                     }
-                    task = this->m_tasks.front();
+                    task = std::move(this->m_tasks.front());
                     this->m_tasks.pop();
                 }
                 task();
+                task.status = TaskStatus::FINISHED;
             }
         };
         for (std::size_t i = 0; i < nums_threads; i++) {
@@ -141,7 +157,7 @@ public:
             if (m_stop) {
                 return std::nullopt;
             }
-            m_tasks.emplace(t);
+            m_tasks.push(std::move(t));
         }
 
         m_condition.notify_one();
@@ -153,7 +169,7 @@ public:
     submit(const std::string& name, F&& f, Args&&... args) {
         assert(name.empty() == false);
 
-        assert(m_names.find(name) == m_names.end());
+        assert(!m_names.contains(name));
 
         m_names[name] = true;
 
@@ -184,16 +200,13 @@ public:
         );
         std::future<ReturnType> result = task->get_future();
 
-        Task t ([task]() { (*task)(); },
-                std::chrono::system_clock::now(),
-                name);
-        
         {
+            Task t([task]() { (*task)(); }, std::chrono::system_clock::now(), name);
             std::lock_guard<std::mutex> lock(m_queue_mutex);
             if (m_stop) {
                 return std::nullopt;
             }
-            m_tasks.emplace(t);
+            m_tasks.push(std::move(t));
         }
 
         m_condition.notify_one();
@@ -222,7 +235,7 @@ public:
         }
     }
 
-    // it won't take effect immediately because this will wait for enought workers to finish their current task
+    // it won't take effect immediately because this will wait for enough workers to finish their current task
     void resize_worker(std::size_t nums_threads) {
         if (nums_threads > m_max_workers_num) {
             nums_threads = m_max_workers_num;
@@ -241,7 +254,7 @@ public:
         }
         auto worker_func = [this] {
             while (true) {
-                std::function<void()> task;
+                Task task;
                 {
                     std::unique_lock<std::mutex> lock(this->m_queue_mutex);
                     this->m_condition.wait(lock, [this] {
@@ -250,10 +263,11 @@ public:
                     if (this->m_stop || this->m_tasks.empty()) {
                         return ;
                     }
-                    task = this->m_tasks.front();
+                    task = std::move(this->m_tasks.front());
                     this->m_tasks.pop();
                 }
                 task();
+                task.status = TaskStatus::FINISHED;
             }
         };
         std::lock_guard<std::mutex> lock(m_queue_mutex);
@@ -307,7 +321,7 @@ public:
      */
     bool remove_task(const std::string& name) {
         std::lock_guard<std::mutex> lock(m_queue_mutex);
-        if (m_names.find(name) == m_names.end()) {
+        if (!m_names.contains(name)) {
             return false;
         }
         m_names.erase(name);
