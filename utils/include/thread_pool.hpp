@@ -18,8 +18,7 @@ namespace utils {
 enum class QueueFullPolicy : uint8_t {
     AbortPolicy = 0,
     CallerRunsPolicy,
-    DiscardPolicy,
-    DiscardOldestPolicy
+    DiscardRandomInQueuePolicy,
 };
 
 enum class TaskStatus : uint8_t {
@@ -133,11 +132,9 @@ public:
                         }).detach();
                         return func->get_future();
                     }
-                    case QueueFullPolicy::DiscardPolicy:
-                        return std::nullopt;
-                    case QueueFullPolicy::DiscardOldestPolicy:
-                        // m_tasks.pop_front();
-                    break;
+                    case QueueFullPolicy::DiscardRandomInQueuePolicy:
+                        m_tasks.pop_front();
+                        break;
             }
         }
 
@@ -178,10 +175,8 @@ public:
                     }).detach();
                     return func->get_future();
                 }
-                case QueueFullPolicy::DiscardPolicy:
-                    return std::nullopt;
-                case QueueFullPolicy::DiscardOldestPolicy:
-                    // m_tasks.pop();
+                case QueueFullPolicy::DiscardRandomInQueuePolicy:
+                    m_tasks.pop_front();
                     break;
             }
         }
@@ -355,10 +350,6 @@ private:
     static std::string generate_random_name() {
         const auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         return std::to_string(t);
-    }
-
-    void remove_oldest_task() {
-
     }
     
     std::vector<Worker> m_workers;
