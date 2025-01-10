@@ -6,7 +6,6 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <functional>
@@ -100,7 +99,7 @@ public:
                         return ;
                     }
                     task = std::move(this->m_tasks.front());
-                    this->m_tasks.pop();
+                    this->m_tasks.pop_front();
                 }
                 task();
                 task.status = TaskStatus::FINISHED;
@@ -136,7 +135,7 @@ public:
                     case QueueFullPolicy::DiscardPolicy:
                         return std::nullopt;
                     case QueueFullPolicy::DiscardOldestPolicy:
-                        m_tasks.pop();
+                        // m_tasks.pop_front();
                     break;
             }
         }
@@ -146,18 +145,13 @@ public:
         );
         std::future<ReturnType> result = task->get_future();
 
-        Task t ([task] { (*task)(); },
-                std::chrono::system_clock::now(),
-                generate_random_name());
-
-        m_names[t.name] = true;
-        
         {
+            Task t([task] { (*task)(); }, std::chrono::system_clock::now(), generate_random_name());
             std::lock_guard<std::mutex> lock(m_queue_mutex);
             if (m_stop) {
                 return std::nullopt;
             }
-            m_tasks.push(std::move(t));
+            m_tasks.push_back(std::move(t));
         }
 
         m_condition.notify_one();
@@ -168,10 +162,6 @@ public:
     std::optional<std::future<std::result_of_t<F(Args...)>>>
     submit(const std::string& name, F&& f, Args&&... args) {
         assert(name.empty() == false);
-
-        assert(!m_names.contains(name));
-
-        m_names[name] = true;
 
         using ReturnType = std::result_of_t<F(Args...)>;
         if (m_tasks.size() >= m_max_tasks_num) {
@@ -190,7 +180,7 @@ public:
                 case QueueFullPolicy::DiscardPolicy:
                     return std::nullopt;
                 case QueueFullPolicy::DiscardOldestPolicy:
-                    m_tasks.pop();
+                    // m_tasks.pop();
                     break;
             }
         }
@@ -206,7 +196,7 @@ public:
             if (m_stop) {
                 return std::nullopt;
             }
-            m_tasks.push(std::move(t));
+            m_tasks.push_back(std::move(t));
         }
 
         m_condition.notify_one();
@@ -264,7 +254,7 @@ public:
                         return ;
                     }
                     task = std::move(this->m_tasks.front());
-                    this->m_tasks.pop();
+                    this->m_tasks.pop_front();
                 }
                 task();
                 task.status = TaskStatus::FINISHED;
@@ -295,7 +285,7 @@ public:
         m_max_tasks_num = m_workers.size() * 10;
     }
 
-    bool is_running() const {
+    [[nodiscard]] bool is_running() const {
         return !m_stop;
     }
 
@@ -321,18 +311,23 @@ public:
      */
     bool remove_task(const std::string& name) {
         std::lock_guard<std::mutex> lock(m_queue_mutex);
-        if (!m_names.contains(name)) {
-            return false;
+        for (auto it = m_tasks.begin(); it != m_tasks.end(); ++it) {
+            if (it->name == name) {
+                if (it->status == TaskStatus::RUNNING) {
+                    return false;
+                }
+                m_tasks.erase(it);
+                return true;
+            }
         }
-        m_names.erase(name);
         return true;
     }
 
-    std::size_t max_workers_num() const {
+    [[nodiscard]] std::size_t max_workers_num() const {
         return m_max_workers_num;
     }
 
-    std::size_t max_tasks_num() const {
+    [[nodiscard]] std::size_t max_tasks_num() const {
         return m_max_tasks_num;
     }
 
@@ -343,12 +338,10 @@ private:
     }
     
     std::vector<Worker> m_workers;
-    std::queue<Task> m_tasks;
+    std::deque<Task> m_tasks;
 
     std::mutex m_queue_mutex;
     std::condition_variable m_condition;
-
-    std::unordered_map<std::string, bool> m_names;
 
     bool m_stop = false;
 
