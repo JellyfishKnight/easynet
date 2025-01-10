@@ -89,7 +89,7 @@ public:
         }
         auto worker_func = [this] {
             while (true) {
-                Task task;
+                std::string_view name;
                 {
                     std::unique_lock<std::mutex> lock(this->m_queue_mutex);
                     this->m_condition.wait(lock, [this] {
@@ -98,11 +98,12 @@ public:
                     if (this->m_stop || this->m_tasks.empty()) {
                         return ;
                     }
-                    task = std::move(this->m_tasks.front());
+                    name = this->m_tasks.front().name;
+                    m_task_pool.insert({m_tasks.front().name, std::move(this->m_tasks.front())});
                     this->m_tasks.pop_front();
                 }
-                task();
-                task.status = TaskStatus::FINISHED;
+                m_task_pool[name]();
+                m_task_pool[name].status = TaskStatus::FINISHED;
             }
         };
         for (std::size_t i = 0; i < nums_threads; i++) {
@@ -244,7 +245,7 @@ public:
         }
         auto worker_func = [this] {
             while (true) {
-                Task task;
+                std::string_view name;
                 {
                     std::unique_lock<std::mutex> lock(this->m_queue_mutex);
                     this->m_condition.wait(lock, [this] {
@@ -253,7 +254,7 @@ public:
                     if (this->m_stop || this->m_tasks.empty()) {
                         return ;
                     }
-                    task = std::move(this->m_tasks.front());
+                    m_task_pool.insert({m_tasks.}) = std::move(this->m_tasks.front());
                     this->m_tasks.pop_front();
                 }
                 task();
@@ -348,6 +349,8 @@ private:
     // let system decide
     std::size_t m_max_workers_num;
     std::size_t m_max_tasks_num{};
+
+    std::unordered_map<std::string_view, Task> m_task_pool;
 
     QueueFullPolicy m_queue_full_policy = QueueFullPolicy::AbortPolicy;
 };
