@@ -13,6 +13,7 @@
 #include <future>
 #include <optional>
 #include <queue>
+#include <iostream>
 
 namespace utils {
 
@@ -108,6 +109,9 @@ public:
                         }
                     }
                     this->m_tasks.pop_front();
+                }
+                if (m_task_pool[name].status == TaskStatus::FINISHED) {
+                    std::cout << "Wrong" << std::endl;
                 }
                 m_task_pool[name]();
                 m_task_pool[name].status = TaskStatus::FINISHED;
