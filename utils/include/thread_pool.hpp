@@ -129,20 +129,16 @@ public:
         using ReturnType = std::result_of_t<F(Args...)>;
         if (m_tasks.size() >= m_max_tasks_num) {
             switch (m_queue_full_policy) {
-                    case QueueFullPolicy::AbortPolicy:
-                        return std::nullopt;
-                    case QueueFullPolicy::CallerRunsPolicy: {
-                        auto func = std::make_shared<std::packaged_task<ReturnType()>>(
-                            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-                        );
-                        std::thread([func] {
-                            (*func)();
-                        }).detach();
-                        return func->get_future();
-                    }
-                    case QueueFullPolicy::DiscardRandomInQueuePolicy:
+                case QueueFullPolicy::AbortPolicy:
+                    return std::nullopt;
+                case QueueFullPolicy::CallerRunsPolicy: {
+                    return std::async(std::launch::async, std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+                }
+                case QueueFullPolicy::DiscardRandomInQueuePolicy:
+                    if (m_tasks.empty()) [[unlikely]] {
                         m_tasks.pop_front();
-                        break;
+                    }
+                    break;
             }
         }
 
@@ -175,16 +171,12 @@ public:
                 case QueueFullPolicy::AbortPolicy:
                     return std::nullopt;
                 case QueueFullPolicy::CallerRunsPolicy: {
-                    auto func = std::make_shared<std::packaged_task<ReturnType()>>(
-                        std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-                    );
-                    std::thread([func] {
-                        (*func)();
-                    }).detach();
-                    return func->get_future();
+                    return std::async(std::launch::async, std::bind(std::forward<F>(f), std::forward<Args>(args)...));
                 }
                 case QueueFullPolicy::DiscardRandomInQueuePolicy:
-                    m_tasks.pop_front();
+                    if (m_tasks.empty()) [[unlikely]] {
+                        m_tasks.pop_front();
+                    }
                     break;
             }
         }
