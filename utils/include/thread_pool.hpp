@@ -3,17 +3,18 @@
 #include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <functional>
+#include <future>
+#include <iostream>
 #include <mutex>
+#include <optional>
+#include <ostream>
+#include <queue>
 #include <string>
 #include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <functional>
-#include <future>
-#include <optional>
-#include <queue>
-#include <iostream>
 
 namespace utils {
 
@@ -23,16 +24,9 @@ enum class QueueFullPolicy : uint8_t {
     DiscardRandomInQueuePolicy,
 };
 
-enum class TaskStatus : uint8_t {
-    WAITING = 0,
-    RUNNING,
-    FINISHED
-};
+enum class TaskStatus : uint8_t { WAITING = 0, RUNNING, FINISHED };
 
-enum class WorkerStatus : uint8_t {
-    IDLE = 0,
-    RUNNING
-};
+enum class WorkerStatus : uint8_t { IDLE = 0, RUNNING };
 
 class ThreadPool {
 private:
@@ -48,8 +42,7 @@ private:
 
         Task operator=(const Task& other) = delete;
 
-        Task(Task&& other) noexcept
-            : create_time(other.create_time), name(std::move(other.name)) {
+        Task(Task&& other) noexcept: create_time(other.create_time), name(std::move(other.name)) {
             task = other.task;
         }
 
@@ -60,8 +53,14 @@ private:
             return *this;
         }
 
-        Task(std::function<void()>&& task, const std::chrono::time_point<std::chrono::system_clock>& create_time, std::string name)
-            : task(std::move(task)), create_time(create_time), name(std::move(name)) {}
+        Task(
+            std::function<void()>&& task,
+            const std::chrono::time_point<std::chrono::system_clock>& create_time,
+            std::string name
+        ):
+            task(std::move(task)),
+            create_time(create_time),
+            name(std::move(name)) {}
 
         void operator()() {
             status = TaskStatus::RUNNING;
@@ -84,20 +83,22 @@ private:
     };
 
 public:
-    explicit ThreadPool(std::size_t nums_threads): m_max_workers_num(std::thread::hardware_concurrency()), m_max_tasks_num(m_max_workers_num * 10) {
+    explicit ThreadPool(std::size_t nums_threads):
+        m_max_workers_num(std::thread::hardware_concurrency()),
+        m_max_tasks_num(m_max_workers_num * 10) {
         if (nums_threads > m_max_workers_num) {
             nums_threads = m_max_workers_num;
         }
         auto worker_func = [this] {
             while (true) {
-                std::string_view name;
+                std::string name;
                 {
                     std::unique_lock<std::mutex> lock(this->m_queue_mutex);
                     this->m_condition.wait(lock, [this] {
                         return this->m_stop || !this->m_tasks.empty();
                     });
                     if (this->m_stop || this->m_tasks.empty()) {
-                        return ;
+                        return;
                     }
                     name = this->m_tasks.front().name;
                     m_task_pool.insert({ m_tasks.front().name, std::move(this->m_tasks.front()) });
@@ -110,21 +111,16 @@ public:
                     }
                     this->m_tasks.pop_front();
                 }
-                if (m_task_pool[name].status == TaskStatus::FINISHED) {
-                    std::cout << "Wrong" << std::endl;
-                }
-                m_task_pool[name]();
-                m_task_pool[name].status = TaskStatus::FINISHED;
+                m_task_pool.at(name)();
+                m_task_pool.at(name).status = TaskStatus::FINISHED;
             }
         };
         for (std::size_t i = 0; i < nums_threads; i++) {
-            m_workers.emplace_back(
-                Worker {
-                    .worker_thread = std::thread(worker_func),
-                    .task = nullptr,
-                    .status = WorkerStatus::IDLE,
-                }
-            );
+            m_workers.emplace_back(Worker {
+                .worker_thread = std::thread(worker_func),
+                .task = nullptr,
+                .status = WorkerStatus::IDLE,
+            });
         }
     }
 
@@ -136,7 +132,10 @@ public:
                 case QueueFullPolicy::AbortPolicy:
                     return std::nullopt;
                 case QueueFullPolicy::CallerRunsPolicy: {
-                    return std::async(std::launch::async, std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+                    return std::async(
+                        std::launch::async,
+                        std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+                    );
                 }
                 case QueueFullPolicy::DiscardRandomInQueuePolicy:
                     if (m_tasks.empty()) [[unlikely]] {
@@ -175,7 +174,10 @@ public:
                 case QueueFullPolicy::AbortPolicy:
                     return std::nullopt;
                 case QueueFullPolicy::CallerRunsPolicy: {
-                    return std::async(std::launch::async, std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+                    return std::async(
+                        std::launch::async,
+                        std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+                    );
                 }
                 case QueueFullPolicy::DiscardRandomInQueuePolicy:
                     if (m_tasks.empty()) [[unlikely]] {
@@ -184,7 +186,7 @@ public:
                     break;
             }
         }
-        
+
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
@@ -202,7 +204,6 @@ public:
         m_condition.notify_one();
         return result;
     }
-
 
     void stop() {
         {
@@ -244,14 +245,14 @@ public:
         }
         auto worker_func = [this] {
             while (true) {
-                std::string_view name;
+                std::string name;
                 {
                     std::unique_lock<std::mutex> lock(this->m_queue_mutex);
                     this->m_condition.wait(lock, [this] {
                         return this->m_stop || !this->m_tasks.empty();
                     });
                     if (this->m_stop || this->m_tasks.empty()) {
-                        return ;
+                        return;
                     }
                     name = this->m_tasks.front().name;
                     m_task_pool.insert({ m_tasks.front().name, std::move(this->m_tasks.front()) });
@@ -270,20 +271,18 @@ public:
         };
         std::lock_guard<std::mutex> lock(m_queue_mutex);
         for (std::size_t i = 0; i < nums_threads; i++) {
-            m_workers.emplace_back(
-                Worker{
-                    .worker_thread = std::thread(worker_func),
-                    .task = nullptr,
-                    .status = WorkerStatus::IDLE,
-                }
-            );
+            m_workers.emplace_back(Worker {
+                .worker_thread = std::thread(worker_func),
+                .task = nullptr,
+                .status = WorkerStatus::IDLE,
+            });
         }
         m_max_tasks_num = m_workers.size() * 10;
     }
 
     void delete_worker(std::size_t nums_threads) {
         if (m_workers.empty()) {
-            return ;
+            return;
         }
         std::lock_guard<std::mutex> lock(m_queue_mutex);
         for (std::size_t i = 0; i < nums_threads; i++) {
@@ -336,15 +335,26 @@ public:
         }
     }
 
-    std::optional<std::tuple<TaskStatus, std::chrono::duration<double>>> get_task_status(const std::string& name) {
+    std::optional<std::tuple<TaskStatus, std::chrono::duration<double>>>
+    get_task_status(const std::string& name) {
         std::lock_guard<std::mutex> lock(m_queue_mutex);
         for (const auto& task: m_tasks) {
             if (task.name == name) {
-                return std::make_tuple(task.status, std::chrono::duration<double>(std::chrono::system_clock::now() - task.create_time));
+                return std::make_tuple(
+                    task.status,
+                    std::chrono::duration<double>(
+                        std::chrono::system_clock::now() - task.create_time
+                    )
+                );
             }
         }
         if (m_task_pool.contains(name)) {
-            return std::make_tuple(m_task_pool[name].status, std::chrono::duration<double>(std::chrono::system_clock::now() - m_task_pool[name].create_time));
+            return std::make_tuple(
+                m_task_pool[name].status,
+                std::chrono::duration<double>(
+                    std::chrono::system_clock::now() - m_task_pool[name].create_time
+                )
+            );
         }
         return std::nullopt;
     }
@@ -362,24 +372,22 @@ private:
         const auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         return std::to_string(t);
     }
-    
+
     std::vector<Worker> m_workers;
     std::deque<Task> m_tasks;
 
     std::mutex m_queue_mutex;
     std::condition_variable m_condition;
 
-    bool m_stop = false;   
+    bool m_stop = false;
 
     // let system decide
     std::size_t m_max_workers_num;
-    std::size_t m_max_tasks_num{};
+    std::size_t m_max_tasks_num {};
 
-    std::unordered_map<std::string_view, Task> m_task_pool;
+    std::unordered_map<std::string, Task> m_task_pool;
 
     QueueFullPolicy m_queue_full_policy = QueueFullPolicy::AbortPolicy;
 };
-
-
 
 } // namespace utils
