@@ -68,6 +68,7 @@ private:
         void operator()() {
             status = TaskStatus::RUNNING;
             task();
+            status = TaskStatus::FINISHED;
         }
 
         bool operator==(const Task& other) const {
@@ -115,7 +116,6 @@ public:
                     this->m_tasks.pop_front();
                 }
                 m_task_pool.at(name)();
-                m_task_pool.at(name).status = TaskStatus::FINISHED;
             }
         };
         for (std::size_t i = 0; i < nums_threads; i++) {

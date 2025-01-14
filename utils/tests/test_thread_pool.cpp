@@ -1,7 +1,9 @@
 #include "thread_pool.hpp"
+#include <chrono>
 #include <format>
 #include <future>
 #include <gtest/gtest.h>
+#include <ratio>
 #include <string>
 #include <thread>
 #include <vector>
@@ -9,7 +11,7 @@
 class ThreadPoolTest: public ::testing::Test {
 protected:
     void SetUp() override {
-        pool = std::make_unique<utils::ThreadPool>(1);
+        pool = std::make_unique<utils::ThreadPool>(4);
     }
 
     void TearDown() override {
@@ -70,6 +72,7 @@ TEST_F(ThreadPoolTest, GetStatusOfTask) {
         futures.emplace_back(*pool->submit(std::to_string(i), f, i, i + 1));
     }
     for (int i = 0; i < 10; ++i) {
+        ASSERT_EQ(futures[i].get(), i + i + 1);
         auto status = pool->get_task_status(std::to_string(i));
         ASSERT_TRUE(status.has_value());
         ASSERT_EQ(std::get<0>(status.value()), utils::TaskStatus::FINISHED);
