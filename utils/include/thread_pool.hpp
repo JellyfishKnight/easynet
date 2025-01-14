@@ -3,6 +3,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <iostream>
@@ -10,6 +11,8 @@
 #include <optional>
 #include <ostream>
 #include <queue>
+#include <random>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -369,8 +372,16 @@ public:
 
 private:
     static std::string generate_random_name() {
-        const auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        return std::to_string(t);
+        std::random_device rd;
+        std::mt19937_64 generation(rd());
+        std::uniform_int_distribution<uint64_t> uniform_distribution;
+
+        uint64_t part1 = uniform_distribution(generation);
+        uint64_t part2 = uniform_distribution(generation);
+
+        std::ostringstream oss;
+        oss << std::hex << part1 << part2;
+        return oss.str();
     }
 
     std::vector<Worker> m_workers;
