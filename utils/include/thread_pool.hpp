@@ -370,6 +370,17 @@ public:
         return m_max_tasks_num;
     }
 
+    std::size_t worker_num() const {
+        return m_workers.size();
+    }
+
+    /**
+     * @brief get the number of tasks in the idle queue
+     */
+    std::size_t task_num() const {
+        return m_tasks.size();
+    }
+
 private:
     static std::string generate_random_name() {
         std::random_device rd;

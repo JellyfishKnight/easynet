@@ -78,6 +78,16 @@ TEST_F(ThreadPoolTest, GetStatusOfTask) {
     }
 }
 
+TEST_F(ThreadPoolTest, AddWorkerTest) {
+    pool->add_worker(4);
+    ASSERT_EQ(pool->worker_num(), 8);
+}
+
+TEST_F(ThreadPoolTest, DeleteWorkerTest) {
+    pool->delete_worker(2);
+    ASSERT_EQ(pool->worker_num(), 2);
+}
+
 int main() {
     testing::InitGoogleTest();
 
