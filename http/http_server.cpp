@@ -196,7 +196,6 @@ void HttpServer::enable_thread_pool() {
     m_thread_pool->submit("sendResponseTask", [this]() {
         while (true) {
             if (!m_response_queue.empty()) {
-                auto 
             }
         }
     });

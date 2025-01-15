@@ -2,12 +2,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <iostream>
 #include <netinet/in.h>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
-#include <cstring>
-#include <iostream>
 
 namespace net {
 
@@ -56,16 +56,15 @@ const SocketStatus& TcpClient::status() const {
     return m_status;
 }
 
-
 const struct sockaddr_in& TcpClient::addr() const {
     return m_servaddr;
 }
 
-void TcpClient::change_ip(const std::string &ip) {
+void TcpClient::change_ip(const std::string& ip) {
     if (m_status != SocketStatus::CLOSED) {
         throw std::runtime_error("Socket is not closed");
     }
-    
+
     if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
         const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
@@ -95,7 +94,7 @@ void TcpClient::connect() {
             throw std::runtime_error("Failed to create socket: " + error_msg);
         }
     }
-    
+
     if (::connect(m_sockfd, (struct sockaddr*)&m_servaddr, sizeof(m_servaddr)) == -1) {
         const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to connect: " + error_msg);
@@ -117,7 +116,7 @@ void TcpClient::close() {
     m_status = SocketStatus::CLOSED;
 }
 
-int TcpClient::send(const std::vector<uint8_t> &data) {
+int TcpClient::send(const std::vector<uint8_t>& data) {
     if (m_status != SocketStatus::CONNECTED) {
         throw std::runtime_error("Socket is not connected");
     }
@@ -176,7 +175,7 @@ TcpServer::TcpServer(const std::string& ip, int port) {
         const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }
-    
+
     m_status = SocketStatus::CLOSED;
 }
 
@@ -210,10 +209,10 @@ const struct sockaddr_in& TcpServer::addr() const {
     return m_servaddr;
 }
 
-void TcpServer::change_ip(const std::string &ip) {
+void TcpServer::change_ip(const std::string& ip) {
     if (m_status != SocketStatus::CLOSED) {
         ///TOODF: logging
-        return ;
+        return;
     }
     if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
         const std::string error_msg(::strerror(errno));
@@ -224,7 +223,7 @@ void TcpServer::change_ip(const std::string &ip) {
 void TcpServer::change_port(int port) {
     if (m_status != SocketStatus::CLOSED) {
         ///TOODF: logging
-        return ;
+        return;
     }
 
     m_servaddr.sin_port = htons(port);
@@ -258,7 +257,7 @@ void TcpServer::listen(uint32_t waiting_queue_size) {
     if (waiting_queue_size < 1) {
         throw std::runtime_error("waiting_queue_size must be >= 1");
     }
-    
+
     if (m_sockfd == -1) {
         m_sockfd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (m_sockfd == -1) {
@@ -287,7 +286,7 @@ int TcpServer::recv(std::vector<uint8_t>& data) {
     if (data.empty()) {
         throw std::runtime_error("Data buffer size need to be greater than 0");
     }
-    
+
     auto n = ::recv(m_sockfd, data.data(), data.size(), 0);
     if (n == -1) {
         const std::string error_msg(::strerror(errno));
@@ -296,7 +295,7 @@ int TcpServer::recv(std::vector<uint8_t>& data) {
     return n;
 }
 
-int TcpServer::send(const std::vector<uint8_t> &data) {
+int TcpServer::send(const std::vector<uint8_t>& data) {
     if (m_status != SocketStatus::CONNECTED) {
         throw std::runtime_error("Socket is not connected");
     }
@@ -320,6 +319,10 @@ void TcpServer::close() {
     }
     m_sockfd = -1;
     m_status = SocketStatus::CLOSED;
+}
+
+void TcpServer::start(std::vector<uint8_t>& buffer) {
+    
 }
 
 TcpServer::~TcpServer() {
