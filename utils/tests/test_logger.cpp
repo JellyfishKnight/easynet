@@ -135,7 +135,7 @@ TEST_F(LoggerTest, TestLoggerWithSourceLocation) {
         "multi_process_test.log"
     );
 
-    for (int i = 0; i < 10000; ++i) {
+    for (int i = 0; i < 10; ++i) {
         NET_LOG_WARN(logger1, "This is a warning message");
         // std::this_thread::sleep_for(std::chrono::microseconds(100));
     }

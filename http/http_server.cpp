@@ -1,11 +1,13 @@
 #include "http_server.hpp"
 #include "http_client.hpp"
 #include "http_utils.hpp"
+#include "logger.hpp"
 #include "tcp.hpp"
 #include <chrono>
 #include <iostream>
 #include <ostream>
 #include <stdexcept>
+#include <string>
 #include <thread>
 
 namespace net {
@@ -15,6 +17,9 @@ HttpServer::HttpServer(const std::string& ip, int port) {
     m_ip = ip;
     m_port = port;
     m_buffer_size = 1024;
+
+    m_logger_manager = utils::LoggerManager::get_instance();
+    m_logger = m_logger_manager.get_logger("HttpServer");
 
     m_server->listen(10);
 }
@@ -35,6 +40,9 @@ HttpServer::HttpServer(HttpServer&& other) {
     m_connect_callbacks = std::move(other.m_connect_callbacks);
     m_trace_callbacks = std::move(other.m_trace_callbacks);
     m_patch_callbacks = std::move(other.m_patch_callbacks);
+
+    m_logger_manager = other.m_logger_manager;
+    m_logger = std::move(other.m_logger);
 
     other.m_get_callbacks.clear();
     other.m_post_callbacks.clear();
@@ -84,59 +92,59 @@ HttpServer::~HttpServer() {
     }
 }
 
-void HttpServer::Get(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Get(std::string url, std::function<HttpResponse(const HttpRequest&)> callback) {
     m_get_callbacks[url] = callback;
 }
 
-void HttpServer::Post(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Post(std::string url, std::function<HttpResponse(const HttpRequest&)> callback) {
     m_post_callbacks[url] = callback;
 }
 
-void HttpServer::Put(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Put(std::string url, std::function<HttpResponse(const HttpRequest&)> callback) {
     m_put_callbacks[url] = callback;
 }
 
-void HttpServer::Delete(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Delete(std::string url, std::function<HttpResponse(const HttpRequest&)> callback) {
     m_delete_callbacks[url] = callback;
 }
 
-void HttpServer::Head(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Head(std::string url, std::function<HttpResponse(const HttpRequest&)> callback) {
     m_head_callbacks[url] = callback;
 }
 
-void HttpServer::Options(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Options(
+    std::string url,
+    std::function<HttpResponse(const HttpRequest&)> callback
+) {
     m_options_callbacks[url] = callback;
 }
 
-void HttpServer::Connect(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Connect(
+    std::string url,
+    std::function<HttpResponse(const HttpRequest&)> callback
+) {
     m_connect_callbacks[url] = callback;
 }
 
-void HttpServer::Trace(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Trace(std::string url, std::function<HttpResponse(const HttpRequest&)> callback) {
     m_trace_callbacks[url] = callback;
 }
 
-void HttpServer::Patch(std::string url, std::function<void(const HttpRequest&)> callback) {
+void HttpServer::Patch(std::string url, std::function<HttpResponse(const HttpRequest&)> callback) {
     m_patch_callbacks[url] = callback;
 }
 
-void HttpServer::handle_request(const std::string &request_str) {
+void HttpServer::handle_request(const std::string& request_str) {
     auto req = parse_request(request_str);
     if (m_url_callbacks.at(req.method).find(req.url) != m_url_callbacks.at(req.method).end()) {
         if (m_thread_pool_enabled) {
             ///TODO: add the request to the thread pool
         } else {
-            m_url_callbacks.at(req.method).at(req.url)(req);        
+            m_url_callbacks.at(req.method).at(req.url)(req);
         }
     } else {
-        // return 404 not found
-        HttpResponse response;
-        response.code = HttpReturnCode::NOT_FOUND;
-        response.body = "404 Not Found";
-        response.version = "HTTP/1.1";
-        response.headers["Content-Length"] = std::to_string(response.body.size());
-        response.headers["Content-Type"] = "text/plain";
-        send_response(response);
+        NET_LOG_ERROR(m_logger, "No callback for the request: {}", req.url);
+        return;
     }
 }
 
@@ -144,7 +152,7 @@ void HttpServer::start() {
     m_server->accept();
     std::vector<uint8_t> data(m_buffer_size);
     while (m_server->status() != net::SocketStatus::CLOSED) {
-        int n ;
+        int n;
         try {
             n = m_server->recv(data);
         } catch (const std::runtime_error& e) {
@@ -188,4 +196,5 @@ const net::SocketStatus& HttpServer::status() const {
     return m_server->status();
 }
 
+void HttpServer::set_log_path(const std::string& logger_path) {}
 } // namespace net
