@@ -1,8 +1,9 @@
 #include "logger.hpp"
 
-#include <iostream>
+#include <chrono>
 #include <gtest/gtest.h>
-
+#include <iostream>
+#include <thread>
 
 class LoggerTest: public ::testing::Test {
 protected:
@@ -128,7 +129,17 @@ TEST_F(LoggerTest, TestLoggerOutputToConsole) {
     utils::LoggerManager::get_instance().disable_async_logging();
 }
 
+TEST_F(LoggerTest, TestLoggerWithSourceLocation) {
+    auto logger1 = utils::LoggerManager::get_instance().get_logger(
+        "logger_process_11111111",
+        "multi_process_test.log"
+    );
 
+    for (int i = 0; i < 10000; ++i) {
+        NET_LOG_WARN(logger1, "This is a warning message");
+        // std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+}
 
 int main() {
     ::testing::InitGoogleTest();
