@@ -285,15 +285,15 @@ LOG_FOREACH_LOG_LEVEL(_FUNCTION)
 #undef _FUNCTION
 
 #define NET_LOG_DEBUG(logger, format, ...) \
-    net_log_DEBUG(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+    net_log_DEBUG(logger, { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__)
 #define NET_LOG_INFO(logger, format, ...) \
-    net_log_INFO(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+    net_log_INFO(logger, { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__)
 #define NET_LOG_WARN(logger, format, ...) \
-    net_log_WARN(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+    net_log_WARN(logger, { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__)
 #define NET_LOG_ERROR(logger, format, ...) \
-    net_log_ERROR(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+    net_log_ERROR(logger, { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__)
 #define NET_LOG_FATAL(logger, format, ...) \
-    net_log_FATAL(logger, { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__)
+    net_log_FATAL(logger, { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__)
 
 #define NET_ENABLE_ASYNC_LOGGING() utils::LoggerManager::get_instance().enable_async_logging()
 #define NET_DISABLE_ASYNC_LOGGING() utils::LoggerManager::get_instance().disable_async_logging()
@@ -301,25 +301,25 @@ LOG_FOREACH_LOG_LEVEL(_FUNCTION)
 #define NET_LOG_DEBUG_ASYNC(logger, format, ...) \
     net_async_net_log_DEBUG( \
         logger, \
-        { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__ \
+        { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__ \
     )
 #define NET_LOG_INFO_ASYNC(logger, format, ...) \
     net_async_net_log_INFO( \
         logger, \
-        { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__ \
+        { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__ \
     )
 #define NET_LOG_WARN_ASYNC(logger, format, ...) \
     net_async_net_log_WARN( \
         logger, \
-        { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__ \
+        { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__ \
     )
 #define NET_LOG_ERROR_ASYNC(logger, format, ...) \
     net_async_net_log_ERROR( \
         logger, \
-        { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__ \
+        { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__ \
     )
 #define NET_LOG_FATAL_ASYNC(logger, format, ...) \
     net_async_net_log_FATAL( \
         logger, \
-        { format, std::source_location::current() } __VA_OPT__(, )##__VA_ARGS__ \
+        { format, std::source_location::current() } __VA_OPT__(, ) __VA_ARGS__ \
     )

@@ -3,8 +3,10 @@
 #include "http_utils.hpp"
 #include "logger.hpp"
 #include "tcp.hpp"
+#include "thread_pool.hpp"
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -12,19 +14,20 @@
 
 namespace net {
 
-HttpServer::HttpServer(const std::string& ip, int port) {
+HttpServer::HttpServer(const std::string& ip, int port):
+    m_logger_manager(utils::LoggerManager::get_instance()) {
     m_server = std::make_unique<net::TcpServer>(ip, port);
     m_ip = ip;
     m_port = port;
     m_buffer_size = 1024;
-
-    m_logger_manager = utils::LoggerManager::get_instance();
     m_logger = m_logger_manager.get_logger("HttpServer");
+
+    m_thread_pool = std::make_unique<utils::ThreadPool>(4);
 
     m_server->listen(10);
 }
 
-HttpServer::HttpServer(HttpServer&& other) {
+HttpServer::HttpServer(HttpServer&& other): m_logger_manager(other.m_logger_manager) {
     m_server = std::move(other.m_server);
     m_ip = other.m_ip;
     m_port = other.m_port;
@@ -40,9 +43,8 @@ HttpServer::HttpServer(HttpServer&& other) {
     m_connect_callbacks = std::move(other.m_connect_callbacks);
     m_trace_callbacks = std::move(other.m_trace_callbacks);
     m_patch_callbacks = std::move(other.m_patch_callbacks);
-
-    m_logger_manager = other.m_logger_manager;
     m_logger = std::move(other.m_logger);
+    m_thread_pool = std::move(other.m_thread_pool);
 
     other.m_get_callbacks.clear();
     other.m_post_callbacks.clear();
@@ -196,5 +198,8 @@ const net::SocketStatus& HttpServer::status() const {
     return m_server->status();
 }
 
-void HttpServer::set_log_path(const std::string& logger_path) {}
+void HttpServer::set_log_path(const std::string& logger_path) {
+    m_logger_manager.set_log_path(m_logger, logger_path);
+}
+
 } // namespace net

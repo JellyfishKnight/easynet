@@ -105,6 +105,7 @@ private:
     utils::LoggerManager& m_logger_manager;
 
     // thread pool
+    utils::ThreadPool::UniquePtr m_thread_pool;
 };
 
 } // namespace net

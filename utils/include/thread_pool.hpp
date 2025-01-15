@@ -381,6 +381,9 @@ public:
         return m_tasks.size();
     }
 
+    using SharedPtr = std::shared_ptr<ThreadPool>;
+    using UniquePtr = std::unique_ptr<ThreadPool>;
+
 private:
     static std::string generate_random_name() {
         std::random_device rd;
