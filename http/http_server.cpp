@@ -4,7 +4,9 @@
 #include "logger.hpp"
 #include "tcp.hpp"
 #include "thread_pool.hpp"
+#include <cerrno>
 #include <chrono>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -142,7 +144,7 @@ void HttpServer::handle_request(const std::string& request_str) {
         if (m_thread_pool_enabled) {
             ///TODO: add the request to the thread pool
         } else {
-            m_url_callbacks.at(req.method).at(req.url)(req);
+            send_response(m_url_callbacks.at(req.method).at(req.url)(req));
         }
     } else {
         NET_LOG_ERROR(m_logger, "No callback for the request: {}", req.url);
@@ -162,12 +164,15 @@ void HttpServer::start() {
             break;
         }
         if (n == -1) {
-            // log error
-            continue;
+            NET_LOG_ERROR(
+                m_logger,
+                "Failed to receive data from the client: {}",
+                ::strerror(errno)
+            );
+            break;
         }
         if (n == 0) {
-            // log error
-            std::cout << "Connection reset by peer." << std::endl;
+            NET_LOG_ERROR(m_logger, "Connection reset by peer.");
             break;
         }
         std::string request_str(data.begin(), data.end());
@@ -186,13 +191,24 @@ void HttpServer::close() {
 }
 
 /*not complete*/
-void HttpServer::enable_thread_pool() {}
+void HttpServer::enable_thread_pool() {
+    m_thread_pool_enabled = true;
+    m_thread_pool->submit("sendResponseTask", [this]() {
+        while (true) {
+            if (!m_response_queue.empty()) {
+                auto 
+            }
+        }
+    });
+}
 
 void HttpServer::set_buffer_size(std::size_t size) {
     m_buffer_size = size;
 }
 
-void HttpServer::disable_thread_pool() {}
+void HttpServer::disable_thread_pool() {
+    m_thread_pool_enabled = false;
+}
 
 const net::SocketStatus& HttpServer::status() const {
     return m_server->status();

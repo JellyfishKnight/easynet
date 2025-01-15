@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <memory>
 #include <string>
 #include <thread>
@@ -79,7 +80,7 @@ private:
 
     // call back group
     using CallBackWithRoute =
-        std::unordered_map<std::string, std::function<void(const HttpRequest&)>>;
+        std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;
     CallBackWithRoute m_get_callbacks;
     CallBackWithRoute m_post_callbacks;
     CallBackWithRoute m_put_callbacks;
@@ -106,6 +107,7 @@ private:
 
     // thread pool
     utils::ThreadPool::UniquePtr m_thread_pool;
+    std::vector<std::future<HttpResponse>> m_response_queue;
 };
 
 } // namespace net
