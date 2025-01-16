@@ -253,7 +253,90 @@ public:
             return -1;
         }
     }
-}
+};
+
+class http11_header_writer {
+    std::vector<uint8_t> m_buffer;
+
+    void reset_state() {
+        m_buffer.clear();
+    }
+
+    std::vector<uint8_t>& buffer() {
+        return m_buffer;
+    }
+
+    void begin_header(std::string_view first, std::string_view second,
+                        std::string_view third) {
+        m_buffer.insert(m_buffer.end(), first.begin(), first.end());
+        m_buffer.emplace_back(' ');
+        m_buffer.insert(m_buffer.end(), second.begin(), second.end());
+        m_buffer.emplace_back(' ');
+        m_buffer.insert(m_buffer.end(), third.begin(), third.end());
+    }
+
+    void write_header(std::string_view key, std::string_view value) {
+        static std::string temp ="\r\n";
+        m_buffer.insert(m_buffer.end(), temp.begin(), temp.end());
+        m_buffer.insert(m_buffer.end(), key.begin(), key.end());
+        m_buffer.emplace_back(':');
+        m_buffer.emplace_back(' ');
+        m_buffer.insert(m_buffer.end(), value.begin(), value.end());
+    }
+
+    void end_header() {
+        static std::string temp = "\r\n\r\n";
+        m_buffer.insert(m_buffer.end(), temp.begin(), temp.end());
+    }
+};
+
+template<typename HeaderWriter = http11_header_writer>
+class http_base_writer {
+protected:
+    HeaderWriter m_header_writer;
+
+    void begin_header(std::string_view first, std::string_view second,
+                        std::string_view third) {
+        m_header_writer.begin_header(first, second, third);
+    }
+
+    void reset_state() {
+        m_header_writer.reset_state();
+    }
+
+    std::vector<uint8_t>& buffer() {
+        return m_header_writer.buffer();
+    }
+
+    void write_header(std::string_view key, std::string_view value) {
+        m_header_writer.write_header(key, value);
+    } 
+
+    void end_header() {
+        m_header_writer.end_header();
+    }
+
+    void write_body(std::string_view body) {
+        m_header_writer.buffer().insert(m_header_writer.buffer().end(), body.begin(), body.end());
+    }
+};
+
+
+template<typename HeaderWriter = http11_header_writer>
+class http_request_writer : public http_base_writer<HeaderWriter> {
+public:
+    void begin_header(std::string_view method, std::string_view url, std::string_view version) {
+        this->begin_header(method, url, version);
+    }
+};
+
+template<typename HeaderWriter = http11_header_writer>
+class http_response_writer : public http_base_writer<HeaderWriter> {
+public:
+    void begin_header(std::string_view version, std::string_view status, std::string_view reason) {
+        this->begin_header(version, status, reason);
+    }
+};
 
 
 
