@@ -146,6 +146,8 @@ TcpServer::TcpServer(const std::string& ip, int port) {
     }
 
     m_status = SocketStatus::CLOSED;
+
+    m_logger = utils::LoggerManager::get_instance().get_logger("TcpServer:" + ip);
 }
 
 TcpServer& TcpServer::operator=(TcpServer&& other) {
@@ -169,31 +171,23 @@ TcpServer::TcpServer(TcpServer&& other): m_client_callbacks(std::move(other.m_cl
     other.m_sockfd = -1;
 }
 
-void TcpServer::accept(struct sockaddr_in* client_addr) {
-    if (m_status != SocketStatus::LISTENING) {
+int TcpServer::accept(struct sockaddr_in* client_addr) {
+    if (m_status == SocketStatus::CLOSED) {
         throw std::runtime_error("Socket is not listening");
     }
 
     auto client_addr_size = sizeof(*client_addr);
 
-    Connection client_connection;
-    client_connection.server_sock = m_sockfd;
-
-    client_connection.client_sock =
+    auto client_sock =
         ::accept(m_sockfd, (struct sockaddr*)(client_addr), (socklen_t*)&client_addr_size);
-    if (client_connection.client_sock == -1) {
+    if (client_sock == -1) {
         // get error message
         throw std::runtime_error("Failed to accept connection: " + std::string(::strerror(errno)));
     }
 
-    if (client_addr) {
-        client_connection.client_ip = inet_ntoa(client_addr->sin_addr);
-        client_connection.client_port = ntohs(client_addr->sin_port);
-    }
-    client_connection.type = ConnectionType::TCP;
-
-    m_client_connections.push_back(client_connection);
     m_status = SocketStatus::CONNECTED;
+
+    return client_sock;
 }
 
 void TcpServer::listen(uint32_t waiting_queue_size) {
@@ -268,16 +262,17 @@ void TcpServer::close() {
     }
     m_sockfd = -1;
     for (auto& conn: m_client_connections) {
-        if (::close(conn.client_sock) == -1) {
+        if (::close(conn.second.client_sock) == -1) {
             throw std::runtime_error(
                 "Failed to close client socket: " + std::string(::strerror(errno))
             );
         }
-        conn.status = SocketStatus::CLOSED;
-        conn.client_sock = -1;
-        conn.server_sock = -1;
+        conn.second.status = SocketStatus::CLOSED;
+        conn.second.client_sock = -1;
+        conn.second.server_sock = -1;
     }
     m_status = SocketStatus::CLOSED;
+    m_server_thread.join();
 }
 
 void TcpServer::add_msg_callback(
@@ -292,37 +287,73 @@ void TcpServer::start(std::size_t buffer_size) {
     assert(buffer_size > 0);
     m_server_thread = std::thread([this, buffer_size]() {
         std::vector<uint8_t> buffer;
-        // while (m_status != SocketStatus::CLOSED) {
-        //     accept();
-        //     buffer.resize(buffer_size);
-        //     auto n = recv(buffer);
-        //     if (n == -1) {
-        //         std::cerr << "Failed to receive data from the client: " << ::strerror(errno)
-        //                   << std::endl;
-        //         break;
-        //     }
-        //     if (n == 0) {
-        //         std::cerr << "Connection reset by peer." << std::endl;
-        //         break;
-        //     }
-        //     std::vector<uint8_t> data(buffer.begin(), buffer.begin() + n);
-        //     Connection client_connection { inet_ntoa(m_servaddr.sin_addr),
-        //                                    ntohs(m_servaddr.sin_port),
-        //                                    ConnectionType::TCP };
-        //     if (m_client_connections.contains(client_connection)) {
-        //         auto response = m_client_connections.at(client_connection)(data);
-        //         send(response);
-        //     } else {
-        //         std::cerr << "No callback for the request" << std::endl;
-        //     }
-        // }
+        while (m_status != SocketStatus::CLOSED) {
+            Connection connection;
+            struct sockaddr_in client;
+            connection.client_sock = accept(&client);
+            connection.server_sock = m_sockfd;
+            connection.client_ip = inet_ntoa(client.sin_addr);
+            connection.client_port = ntohs(client.sin_port);
+            connection.type = ConnectionType::TCP;
+            connection.status = SocketStatus::CONNECTED;
+
+            m_client_connections.insert(
+                { { connection.client_ip, connection.client_port, ConnectionType::TCP },
+                  connection }
+            );
+            m_client_threads.emplace_back([this, connection, buffer_size]() {
+                std::vector<uint8_t> buffer(buffer_size);
+                while (this->m_status == SocketStatus::CONNECTED) {
+                    buffer.resize(buffer_size);
+                    int n;
+                    try {
+                        n = recv(connection, buffer);
+                    } catch (std::runtime_error& e) {
+                        NET_LOG_ERROR(
+                            m_logger,
+                            "Failed to receive data from client {}:{} : {}",
+                            connection.client_ip,
+                            connection.client_port,
+                            e.what()
+                        );
+                        m_client_connections.erase(
+                            { connection.client_ip, connection.client_port, connection.type }
+                        );
+                        break;
+                    }
+                    if (n == 0) {
+                        NET_LOG_ERROR(
+                            m_logger,
+                            "Connection from client {}:{} is reset by peer.",
+                            connection.client_ip,
+                            connection.client_port
+                        );
+                        m_client_connections.erase(
+                            { connection.client_ip, connection.client_port, connection.type }
+                        );
+                        break;
+                    }
+                    std::vector<uint8_t> data(buffer.begin(), buffer.begin() + n);
+                    if (m_client_callbacks.contains(connection)) {
+                        auto response = m_client_callbacks.at(connection)(data);
+                        this->send(connection, response);
+                    } else {
+                        NET_LOG_ERROR(m_logger, "No callback for the request");
+                        m_client_connections.erase(
+                            { connection.client_ip, connection.client_port, connection.type }
+                        );
+                        break;
+                    }
+                }
+            });
+        }
     });
 }
 
 TcpServer::~TcpServer() {
-    // if (m_status != SocketStatus::CLOSED) {
-    close();
-    // }
+    if (m_status != SocketStatus::CLOSED) {
+        close();
+    }
 }
 
 } // namespace net

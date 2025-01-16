@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <unordered_map>
+
 #include <vector>
 
 namespace net {
@@ -17,6 +19,36 @@ namespace net {
 enum class SocketStatus : int { CLOSED = 0, CONNECTED, LISTENING, ACCEPTED };
 
 enum class ConnectionType : uint8_t { TCP = 0, UDP };
+
+struct ConnectionSearchKey {
+    std::string ip;
+    int port;
+    ConnectionType type;
+
+    ConnectionSearchKey(const std::string& ip, int port, ConnectionType type):
+        ip(ip),
+        port(port),
+        type(type) {}
+
+    ConnectionSearchKey() = default;
+
+    bool operator==(const ConnectionSearchKey& other) const {
+        return ip == other.ip && port == other.port && type == other.type;
+    }
+};
+}; // namespace net
+
+namespace std {
+template<>
+struct hash<net::ConnectionSearchKey> {
+    std::size_t operator()(const net::ConnectionSearchKey& key) const noexcept {
+        return std::hash<std::string>()(key.ip) ^ std::hash<int>()(key.port)
+            ^ std::hash<int>()(static_cast<int>(key.type));
+    }
+};
+} // namespace std
+
+namespace net {
 
 struct Connection {
     int client_sock;
@@ -46,6 +78,20 @@ struct Connection {
     }
 };
 
+} // namespace net
+
+namespace std {
+template<>
+struct hash<net::Connection> {
+    std::size_t operator()(const net::ConnectionSearchKey& key) const noexcept {
+        return std::hash<std::string>()(key.ip) ^ std::hash<int>()(key.port)
+            ^ std::hash<int>()(static_cast<int>(key.type));
+    }
+};
+} // namespace std
+
+namespace net {
+
 template<typename DataType = std::vector<uint8_t>>
 class Server {
 public:
@@ -62,7 +108,9 @@ protected:
 
     virtual std::vector<uint8_t> handle_data_type(const DataType& data) = 0;
 
-    std::vector<Connection> m_client_connections;
+    std::unordered_map<ConnectionSearchKey, Connection> m_client_connections;
+    std::vector<std::thread> m_client_threads;
+
     std::thread m_server_thread;
     int m_sockfd;
     struct sockaddr_in m_servaddr;
@@ -289,12 +337,3 @@ std::string create_request(const HttpRequest& request);
 HttpRequest parse_request(const std::string& request);
 
 } // namespace net
-
-namespace std {
-template<>
-struct hash<net::Connection> {
-    std::size_t operator()(const net::Connection& conn) const noexcept {
-        return std::hash<int>()(conn.client_sock) ^ std::hash<int>()(conn.server_sock);
-    }
-};
-} // namespace std
