@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 namespace net {
 
@@ -34,27 +35,50 @@ struct Connection {
     }
 };
 
+template<typename DataType = std::vector<uint8_t>>
 class Server {
 public:
     Server();
 
     virtual void start(std::size_t buffer_size = 1024) = 0;
 
-    template<typename DataType>
-    void send(const Connection& conn, const DataType& data) {
-        static_assert(
-            std::is_integral_v<DataType> || std::is_floating_point_v<DataType>
-                || std::is_same_v<DataType, char> || std::is_same_v<DataType, std::string>
-                || std::is_same_v<DataType, std::vector<uint8_t>>,
-            "Invalid data type"
-        );
-    }
-
     virtual ~Server();
 
-private:
+protected:
+    virtual void send(const Connection& conn, const DataType& data) = 0;
 
+    virtual void recv(Connection& conn, DataType& data) = 0;
+
+    virtual std::vector<uint8_t> handle_data_type(const DataType& data) = 0;
+
+    std::vector<Connection> m_client_connections;
+    std::thread m_server_thread;
+    int m_sockfd;
+    struct sockaddr_in m_servaddr;
 };
+
+template<typename DataType = std::vector<uint8_t>>
+class Client {
+public:
+    Client(const std::string& ip, int port);
+
+    virtual ~Client();
+
+    void connect();
+
+    void close();
+
+    void send(const DataType& data);
+
+    DataType recv();
+
+    const SocketStatus& status() const;
+protected:
+    int m_sockfd;
+    struct sockaddr_in m_servaddr;
+    SocketStatus m_status;
+};
+
 
 enum class HttpReturnCode : uint16_t {
     CONTINUE = 100,

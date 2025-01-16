@@ -37,13 +37,6 @@ public:
     const SocketStatus& status() const;
 
     /**
-    * @brief Get the address object
-    * 
-    * @return const struct sockaddr_in&
-    */
-    const struct sockaddr_in& addr() const;
-
-    /**
      * @brief Change the ip object
      * 
      * @param ip  The new ip address
