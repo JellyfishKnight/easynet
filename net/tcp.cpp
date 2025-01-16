@@ -58,32 +58,6 @@ TcpClient& TcpClient::operator=(TcpClient&& other) {
     return *this;
 }
 
-const SocketStatus& TcpClient::status() const {
-    return m_status;
-}
-
-const struct sockaddr_in& TcpClient::addr() const {
-    return m_servaddr;
-}
-
-void TcpClient::change_ip(const std::string& ip) {
-    if (m_status != SocketStatus::CLOSED) {
-        throw std::runtime_error("Socket is not closed");
-    }
-
-    if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
-        const std::string error_msg(::strerror(errno));
-        throw std::runtime_error("Invalid address: " + error_msg);
-    }
-}
-
-void TcpClient::change_port(int port) {
-    if (m_status != SocketStatus::CLOSED) {
-        throw std::runtime_error("Socket is not closed");
-    }
-    m_servaddr.sin_port = htons(port);
-}
-
 void TcpClient::connect() {
     if (m_status == SocketStatus::CONNECTED) {
         return;
@@ -168,9 +142,7 @@ TcpServer::TcpServer(const std::string& ip, int port) {
         throw std::runtime_error("Failed to create socket: " + error_msg);
     }
 
-    if (ip.empty()) {
-        throw std::runtime_error("IP address cannot be empty");
-    }
+    assert(!ip.empty());
 
     // set server address
     m_servaddr.sin_family = AF_INET;
@@ -181,45 +153,30 @@ TcpServer::TcpServer(const std::string& ip, int port) {
         const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Invalid address: " + error_msg);
     }
-
-    m_status = SocketStatus::CLOSED;
 }
 
 TcpServer& TcpServer::operator=(TcpServer&& other) {
     if (this != &other) {
         m_sockfd = other.m_sockfd;
         m_servaddr = other.m_servaddr;
-        m_status = other.m_status;
         m_client_connections = std::move(other.m_client_connections);
         other.m_sockfd = -1;
-        other.m_status = SocketStatus::CLOSED;
     }
 
     return *this;
 }
 
-TcpServer::TcpServer(TcpServer&& other):
-    m_client_connections(std::move(other.m_client_connections)) {
+TcpServer::TcpServer(TcpServer&& other): m_client_callbacks(std::move(other.m_client_callbacks)) {
     m_sockfd = other.m_sockfd;
     m_servaddr = other.m_servaddr;
-    m_status = other.m_status;
 
     other.m_sockfd = -1;
-    other.m_status = SocketStatus::CLOSED;
-}
-
-const SocketStatus& TcpServer::status() const {
-    return m_status;
-}
-
-const struct sockaddr_in& TcpServer::addr() const {
-    return m_servaddr;
 }
 
 void TcpServer::accept(const struct sockaddr_in* const client_addr) {
-    if (m_status != SocketStatus::LISTENING) {
-        throw std::runtime_error("Socket is not listening");
-    }
+    // if (m_status != SocketStatus::LISTENING) {
+    //     throw std::runtime_error("Socket is not listening");
+    // }
 
     auto client_addr_size = sizeof(*client_addr);
     m_sockfd = ::accept(m_sockfd, (struct sockaddr*)(client_addr), (socklen_t*)&client_addr_size);
@@ -229,17 +186,17 @@ void TcpServer::accept(const struct sockaddr_in* const client_addr) {
         throw std::runtime_error("Failed to accept connection: " + error_msg);
     }
 
-    m_status = SocketStatus::CONNECTED;
+    // m_status = SocketStatus::CONNECTED;
 }
 
 void TcpServer::listen(uint32_t waiting_queue_size) {
-    if (m_status == SocketStatus::LISTENING) {
-        return;
-    }
+    // if (m_status == SocketStatus::LISTENING) {
+    //     return;
+    // }
 
-    if (m_status != SocketStatus::CLOSED) {
-        throw std::runtime_error("Socket is not closed");
-    }
+    // if (m_status != SocketStatus::CLOSED) {
+    //     throw std::runtime_error("Socket is not closed");
+    // }
 
     if (waiting_queue_size < 1) {
         throw std::runtime_error("waiting_queue_size must be >= 1");
@@ -262,13 +219,13 @@ void TcpServer::listen(uint32_t waiting_queue_size) {
         throw std::runtime_error("Failed to listen: " + error_msg);
     }
 
-    m_status = SocketStatus::LISTENING;
+    // m_status = SocketStatus::LISTENING;
 }
 
-int TcpServer::recv(std::vector<uint8_t>& data) {
-    if (m_status != SocketStatus::CONNECTED) {
-        throw std::runtime_error("Socket is not connected");
-    }
+int TcpServer::recv(const Connection& conn, std::vector<uint8_t>& data) {
+    // if (m_status != SocketStatus::CONNECTED) {
+    //     throw std::runtime_error("Socket is not connected");
+    // }
 
     if (data.empty()) {
         throw std::runtime_error("Data buffer size need to be greater than 0");
@@ -282,10 +239,10 @@ int TcpServer::recv(std::vector<uint8_t>& data) {
     return n;
 }
 
-int TcpServer::send(const std::vector<uint8_t>& data) {
-    if (m_status != SocketStatus::CONNECTED) {
-        throw std::runtime_error("Socket is not connected");
-    }
+int TcpServer::send(const Connection& conn, const std::vector<uint8_t>& data) {
+    // if (m_status != SocketStatus::CONNECTED) {
+    //     throw std::runtime_error("Socket is not connected");
+    // }
 
     auto n = ::send(m_sockfd, data.data(), data.size(), 0);
     if (n == -1) {
@@ -296,16 +253,16 @@ int TcpServer::send(const std::vector<uint8_t>& data) {
 }
 
 void TcpServer::close() {
-    if (m_status == SocketStatus::CLOSED) {
-        return;
-    }
+    // if (m_status == SocketStatus::CLOSED) {
+    //     return;
+    // }
 
     if (::close(m_sockfd) == -1) {
         const std::string error_msg(::strerror(errno));
         throw std::runtime_error("Failed to close socket: " + error_msg);
     }
     m_sockfd = -1;
-    m_status = SocketStatus::CLOSED;
+    // m_status = SocketStatus::CLOSED;
 }
 
 void TcpServer::add_msg_callback(
@@ -313,44 +270,44 @@ void TcpServer::add_msg_callback(
     int port,
     std::function<std::vector<uint8_t>&(const std::vector<uint8_t>&)> callback
 ) {
-    m_client_connections.insert({ { ip, port, ConnectionType::TCP }, callback });
+    m_client_callbacks.insert({ { ip, port, ConnectionType::TCP }, callback });
 }
 
 void TcpServer::start(std::size_t buffer_size) {
     assert(buffer_size > 0);
     m_server_thread = std::thread([this, buffer_size]() {
         std::vector<uint8_t> buffer;
-        while (m_status != SocketStatus::CLOSED) {
-            accept();
-            buffer.resize(buffer_size);
-            auto n = recv(buffer);
-            if (n == -1) {
-                std::cerr << "Failed to receive data from the client: " << ::strerror(errno)
-                          << std::endl;
-                break;
-            }
-            if (n == 0) {
-                std::cerr << "Connection reset by peer." << std::endl;
-                break;
-            }
-            std::vector<uint8_t> data(buffer.begin(), buffer.begin() + n);
-            Connection client_connection { inet_ntoa(m_servaddr.sin_addr),
-                                           ntohs(m_servaddr.sin_port),
-                                           ConnectionType::TCP };
-            if (m_client_connections.contains(client_connection)) {
-                auto response = m_client_connections.at(client_connection)(data);
-                send(response);
-            } else {
-                std::cerr << "No callback for the request" << std::endl;
-            }
-        }
+        // while (m_status != SocketStatus::CLOSED) {
+        //     accept();
+        //     buffer.resize(buffer_size);
+        //     auto n = recv(buffer);
+        //     if (n == -1) {
+        //         std::cerr << "Failed to receive data from the client: " << ::strerror(errno)
+        //                   << std::endl;
+        //         break;
+        //     }
+        //     if (n == 0) {
+        //         std::cerr << "Connection reset by peer." << std::endl;
+        //         break;
+        //     }
+        //     std::vector<uint8_t> data(buffer.begin(), buffer.begin() + n);
+        //     Connection client_connection { inet_ntoa(m_servaddr.sin_addr),
+        //                                    ntohs(m_servaddr.sin_port),
+        //                                    ConnectionType::TCP };
+        //     if (m_client_connections.contains(client_connection)) {
+        //         auto response = m_client_connections.at(client_connection)(data);
+        //         send(response);
+        //     } else {
+        //         std::cerr << "No callback for the request" << std::endl;
+        //     }
+        // }
     });
 }
 
 TcpServer::~TcpServer() {
-    if (m_status != SocketStatus::CLOSED) {
+    // if (m_status != SocketStatus::CLOSED) {
         close();
-    }
+    // }
 }
 
 } // namespace net

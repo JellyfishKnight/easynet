@@ -15,7 +15,7 @@
 
 namespace net {
 
-class TcpClient {
+class TcpClient: public Client<std::vector<uint8_t>> {
 public:
     TcpClient(const std::string& ip, int port);
 
@@ -28,27 +28,6 @@ public:
     TcpClient(TcpClient&&);
 
     ~TcpClient();
-
-    /**
-     * @brief Get the status object
-     * 
-     * @return const SocketStatus&
-    */
-    const SocketStatus& status() const;
-
-    /**
-     * @brief Change the ip object
-     * 
-     * @param ip  The new ip address
-    */
-    void change_ip(const std::string& ip);
-
-    /**
-     * @brief Change the port object
-     * 
-     * @param port  The new port number
-    */
-    void change_port(int port);
 
     /**
      * @brief Connect to the server
@@ -81,7 +60,7 @@ private:
     SocketStatus m_status;
 };
 
-class TcpServer {
+class TcpServer: public Server<std::vector<uint8_t>> {
 public:
     TcpServer(const std::string& ip, int port);
 
@@ -95,28 +74,7 @@ public:
 
     ~TcpServer();
 
-    /**
-     * @brief Get the status object
-     * 
-     * @return const SocketStatus&
-     */
-    const SocketStatus& status() const;
-
-    /**
-     * @brief Get the address object
-     * 
-     * @return const struct sockaddr_in&
-     */
-    const struct sockaddr_in& addr() const;
-
-    /**
-     * @brief Listen for incoming connections
-     * 
-     * @param waiting_queue_size  The size of the waiting queue
-     */
-    void listen(uint32_t waiting_queue_size = 1);
-
-    void start(std::size_t buffer_size = 1024);
+    void start(std::size_t buffer_size = 1024) override;
 
     /**
      * @brief Close the connection
@@ -131,6 +89,12 @@ public:
 
 private:
     /**
+     * @brief Listen for incoming connections
+     * 
+     * @param waiting_queue_size  The size of the waiting queue
+     */
+    void listen(uint32_t waiting_queue_size = 1);
+    /**
      * @brief Accept incoming connection
      */
     void accept(const struct sockaddr_in* const client_addr = nullptr);
@@ -139,27 +103,16 @@ private:
      * 
      * @param data  The data to be sent
      */
-    int send(const std::vector<uint8_t>& data);
-
+    int send(const Connection& conn, const std::vector<uint8_t>& data) override;
     /**
      * @brief Receive data from the client
      * 
      * @param data  The data to be received
      */
-    int recv(std::vector<uint8_t>& data);
-
-    int m_sockfd;
-
-    struct sockaddr_in m_servaddr;
-
-    SocketStatus m_status;
-
-    std::vector<Connection> m_connections;
+    int recv(const Connection& conn, std::vector<uint8_t>& data) override;
 
     using ClientCallBack = std::function<std::vector<uint8_t>&(const std::vector<uint8_t>&)>;
-    std::unordered_map<Connection, ClientCallBack> m_client_connections;
-
-    std::thread m_server_thread;
+    std::unordered_map<Connection, ClientCallBack> m_client_callbacks;
 };
 
 } // namespace net

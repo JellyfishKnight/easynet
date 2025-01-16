@@ -1,5 +1,6 @@
 #pragma once
 
+#include "logger.hpp"
 #include <arpa/inet.h>
 #include <cstddef>
 #include <cstdint>
@@ -18,20 +19,30 @@ enum class SocketStatus : int { CLOSED = 0, CONNECTED, LISTENING, ACCEPTED };
 enum class ConnectionType : uint8_t { TCP = 0, UDP };
 
 struct Connection {
-    std::string ip;
-    int port;
+    int client_sock;
+    int server_sock;
+
+    std::string client_ip;
+    int client_port;
+
     ConnectionType type;
     SocketStatus status = SocketStatus::CLOSED;
 
     Connection() = default;
 
-    Connection(const std::string& ip, int port, ConnectionType type):
-        ip(ip),
-        port(port),
-        type(type) {}
+    Connection(int client_sock, int server_sock, ConnectionType c_type):
+        client_sock(client_sock),
+        server_sock(server_sock),
+        type(c_type) {}
+
+    Connection(const std::string& ip, int port, ConnectionType c_type):
+        client_ip(ip),
+        client_port(port),
+        type(c_type) {}
 
     bool operator==(const Connection& other) const {
-        return ip == other.ip && port == other.port;
+        return (client_sock == other.client_sock && server_sock == other.server_sock)
+            || (client_ip == other.client_ip && client_port == other.client_port);
     }
 };
 
@@ -45,9 +56,9 @@ public:
     virtual ~Server();
 
 protected:
-    virtual void send(const Connection& conn, const DataType& data) = 0;
+    virtual int send(const Connection& conn, const DataType& data) = 0;
 
-    virtual void recv(Connection& conn, DataType& data) = 0;
+    virtual int recv(const Connection& conn, DataType& data) = 0;
 
     virtual std::vector<uint8_t> handle_data_type(const DataType& data) = 0;
 
@@ -55,12 +66,15 @@ protected:
     std::thread m_server_thread;
     int m_sockfd;
     struct sockaddr_in m_servaddr;
+
+    // logger
+    utils::LoggerManager::Logger m_logger;
 };
 
 template<typename DataType = std::vector<uint8_t>>
 class Client {
 public:
-    Client(const std::string& ip, int port);
+    Client();
 
     virtual ~Client();
 
@@ -68,17 +82,19 @@ public:
 
     void close();
 
-    void send(const DataType& data);
+    int send(const DataType& data);
 
-    DataType recv();
+    int recv(DataType& data);
 
     const SocketStatus& status() const;
+
 protected:
     int m_sockfd;
     struct sockaddr_in m_servaddr;
     SocketStatus m_status;
-};
 
+    utils::LoggerManager::Logger m_logger;
+};
 
 enum class HttpReturnCode : uint16_t {
     CONTINUE = 100,
@@ -276,7 +292,7 @@ namespace std {
 template<>
 struct hash<net::Connection> {
     std::size_t operator()(const net::Connection& conn) const noexcept {
-        return std::hash<std::string>()(conn.ip) ^ std::hash<int>()(conn.port);
+        return std::hash<int>()(conn.client_sock) ^ std::hash<int>()(conn.server_sock);
     }
 };
 } // namespace std
