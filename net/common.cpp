@@ -1,9 +1,9 @@
-#include "http_utils.hpp"
+#include "common.hpp"
 
 #include <iostream>
 #include <istream>
-#include <string>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 
 namespace net {
@@ -26,8 +26,9 @@ const std::unordered_map<HttpMethod, std::string> method_map_reverse = {
 
 std::string create_request(const HttpRequest& request) {
     std::string req;
-    req += method_map_reverse.at(request.method) + " " + request.url + " " + request.version + "\r\n";
-    for (const auto& [key, value] : request.headers) {
+    req +=
+        method_map_reverse.at(request.method) + " " + request.url + " " + request.version + "\r\n";
+    for (const auto& [key, value]: request.headers) {
         req += key + ": " + value + "\r\n";
     }
     req += "\r\n";
@@ -90,7 +91,7 @@ HttpRequest parse_request(const std::string& request) {
 std::string create_response(const HttpResponse& response) {
     std::string res;
     res += response.version + " " + std::to_string(static_cast<int>(response.code)) + "\r\n";
-    for (const auto& [key, value] : response.headers) {
+    for (const auto& [key, value]: response.headers) {
         res += key + ": " + value + "\r\n";
     }
     res += "\r\n";

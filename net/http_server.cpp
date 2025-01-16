@@ -1,6 +1,6 @@
 #include "http_server.hpp"
+#include "common.hpp"
 #include "http_client.hpp"
-#include "http_utils.hpp"
 #include "logger.hpp"
 #include "tcp.hpp"
 #include "thread_pool.hpp"

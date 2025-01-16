@@ -1,4 +1,6 @@
 #include "tcp.hpp"
+#include "common.hpp"
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -8,6 +10,10 @@
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
+#include <thread>
+#include <utility>
+
+#include "logger.hpp"
 
 namespace net {
 
@@ -184,7 +190,7 @@ TcpServer& TcpServer::operator=(TcpServer&& other) {
         m_sockfd = other.m_sockfd;
         m_servaddr = other.m_servaddr;
         m_status = other.m_status;
-
+        m_client_connections = std::move(other.m_client_connections);
         other.m_sockfd = -1;
         other.m_status = SocketStatus::CLOSED;
     }
@@ -192,7 +198,8 @@ TcpServer& TcpServer::operator=(TcpServer&& other) {
     return *this;
 }
 
-TcpServer::TcpServer(TcpServer&& other) {
+TcpServer::TcpServer(TcpServer&& other):
+    m_client_connections(std::move(other.m_client_connections)) {
     m_sockfd = other.m_sockfd;
     m_servaddr = other.m_servaddr;
     m_status = other.m_status;
@@ -207,26 +214,6 @@ const SocketStatus& TcpServer::status() const {
 
 const struct sockaddr_in& TcpServer::addr() const {
     return m_servaddr;
-}
-
-void TcpServer::change_ip(const std::string& ip) {
-    if (m_status != SocketStatus::CLOSED) {
-        ///TOODF: logging
-        return;
-    }
-    if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
-        const std::string error_msg(::strerror(errno));
-        throw std::runtime_error("Invalid address: " + error_msg);
-    }
-}
-
-void TcpServer::change_port(int port) {
-    if (m_status != SocketStatus::CLOSED) {
-        ///TOODF: logging
-        return;
-    }
-
-    m_servaddr.sin_port = htons(port);
 }
 
 void TcpServer::accept(const struct sockaddr_in* const client_addr) {
@@ -321,8 +308,43 @@ void TcpServer::close() {
     m_status = SocketStatus::CLOSED;
 }
 
-void TcpServer::start(std::vector<uint8_t>& buffer) {
-    
+void TcpServer::add_msg_callback(
+    const std::string& ip,
+    int port,
+    std::function<std::vector<uint8_t>&(const std::vector<uint8_t>&)> callback
+) {
+    m_client_connections.insert({ { ip, port, ConnectionType::TCP }, callback });
+}
+
+void TcpServer::start(std::size_t buffer_size) {
+    assert(buffer_size > 0);
+    m_server_thread = std::thread([this, buffer_size]() {
+        std::vector<uint8_t> buffer;
+        while (m_status != SocketStatus::CLOSED) {
+            accept();
+            buffer.resize(buffer_size);
+            auto n = recv(buffer);
+            if (n == -1) {
+                std::cerr << "Failed to receive data from the client: " << ::strerror(errno)
+                          << std::endl;
+                break;
+            }
+            if (n == 0) {
+                std::cerr << "Connection reset by peer." << std::endl;
+                break;
+            }
+            std::vector<uint8_t> data(buffer.begin(), buffer.begin() + n);
+            Connection client_connection { inet_ntoa(m_servaddr.sin_addr),
+                                           ntohs(m_servaddr.sin_port),
+                                           ConnectionType::TCP };
+            if (m_client_connections.contains(client_connection)) {
+                auto response = m_client_connections.at(client_connection)(data);
+                send(response);
+            } else {
+                std::cerr << "No callback for the request" << std::endl;
+            }
+        }
+    });
 }
 
 TcpServer::~TcpServer() {

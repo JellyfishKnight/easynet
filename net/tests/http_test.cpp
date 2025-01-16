@@ -1,6 +1,6 @@
+#include "common.hpp"
 #include "http_client.hpp"
 #include "http_server.hpp"
-#include "http_utils.hpp"
 
 #include <gtest/gtest.h>
 #include <stdexcept>
@@ -27,14 +27,12 @@ protected:
     std::unique_ptr<net::HttpServer> server;
 };
 
-
 TEST_F(HttpTest, TestServerAcceptConnection) {
     try {
         ASSERT_EQ(server->status(), net::SocketStatus::LISTENING);
     } catch (const std::runtime_error& e) {
         FAIL() << e.what();
     }
-
 
     std::thread clientThread([]() {
         net::HttpClient client("127.0.0.1", 15789);

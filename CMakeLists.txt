@@ -46,49 +46,28 @@ target_include_directories(
   ./utils/include
 )
 
-# build socket
-aux_source_directory(./socket socket_src)
+# build net
+aux_source_directory(./net net_src)
 
 add_library(
-  socket STATIC
-  ${socket_src}
+  net STATIC
+  ${net_src}
 )
 
 target_include_directories(
-  socket PUBLIC
-  ./socket/include
+  net PUBLIC
+  ./net/include
 )
 
 target_link_libraries(
-  socket
+  net
   utils
 )
-
-# build http
-
-aux_source_directory(./http http_src)
-
-add_library(
-  http STATIC
-  ${http_src}
-)
-
-target_include_directories(
-  http PUBLIC
-  ./http/include
-)
-
-target_link_libraries(
-  http
-  utils
-  socket
-)
-
 
 # install headers
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/utils/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/utils)
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/socket/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/socket)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/net/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/net)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/http/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/http)
 
 
@@ -98,31 +77,31 @@ find_package(GTest REQUIRED)
 
 add_executable(
   TcpTest
-  socket/tests/test_tcp.cpp
+  net/tests/test_tcp.cpp
 )
 
 target_link_libraries(
   TcpTest
   GTest::GTest
-  socket
+  net
   utils
 )
 
 add_executable(
   UdpTest
-  socket/tests/test_udp.cpp
+  net/tests/test_udp.cpp
 )
 
 target_link_libraries(
   UdpTest
   GTest::GTest
-  socket
+  net
   utils
 )
 
 add_executable(
   HttpTest
-  http/tests/http_test.cpp
+  net/tests/http_test.cpp
 )
 
 target_link_libraries(
@@ -130,7 +109,7 @@ target_link_libraries(
   GTest::GTest
   http
   utils
-  socket
+  net
 )
 
 add_executable(
@@ -194,7 +173,7 @@ add_executable(
 target_link_libraries(
   tcp_client
   utils
-  socket
+  net
   http
   )
 
@@ -205,7 +184,7 @@ add_executable(
 
 target_link_libraries(
   tcp_server
-  socket
+  net
   utils
   http
 )

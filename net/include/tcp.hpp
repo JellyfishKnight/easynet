@@ -4,9 +4,11 @@
 #include <cstdint>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "common.hpp"
@@ -115,32 +117,24 @@ public:
     const struct sockaddr_in& addr() const;
 
     /**
-     * @brief Change the ip object
-     * 
-     * @param ip  The new ip address
-     */
-    void change_ip(const std::string& ip);
-
-    /**
-     * @brief Change the port object
-     * 
-     * @param port  The new port number
-     */
-    void change_port(int port);
-
-    /**
      * @brief Listen for incoming connections
      * 
      * @param waiting_queue_size  The size of the waiting queue
      */
     void listen(uint32_t waiting_queue_size = 1);
 
-    void start(std::vector<uint8_t>& buffer);
+    void start(std::size_t buffer_size = 1024);
 
     /**
      * @brief Close the connection
      */
     void close();
+
+    void add_msg_callback(
+        const std::string& ip,
+        int port,
+        std::function<std::vector<uint8_t>&(const std::vector<uint8_t>&)> callback
+    );
 
 private:
     /**
@@ -165,11 +159,14 @@ private:
 
     struct sockaddr_in m_servaddr;
 
-    
-
     SocketStatus m_status;
 
-    std::vector<ClientConnection> m_connections;
+    std::vector<Connection> m_connections;
+
+    using ClientCallBack = std::function<std::vector<uint8_t>&(const std::vector<uint8_t>&)>;
+    std::unordered_map<Connection, ClientCallBack> m_client_connections;
+
+    std::thread m_server_thread;
 };
 
 } // namespace net

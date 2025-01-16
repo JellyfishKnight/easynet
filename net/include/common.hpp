@@ -1,11 +1,60 @@
 #pragma once
 
+#include <arpa/inet.h>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <netinet/in.h>
 #include <string>
-#include <vector>
-#include <unordered_map>
+#include <sys/socket.h>
+#include <thread>
+#include <unistd.h>
 
 namespace net {
+
+enum class SocketStatus : int { CLOSED = 0, CONNECTED, LISTENING, ACCEPTED };
+
+enum class ConnectionType : uint8_t { TCP = 0, UDP };
+
+struct Connection {
+    std::string ip;
+    int port;
+    ConnectionType type;
+    SocketStatus status = SocketStatus::CLOSED;
+
+    Connection() = default;
+
+    Connection(const std::string& ip, int port, ConnectionType type):
+        ip(ip),
+        port(port),
+        type(type) {}
+
+    bool operator==(const Connection& other) const {
+        return ip == other.ip && port == other.port;
+    }
+};
+
+class Server {
+public:
+    Server();
+
+    virtual void start(std::size_t buffer_size = 1024) = 0;
+
+    template<typename DataType>
+    void send(const Connection& conn, const DataType& data) {
+        static_assert(
+            std::is_integral_v<DataType> || std::is_floating_point_v<DataType>
+                || std::is_same_v<DataType, char> || std::is_same_v<DataType, std::string>
+                || std::is_same_v<DataType, std::vector<uint8_t>>,
+            "Invalid data type"
+        );
+    }
+
+    virtual ~Server();
+
+private:
+
+};
 
 enum class HttpReturnCode : uint16_t {
     CONTINUE = 100,
@@ -163,14 +212,10 @@ enum class HttpMethod : uint8_t {
 
 inline constexpr auto get_string_from_http_method = [](const HttpMethod& method) -> std::string {
     const static std::unordered_map<HttpMethod, std::string> method_map = {
-        { HttpMethod::GET, "GET" },
-        { HttpMethod::POST, "POST" },
-        { HttpMethod::PUT, "PUT" },
-        { HttpMethod::DELETE, "DELETE" },
-        { HttpMethod::HEAD, "HEAD" },
-        { HttpMethod::OPTIONS, "OPTIONS" },
-        { HttpMethod::CONNECT, "CONNECT" },
-        { HttpMethod::TRACE, "TRACE" },
+        { HttpMethod::GET, "GET" },         { HttpMethod::POST, "POST" },
+        { HttpMethod::PUT, "PUT" },         { HttpMethod::DELETE, "DELETE" },
+        { HttpMethod::HEAD, "HEAD" },       { HttpMethod::OPTIONS, "OPTIONS" },
+        { HttpMethod::CONNECT, "CONNECT" }, { HttpMethod::TRACE, "TRACE" },
         { HttpMethod::PATCH, "PATCH" },
     };
     return method_map.at(method);
@@ -178,14 +223,10 @@ inline constexpr auto get_string_from_http_method = [](const HttpMethod& method)
 
 inline constexpr auto get_http_method_from_string = [](const std::string& method) -> HttpMethod {
     const static std::unordered_map<std::string, HttpMethod> method_map = {
-        { "GET", HttpMethod::GET },
-        { "POST", HttpMethod::POST },
-        { "PUT", HttpMethod::PUT },
-        { "DELETE", HttpMethod::DELETE },
-        { "HEAD", HttpMethod::HEAD },
-        { "OPTIONS", HttpMethod::OPTIONS },
-        { "CONNECT", HttpMethod::CONNECT },
-        { "TRACE", HttpMethod::TRACE },
+        { "GET", HttpMethod::GET },         { "POST", HttpMethod::POST },
+        { "PUT", HttpMethod::PUT },         { "DELETE", HttpMethod::DELETE },
+        { "HEAD", HttpMethod::HEAD },       { "OPTIONS", HttpMethod::OPTIONS },
+        { "CONNECT", HttpMethod::CONNECT }, { "TRACE", HttpMethod::TRACE },
         { "PATCH", HttpMethod::PATCH },
     };
     return method_map.at(method);
@@ -205,5 +246,13 @@ std::string create_request(const HttpRequest& request);
 
 HttpRequest parse_request(const std::string& request);
 
-
 } // namespace net
+
+namespace std {
+template<>
+struct hash<net::Connection> {
+    std::size_t operator()(const net::Connection& conn) const noexcept {
+        return std::hash<std::string>()(conn.ip) ^ std::hash<int>()(conn.port);
+    }
+};
+} // namespace std
