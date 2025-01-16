@@ -21,16 +21,14 @@ TcpClient::TcpClient(const std::string& ip, int port) {
     // create socket
     m_sockfd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (m_sockfd == -1) {
-        const std::string error_msg(::strerror(errno));
-        throw std::runtime_error("Failed to create socket: " + error_msg);
+        throw std::runtime_error("Failed to create socket: " + std::string(::strerror(errno)));
     }
 
     // set server address
     m_servaddr.sin_family = AF_INET;
     m_servaddr.sin_port = htons(port);
     if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
-        const std::string error_msg(::strerror(errno));
-        throw std::runtime_error("Invalid address: " + error_msg);
+        throw std::runtime_error("Invalid address: " + std::string(::strerror(errno)));
     }
 
     m_status = SocketStatus::CLOSED;
@@ -146,6 +144,8 @@ TcpServer::TcpServer(const std::string& ip, int port) {
     } else if (::inet_pton(AF_INET, ip.c_str(), &m_servaddr.sin_addr) <= 0) {
         throw std::runtime_error("Invalid address: " + std::string(::strerror(errno)));
     }
+
+    m_status = SocketStatus::CLOSED;
 }
 
 TcpServer& TcpServer::operator=(TcpServer&& other) {
@@ -154,6 +154,7 @@ TcpServer& TcpServer::operator=(TcpServer&& other) {
         m_servaddr = other.m_servaddr;
         m_client_connections = std::move(other.m_client_connections);
         other.m_sockfd = -1;
+        m_status = other.m_status;
     }
 
     return *this;
@@ -162,14 +163,16 @@ TcpServer& TcpServer::operator=(TcpServer&& other) {
 TcpServer::TcpServer(TcpServer&& other): m_client_callbacks(std::move(other.m_client_callbacks)) {
     m_sockfd = other.m_sockfd;
     m_servaddr = other.m_servaddr;
+    m_client_connections = std::move(other.m_client_connections);
+    m_status = other.m_status;
 
     other.m_sockfd = -1;
 }
 
-void TcpServer::accept(const struct sockaddr_in* const client_addr) {
-    // if (m_status != SocketStatus::LISTENING) {
-    //     throw std::runtime_error("Socket is not listening");
-    // }
+void TcpServer::accept(struct sockaddr_in* client_addr) {
+    if (m_status != SocketStatus::LISTENING) {
+        throw std::runtime_error("Socket is not listening");
+    }
 
     auto client_addr_size = sizeof(*client_addr);
 
@@ -190,17 +193,17 @@ void TcpServer::accept(const struct sockaddr_in* const client_addr) {
     client_connection.type = ConnectionType::TCP;
 
     m_client_connections.push_back(client_connection);
-    // m_status = SocketStatus::CONNECTED;
+    m_status = SocketStatus::CONNECTED;
 }
 
 void TcpServer::listen(uint32_t waiting_queue_size) {
-    // if (m_status == SocketStatus::LISTENING) {
-    //     return;
-    // }
+    if (m_status == SocketStatus::LISTENING) {
+        return;
+    }
 
-    // if (m_status != SocketStatus::CLOSED) {
-    //     throw std::runtime_error("Socket is not closed");
-    // }
+    if (m_status != SocketStatus::CLOSED) {
+        throw std::runtime_error("Socket is not closed");
+    }
 
     if (waiting_queue_size < 1) {
         throw std::runtime_error("waiting_queue_size must be >= 1");
@@ -224,13 +227,13 @@ void TcpServer::listen(uint32_t waiting_queue_size) {
         throw std::runtime_error("Failed to listen: " + error_msg);
     }
 
-    // m_status = SocketStatus::LISTENING;
+    m_status = SocketStatus::LISTENING;
 }
 
 int TcpServer::recv(const Connection& conn, std::vector<uint8_t>& data) {
-    // if (m_status != SocketStatus::CONNECTED) {
-    //     throw std::runtime_error("Socket is not connected");
-    // }
+    if (m_status != SocketStatus::CONNECTED) {
+        throw std::runtime_error("Socket is not connected");
+    }
 
     if (data.empty()) {
         throw std::runtime_error("Data buffer size need to be greater than 0");
@@ -244,9 +247,9 @@ int TcpServer::recv(const Connection& conn, std::vector<uint8_t>& data) {
 }
 
 int TcpServer::send(const Connection& conn, const std::vector<uint8_t>& data) {
-    // if (m_status != SocketStatus::CONNECTED) {
-    //     throw std::runtime_error("Socket is not connected");
-    // }
+    if (m_status != SocketStatus::CONNECTED) {
+        throw std::runtime_error("Socket is not connected");
+    }
 
     auto n = ::send(conn.client_sock, data.data(), data.size(), 0);
     if (n == -1) {
@@ -256,9 +259,9 @@ int TcpServer::send(const Connection& conn, const std::vector<uint8_t>& data) {
 }
 
 void TcpServer::close() {
-    // if (m_status == SocketStatus::CLOSED) {
-    //     return;
-    // }
+    if (m_status == SocketStatus::CLOSED) {
+        return;
+    }
 
     if (::close(m_sockfd) == -1) {
         throw std::runtime_error("Failed to close socket: " + std::string(::strerror(errno)));
@@ -274,7 +277,7 @@ void TcpServer::close() {
         conn.client_sock = -1;
         conn.server_sock = -1;
     }
-    // m_status = SocketStatus::CLOSED;
+    m_status = SocketStatus::CLOSED;
 }
 
 void TcpServer::add_msg_callback(

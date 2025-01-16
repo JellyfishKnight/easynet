@@ -67,6 +67,8 @@ protected:
     int m_sockfd;
     struct sockaddr_in m_servaddr;
 
+    SocketStatus m_status = SocketStatus::CLOSED;
+
     // logger
     utils::LoggerManager::Logger m_logger;
 };

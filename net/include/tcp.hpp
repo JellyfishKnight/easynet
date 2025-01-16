@@ -97,7 +97,7 @@ private:
     /**
      * @brief Accept incoming connection
      */
-    void accept(const struct sockaddr_in* const client_addr = nullptr);
+    void accept(struct sockaddr_in* client_addr = nullptr);
     /**
      * @brief Send data to the client
      * 
