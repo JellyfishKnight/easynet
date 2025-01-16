@@ -32,26 +32,26 @@ public:
     /**
      * @brief Connect to the server
     */
-    void connect();
+    void connect() override;
 
     /**
      * @brief Send data to the server
      * 
      * @param data  The data to be sent
     */
-    int send(const std::vector<uint8_t>& data);
+    int send(const std::vector<uint8_t>& data) override;
 
     /**
      * @brief Receive data from the server
      * 
      * @param data  The data to be received
     */
-    int recv(std::vector<uint8_t>& data);
+    int recv(std::vector<uint8_t>& data) override;
 
     /**
      * @brief Close the connection
     */
-    void close();
+    void close() override;
 
 private:
     int m_sockfd;

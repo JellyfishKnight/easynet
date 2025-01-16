@@ -78,13 +78,13 @@ public:
 
     virtual ~Client();
 
-    void connect();
+    virtual void connect();
 
-    void close();
+    virtual void close();
 
-    int send(const DataType& data);
+    virtual int send(const DataType& data) = 0;
 
-    int recv(DataType& data);
+    virtual int recv(DataType& data) = 0;
 
     const SocketStatus& status() const;
 
