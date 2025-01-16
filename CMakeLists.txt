@@ -38,7 +38,6 @@ aux_source_directory(./utils utils_src)
 add_library(
   utils STATIC
   ${utils_src}
-        utils/include/thread_pool.hpp
 )
 
 target_include_directories(
@@ -47,70 +46,21 @@ target_include_directories(
 )
 
 # build net
-aux_source_directory(./net net_src)
 
-add_library(
-  net STATIC
-  ${net_src}
-)
 
-target_include_directories(
-  net PUBLIC
-  ./net/include
-)
-
-target_link_libraries(
-  net
-  utils
-)
 
 # install headers
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/utils/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/utils)
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/net/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/net)
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/http/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/http)
+# install(DIRECTORY ${PROJECT_SOURCE_DIR}/net/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/net)
 
 
 # build test
 
 find_package(GTest REQUIRED)
 
-add_executable(
-  TcpTest
-  net/tests/test_tcp.cpp
-)
 
-target_link_libraries(
-  TcpTest
-  GTest::GTest
-  net
-  utils
-)
-
-add_executable(
-  UdpTest
-  net/tests/test_udp.cpp
-)
-
-target_link_libraries(
-  UdpTest
-  GTest::GTest
-  net
-  utils
-)
-
-add_executable(
-  HttpTest
-  net/tests/http_test.cpp
-)
-
-target_link_libraries(
-  HttpTest
-  GTest::GTest
-  http
-  utils
-  net
-)
+# utils tests
 
 add_executable(
   LoggerTest
@@ -160,32 +110,4 @@ target_link_libraries(
   utils
 )
 
-
-
-
-# build custom client and server
-
-add_executable(
-  tcp_client
-  demo/http_client.cpp
-)
-
-target_link_libraries(
-  tcp_client
-  utils
-  net
-  http
-  )
-
-add_executable(
-  tcp_server
-  demo/http_server.cpp
-)
-
-target_link_libraries(
-  tcp_server
-  net
-  utils
-  http
-)
 
