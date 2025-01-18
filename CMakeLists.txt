@@ -32,40 +32,29 @@ message(STATUS "LIBRARY_OUTPUT_PATH: ${LIBRARY_OUTPUT_PATH}")
 message(STATUS "LIBRARY_OUTPUT_PATH: ${EXECUTABLE_OUTPUT_PATH}")
 
 # build net
+aux_source_directory(./utils utils_src)
 aux_source_directory(./net/common net_common_src)
 aux_source_directory(./net/socket net_socket_src)
 aux_source_directory(./net/http net_http_src)
 
+add_library(utils STATIC ${utils_src})
+add_library(net::utils ALIAS utils)
+target_include_directories(utils PUBLIC ./utils/include)
+
 add_library(net_common STATIC ${net_common_src})
 add_library(net::common ALIAS net_common)
 target_include_directories(net_common PUBLIC ./net/common/include)
+target_link_libraries(net_common net::utils)
 
 add_library(net_socket STATIC ${net_socket_src})
 add_library(net::socket ALIAS net_socket)
 target_include_directories(net_socket PUBLIC ./net/socket/include)
-target_link_libraries(net_socket net::common)
+target_link_libraries(net_socket net::utils net::common)
 
 add_library(net_http STATIC ${net_http_src})
 add_library(net::http ALIAS net_http)
 target_include_directories(net_http PUBLIC ./net/http/include)
-target_link_libraries(net_http net::common net::socket)
-
-
-# build utils
-aux_source_directory(./utils utils_src)
-
-add_library(
-  utils STATIC
-  ${utils_src}
-)
-
-target_include_directories(
-  utils PUBLIC
-  ./utils/include
-)
-
-# build net
-
+target_link_libraries(net_http net::utils net::common net::socket)
 
 
 # install headers
