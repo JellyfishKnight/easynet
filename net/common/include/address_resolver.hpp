@@ -46,7 +46,7 @@ public:
             if (socketfd == -1) {
                 throw std::system_error(errno, std::system_category(), "Failed to create socket");
             }
-            return
+            return socketfd;
         }
 
         [[nodiscard]] bool next_entry() {
@@ -57,8 +57,6 @@ public:
             return true;
         }
     };
-
-    struct addrinfo* m_head = nullptr;
 
     address_info resolve(const std::string& name, const std::string& service) {
         int err = ::getaddrinfo(name.c_str(), service.c_str(), nullptr, &m_head);
@@ -75,6 +73,9 @@ public:
             ::freeaddrinfo(m_head);
         }
     }
+
+private:
+    struct addrinfo* m_head = nullptr;
 };
 
 } // namespace net
