@@ -3,16 +3,16 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <stdexcept>
-#include <vector>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace net {
 
-enum class http_method {
+enum class HttpMethod {
     UNKNOWN = -1,
     GET,
     POST,
@@ -25,7 +25,7 @@ enum class http_method {
     CONNECT,
 };
 
-enum class http_response_code {
+enum class HttpResponseCode {
     UNKNOWN = -1,
     CONTINUE = 100,
     SWITCHING_PROTOCOLS = 101,
@@ -92,7 +92,23 @@ enum class http_response_code {
     NETWORK_AUTHENTICATION_REQUIRED = 511,
 };
 
-class http11_parser {
+struct Response {
+    std::string version;
+    HttpResponseCode status_code;
+    std::string reason;
+    std::unordered_map<std::string, std::string> headers;
+    std::string body;
+};
+
+struct Request {
+    HttpMethod method;
+    std::string url;
+    std::string version;
+    std::unordered_map<std::string, std::string> headers;
+    std::string body;
+};
+
+class Http11Parser {
 protected:
     std::vector<uint8_t> m_header;
 
@@ -103,6 +119,7 @@ protected:
     std::string m_body;
 
     bool m_header_finished = false;
+
 public:
     void reset() {
         m_header.clear();
@@ -115,9 +132,13 @@ public:
     [[nodiscard]] bool header_finished() {
         return m_header_finished;
     }
+
 protected:
     void extract_headers() {
-        std::string_view header_view(reinterpret_cast<const char*>(m_header.data()), m_header.size());
+        std::string_view header_view(
+            reinterpret_cast<const char*>(m_header.data()),
+            m_header.size()
+        );
         std::size_t pos = header_view.find("\r\n", 0, 2);
         m_headline = std::string(header_view.substr(0, pos));
         while (pos != std::string::npos) {
@@ -133,7 +154,7 @@ protected:
             if (colon_pos != std::string::npos) {
                 std::string key = std::string(line.substr(0, colon_pos));
                 std::string value = std::string(line.substr(colon_pos + 2));
-                for (char &c : key) {
+                for (char& c: key) {
                     if ('A' <= c && c <= 'Z') {
                         c = c - 'A' + 'a';
                     }
@@ -144,13 +165,15 @@ protected:
         }
     }
 
-
 public:
     void push_chunk(std::vector<uint8_t>& chunk) {
         assert(m_header_finished == false);
         std::size_t old_size = m_header.size();
         m_header.resize(old_size + chunk.size());
-        std::string_view header = std::string_view(reinterpret_cast<const char*>(m_header.data()), old_size + chunk.size());
+        std::string_view header = std::string_view(
+            reinterpret_cast<const char*>(m_header.data()),
+            old_size + chunk.size()
+        );
         // if header is still parsering, try judge if it is finished
         if (old_size < 4) {
             old_size = 4;
@@ -168,7 +191,7 @@ public:
         }
     }
 
-    std::string &headline() {
+    std::string& headline() {
         return m_headline;
     }
 
@@ -180,12 +203,12 @@ public:
         return m_header;
     }
 
-    std::string &body() {
+    std::string& body() {
         return m_body;
     }
 };
 
-template<typename HeaderParser = http11_parser>
+template<typename HeaderParser = Http11Parser>
 class http_base_parser {
 protected:
     HeaderParser m_header_parser;
@@ -193,6 +216,7 @@ protected:
     std::size_t m_content_length = 0;
     std::size_t body_accumulated = 0;
     bool m_body_finished = false;
+
 public:
     void reset_state() {
         m_header_parser.reset();
@@ -220,9 +244,10 @@ public:
     std::unordered_map<std::string, std::string>& headers() {
         return m_header_parser.headers();
     }
+
 protected:
     std::string headline_first() {
-        auto &line = headline();
+        auto& line = headline();
         std::size_t space = line.find(' ');
         if (space == std::string::npos) {
             return "";
@@ -231,7 +256,7 @@ protected:
     }
 
     std::string headline_second() {
-        auto &line = headline();
+        auto& line = headline();
         std::size_t space = line.find(' ');
         if (space == std::string::npos) {
             return "";
@@ -244,7 +269,7 @@ protected:
     }
 
     std::string headline_third() {
-        auto &line = headline();
+        auto& line = headline();
         std::size_t space1 = line.find(' ');
         if (space1 == std::string::npos) {
             return "";
@@ -255,6 +280,7 @@ protected:
         }
         return line.substr(space2 + 1);
     }
+
 public:
     std::string& body() {
         return m_header_parser.body();
@@ -262,7 +288,7 @@ public:
 
 protected:
     std::size_t extract_content_length() {
-        auto &headers = m_header_parser.headers();
+        auto& headers = m_header_parser.headers();
         auto it = headers.find("content-length");
         if (it == headers.end()) {
             return 0;
@@ -296,32 +322,30 @@ public:
     }
 };
 
-template <typename HeaderParser = http11_parser>
-class http_request_parser : public http_base_parser<HeaderParser> {
+template<typename HeaderParser = Http11Parser>
+class HttpRequestParser: public http_base_parser<HeaderParser> {
 public:
-    http_method method() {
-        
-    }
+    HttpMethod method() {}
 
     std::string url() {
         return this->headline_second();
     }
 };
 
-template <typename HeaderParser = http11_parser>
-class http_response_parser : public http_base_parser<HeaderParser> {
-public:    
+template<typename HeaderParser = Http11Parser>
+class HttpResponseParser: public http_base_parser<HeaderParser> {
+public:
     int status() {
         auto s = this->headline_second();
         try {
             return std::stoi(s);
-        } catch (std::logic_error const &) {
+        } catch (std::logic_error const&) {
             return -1;
         }
     }
 };
 
-class http11_header_writer {
+class Http11HeaderWriter {
     std::vector<uint8_t> m_buffer;
 
     void reset_state() {
@@ -332,8 +356,7 @@ class http11_header_writer {
         return m_buffer;
     }
 
-    void begin_header(std::string_view first, std::string_view second,
-                        std::string_view third) {
+    void begin_header(std::string_view first, std::string_view second, std::string_view third) {
         m_buffer.insert(m_buffer.end(), first.begin(), first.end());
         m_buffer.emplace_back(' ');
         m_buffer.insert(m_buffer.end(), second.begin(), second.end());
@@ -342,7 +365,7 @@ class http11_header_writer {
     }
 
     void write_header(std::string_view key, std::string_view value) {
-        static std::string temp ="\r\n";
+        static std::string temp = "\r\n";
         m_buffer.insert(m_buffer.end(), temp.begin(), temp.end());
         m_buffer.insert(m_buffer.end(), key.begin(), key.end());
         m_buffer.emplace_back(':');
@@ -356,13 +379,12 @@ class http11_header_writer {
     }
 };
 
-template<typename HeaderWriter = http11_header_writer>
-class http_base_writer {
+template<typename HeaderWriter = Http11HeaderWriter>
+class HttpBaseWriter {
 protected:
     HeaderWriter m_header_writer;
 
-    void begin_header(std::string_view first, std::string_view second,
-                        std::string_view third) {
+    void begin_header(std::string_view first, std::string_view second, std::string_view third) {
         m_header_writer.begin_header(first, second, third);
     }
 
@@ -376,7 +398,7 @@ protected:
 
     void write_header(std::string_view key, std::string_view value) {
         m_header_writer.write_header(key, value);
-    } 
+    }
 
     void end_header() {
         m_header_writer.end_header();
@@ -387,24 +409,20 @@ protected:
     }
 };
 
-
-template<typename HeaderWriter = http11_header_writer>
-class http_request_writer : public http_base_writer<HeaderWriter> {
+template<typename HeaderWriter = Http11HeaderWriter>
+class HttpRequestWriter: public HttpBaseWriter<HeaderWriter> {
 public:
     void begin_header(std::string_view method, std::string_view url, std::string_view version) {
         this->begin_header(method, url, version);
     }
 };
 
-template<typename HeaderWriter = http11_header_writer>
-class http_response_writer : public http_base_writer<HeaderWriter> {
+template<typename HeaderWriter = Http11HeaderWriter>
+class HttpResponseWriter: public HttpBaseWriter<HeaderWriter> {
 public:
     void begin_header(std::string_view version, std::string_view status, std::string_view reason) {
         this->begin_header(version, status, reason);
     }
 };
-
-
-
 
 } // namespace net
