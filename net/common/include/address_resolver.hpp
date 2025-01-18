@@ -61,7 +61,7 @@ public:
     address_info resolve(const std::string& name, const std::string& service) {
         int err = ::getaddrinfo(name.c_str(), service.c_str(), nullptr, &m_head);
         if (err != 0) {
-            throw std::system_error(err, std::generic_category(), "Failed to resolve address");
+            throw std::system_error(err, std::system_category(), "Failed to resolve address");
         }
         return { m_head };
     }

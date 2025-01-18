@@ -31,6 +31,25 @@ message(STATUS "LIBRARY_OUTPUT_PATH: ${INCLUDE_OUTPUT_PATH}")
 message(STATUS "LIBRARY_OUTPUT_PATH: ${LIBRARY_OUTPUT_PATH}")
 message(STATUS "LIBRARY_OUTPUT_PATH: ${EXECUTABLE_OUTPUT_PATH}")
 
+# build net
+aux_source_directory(./net/common net_common_src)
+aux_source_directory(./net/socket net_socket_src)
+aux_source_directory(./net/http net_http_src)
+
+add_library(net_common STATIC ${net_common_src})
+add_library(net::common ALIAS net_common)
+target_include_directories(net_common PUBLIC ./net/common/include)
+
+add_library(net_socket STATIC ${net_socket_src})
+add_library(net::socket ALIAS net_socket)
+target_include_directories(net_socket PUBLIC ./net/socket/include)
+target_link_libraries(net_socket net::common)
+
+add_library(net_http STATIC ${net_http_src})
+add_library(net::http ALIAS net_http)
+target_include_directories(net_http PUBLIC ./net/http/include)
+target_link_libraries(net_http net::common net::socket)
+
 
 # build utils
 aux_source_directory(./utils utils_src)

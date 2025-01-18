@@ -22,11 +22,7 @@
 
 #define LOG_FOREACH_LOG_LEVEL(f) f(DEBUG) f(INFO) f(WARN) f(ERROR) f(FATAL)
 
-#if defined(__linux__)
-    #define _IF_HAS_ANSI_COLORS(x) x
-#else
-    #define _IF_HAS_ANSI_COLORS(x)
-#endif
+#define _IF_HAS_ANSI_COLORS(x) x
 
 namespace utils {
 
@@ -236,20 +232,11 @@ private:
         ? static_cast<LogLevel>(std::stoi(std::getenv("LOG_LEVEL")))
         : LogLevel::INFO;
 
-#if defined(__linux__)
     inline static constexpr char
         k_level_ansi_colors[static_cast<uint8_t>(LogLevel::FATAL) + 1][8] = {
             "\033[32m", "\033[34m", "\033[33m", "\033[31m", "\033[31;1m",
         };
     inline static constexpr char k_reset_ansi_color[4] = "\033[m";
-#else
-    #define _IF_HAS_ANSI_COLORS(x)
-    inline static constexpr char k_level_ansi_colors[static_cast<uint8_t>(LogLevel::FATAL) + 1]
-                                                    [1] = {
-                                                        "", "", "", "", "",
-                                                    };
-    inline static constexpr char k_reset_ansi_color[1] = "";
-#endif
 };
 
 } // namespace utils
