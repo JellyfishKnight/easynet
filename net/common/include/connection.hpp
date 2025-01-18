@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <format>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <sys/socket.h>
@@ -64,7 +65,7 @@ public:
     /*
      * @brief Start the server
     */
-    void start() {
+    bool start() {
         m_stop = false;
         m_accept_thread = std::thread([this]() {
             while (!m_stop) {
@@ -94,6 +95,77 @@ public:
                 }
             }
         });
+        return true;
+    }
+
+    bool start_epoll() {
+        if (!m_epoll) {
+            std::cerr << "Epoll is not enabled, please enable epoll first" << std::endl;
+            return false;
+        }
+        m_stop = false;
+        m_accept_thread = std::thread([this]() {
+            while (!m_stop) {
+                struct ::epoll_event events[10];
+                int num_events = ::epoll_wait(m_epoll_fd, events, 10, -1);
+                if (num_events == -1) {
+                    std::cerr << std::format(
+                        "Failed to wait for events: {}",
+                        std::error_code(errno, std::system_category()).message()
+                    ) << std::endl;
+                    continue;
+                }
+                for (int i = 0; i < num_events; ++i) {
+                    if (events[i].data.fd == m_lisen_fd) {
+                        addressResolver::address client_addr;
+                        socklen_t len;
+                        int client_fd = ::accept(m_lisen_fd, &client_addr.m_addr, &len);
+                        if (client_fd == -1) {
+                            std::cerr << std::format(
+                                "Failed to accept connection: {}",
+                                std::error_code(errno, std::system_category()).message()
+                            ) << std::endl;
+                            continue;
+                        }
+                        struct ::epoll_event event;
+                        event.events = EPOLLIN;
+                        event.data.fd = client_fd;
+                        if (::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1) {
+                            std::cerr << std::format(
+                                "Failed to add client socket to epoll: {}",
+                                std::error_code(errno, std::system_category()).message()
+                            ) << std::endl;
+                            continue;
+                        }
+                        if (m_connections.contains(m_ip)) {
+                            if (m_connections[m_ip].contains(m_service)) {
+                                auto& connection = m_connections[m_ip][m_service];
+                                connection.m_fd = client_fd;
+                                connection.m_addr = client_addr;
+                            }
+                        } else {
+                            m_connections[m_ip][m_service] = { client_fd, client_addr, nullptr };
+                        }
+                    } else {
+                        ///TODO: finish
+                        auto& connection = m_connections[m_ip][m_service];
+                        char buffer[1024];
+                        int num_bytes = ::recv(events[i].data.fd, buffer, 1024, 0);
+                        if (num_bytes == -1) {
+                            std::cerr << std::format(
+                                "Failed to receive data: {}",
+                                std::error_code(errno, std::system_category()).message()
+                            ) << std::endl;
+                            continue;
+                        }
+                        ReqType req;
+                        ResType res;
+                        connection.m_handler(req);
+                    }
+                }
+            }
+        });
+        return true;
     }
 
     /**
@@ -192,7 +264,7 @@ public:
         if (m_epoll_fd == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to create epoll");
         }
-        struct epoll_event event;
+        struct ::epoll_event event;
         event.events = EPOLLIN;
         event.data.fd = m_lisen_fd;
         if (::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, m_lisen_fd, &event) == -1) {
@@ -211,6 +283,7 @@ private:
     int m_epoll_fd;
 
     bool m_stop = false;
+    bool m_epoll = false;
 
     std::thread m_accept_thread;
 
