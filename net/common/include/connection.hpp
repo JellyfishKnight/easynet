@@ -23,6 +23,8 @@ enum class BaseConnectionStatus { CONNECTED, DISCONNECTED };
 
 template<typename ResType, typename ReqType, typename Index = void>
 struct BaseConnection: std::enable_shared_from_this<BaseConnection<ResType, ReqType>> {
+    using SharedPtr = std::shared_ptr<BaseConnection<ResType, ReqType>>;
+
     int m_fd;
     addressResolver::address m_addr;
     std::function<ResType(const ReqType&)> m_handler = nullptr;
@@ -100,6 +102,8 @@ public:
                         BaseConnection.m_fd = client_fd;
                         BaseConnection.m_addr = client_addr;
                         ///TODO: run handler
+                        auto handler = BaseConnection;
+                        if (m_thread_pool) {}
 
                         BaseConnection.m_status = BaseConnectionStatus::CONNECTED;
                     } else {
@@ -330,6 +334,8 @@ private:
         std::string,
         std::unordered_map<std::string, BaseConnection<ReqType, ResType>>>
         m_BaseConnections;
+
+    typename BaseParser<ReqType, ResType>::SharedPtr m_parser;
 };
 
 template<typename ResType, typename ReqType>

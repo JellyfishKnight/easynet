@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -15,8 +16,10 @@
 namespace net {
 
 template<typename ReqType, typename ResType>
-class BaseParser {
+class BaseParser: std::enable_shared_from_this<BaseParser<ReqType, ResType>> {
 public:
+    using SharedPtr = std::shared_ptr<BaseParser<ReqType, ResType>>;
+
     virtual std::vector<uint8_t> write_req(const ReqType& req) = 0;
 
     virtual std::vector<uint8_t> write_res(const ResType& res) = 0;
@@ -495,7 +498,7 @@ template<typename HeaderWriter = Http11Writer>
 class HttpResponseWriter: public HttpBaseWriter<HeaderWriter> {
 public:
     void begin_header(std::string_view version, std::string_view status, std::string_view reason) {
-        this->begin_header(version, status, reason);
+        this->HttpBaseWriter<HeaderWriter>::begin_header(version, status, reason);
     }
 
     void begin_body(std::string body) {
