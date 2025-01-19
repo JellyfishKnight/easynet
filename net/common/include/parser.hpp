@@ -8,17 +8,58 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 
 namespace net {
 
-
-template <typename RequestType, typename ResponseType>
+template<typename ReqType, typename ResType>
 class BaseParser {
-    
+public:
+    virtual std::vector<uint8_t> write_req(const ReqType& req) = 0;
+
+    virtual std::vector<uint8_t> write_res(const ResType& res) = 0;
+
+    virtual ReqType read_req(const std::vector<uint8_t>& req) = 0;
+
+    virtual ResType read_res(const std::vector<uint8_t>& res) = 0;
+
+    virtual bool req_read_finished() = 0;
+
+    virtual bool res_read_finished() = 0;
 };
 
+class NoneParser: public BaseParser<std::vector<uint8_t>, std::vector<uint8_t>> {
+public:
+    NoneParser() = default;
+
+    std::vector<uint8_t> write_req(const std::vector<uint8_t>& req) override {
+        return std::move(req);
+    }
+
+    std::vector<uint8_t> write_res(const std::vector<uint8_t>& res) override {
+        return std::move(res);
+    }
+
+    std::vector<uint8_t> read_req(const std::vector<uint8_t>& req) override {
+        return std::move(req);
+    }
+
+    std::vector<uint8_t> read_res(const std::vector<uint8_t>& res) override {
+        return std::move(res);
+    }
+
+    bool req_read_finished() override {
+        return true;
+    }
+
+    bool res_read_finished() override {
+        return true;
+    }
+
+    ~NoneParser() = default;
+};
 
 enum class HttpMethod {
     UNKNOWN = -1,
