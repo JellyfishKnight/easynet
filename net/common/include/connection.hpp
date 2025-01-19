@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <system_error>
 #include <thread>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -21,26 +22,18 @@ namespace net {
 
 enum class BaseConnectionStatus { CONNECTED, DISCONNECTED };
 
-template<typename ResType, typename ReqType, typename Index = void>
+template<typename ResType, typename ReqType>
 struct BaseConnection: std::enable_shared_from_this<BaseConnection<ResType, ReqType>> {
     using SharedPtr = std::shared_ptr<BaseConnection<ResType, ReqType>>;
 
     int m_fd;
     addressResolver::address m_addr;
-    std::function<ResType(const ReqType&)> m_handler = nullptr;
     BaseConnectionStatus m_status = BaseConnectionStatus::DISCONNECTED;
-
-    virtual void set_handler(std::function<ResType(const ReqType&)> handler) {
-        m_handler = handler;
-    }
-
-    virtual std::function<ResType(const ReqType&)> get_handler(Index index) {
-        return m_handler;
-    }
 };
 
-template<typename ResType, typename ReqType>
-class Server: std::enable_shared_from_this<Server<ResType, ReqType>> {
+template<typename ResType, typename ReqType, typename ConnectionType>
+    requires std::is_base_of_v<BaseConnection<ResType, ReqType>, ConnectionType>
+class Server: std::enable_shared_from_this<Server<ResType, ReqType, ConnectionType>> {
 public:
     /**
      * @brief Construct a new Server object
@@ -102,9 +95,11 @@ public:
                         BaseConnection.m_fd = client_fd;
                         BaseConnection.m_addr = client_addr;
                         ///TODO: run handler
-                        auto handler = BaseConnection;
-                        if (m_thread_pool) {}
-
+                        if (m_thread_pool) {
+                            m_thread_pool->submit([this]() { handle_connection(); });
+                        } else {
+                            std::thread([this]() { handle_connection(); }).detach();
+                        }
                         BaseConnection.m_status = BaseConnectionStatus::CONNECTED;
                     } else {
                         m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
@@ -163,26 +158,10 @@ public:
                                 BaseConnection.m_addr = client_addr;
                             }
                         } else {
-                            m_BaseConnections[m_ip][m_service] = { client_fd,
-                                                                   client_addr,
-                                                                   nullptr };
+                            m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
                         }
                     } else {
-                        ///TODO: finish
-                        auto& BaseConnection = m_BaseConnections[m_ip][m_service];
-                        char buffer[1024];
-                        int num_bytes = ::recv(events[i].data.fd, buffer, 1024, 0);
-                        if (num_bytes == -1) {
-                            std::cerr << std::format(
-                                "Failed to receive data: {}",
-                                std::error_code(errno, std::system_category()).message()
-                            ) << std::endl;
-                            continue;
-                        }
-                        ReqType req;
-                        ResType res;
-                        // BaseConnection.m_handler(req);、
-                        BaseConnection.get_handler()(req);
+                        handle_connection_epoll();
                     }
                 }
             }
@@ -300,22 +279,14 @@ public:
         }
     }
 
-private:
-    void write_res(const ResType& res, int fd) {
-        if (::send(fd, &res, sizeof(res), 0) == -1) {
-            throw std::system_error(errno, std::system_category(), "Failed to send data");
-        }
-    }
+protected:
+    virtual void write_res(const ResType& res, const ConnectionType& fd) = 0;
 
-    void read_req(ReqType& req, int fd) {
-        char buffer[1024];
-        int num_bytes = ::recv(fd, buffer, 1024, 0);
-        if (num_bytes == -1) {
-            throw std::system_error(errno, std::system_category(), "Failed to receive data");
-        }
-        // req = *reinterpret_cast<ReqType*>(buffer);
-    }
+    virtual void read_req(ReqType& req, const ConnectionType& fd) = 0;
 
+    virtual void handle_connection() = 0;
+
+    virtual void handle_connection_epoll() = 0;
 
     std::string m_ip;
     std::string m_service;
@@ -330,10 +301,7 @@ private:
     utils::ThreadPool::SharedPtr m_thread_pool;
 
     // first key : ip, second key : port
-    std::unordered_map<
-        std::string,
-        std::unordered_map<std::string, BaseConnection<ReqType, ResType>>>
-        m_BaseConnections;
+    std::unordered_map<std::string, std::unordered_map<std::string, ConnectionType>> m_Connections;
 
     typename BaseParser<ReqType, ResType>::SharedPtr m_parser;
 };
