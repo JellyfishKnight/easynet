@@ -20,7 +20,7 @@
 
 namespace net {
 
-enum class BaseConnectionStatus { CONNECTED, DISCONNECTED };
+enum class ConnectionStatus { CONNECTED, DISCONNECTED };
 
 template<typename ResType, typename ReqType>
 struct BaseConnection: std::enable_shared_from_this<BaseConnection<ResType, ReqType>> {
@@ -28,7 +28,7 @@ struct BaseConnection: std::enable_shared_from_this<BaseConnection<ResType, ReqT
 
     int m_fd;
     addressResolver::address m_addr;
-    BaseConnectionStatus m_status = BaseConnectionStatus::DISCONNECTED;
+    ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 };
 
 template<typename ResType, typename ReqType, typename ConnectionType>
@@ -100,7 +100,7 @@ public:
                         } else {
                             std::thread([this]() { handle_connection(); }).detach();
                         }
-                        BaseConnection.m_status = BaseConnectionStatus::CONNECTED;
+                        BaseConnection.m_status = ConnectionStatus::CONNECTED;
                     } else {
                         m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
                     }
@@ -186,9 +186,9 @@ public:
                 auto& conn = m_BaseConnections[ip][service];
                 conn.set_handler(handler);
                 ///TODO: run handler for existing BaseConnections
-                if (conn.m_status == BaseConnectionStatus::CONNECTED) {
+                if (conn.m_status == ConnectionStatus::CONNECTED) {
                 } else {
-                    conn.m_status = BaseConnectionStatus::CONNECTED;
+                    conn.m_status = ConnectionStatus::CONNECTED;
                 }
                 return true;
             }
@@ -362,7 +362,7 @@ private:
 
     std::function<std::vector<uint8_t>(ReqType)> m_req_parser;
 
-    BaseConnectionStatus m_status = BaseConnectionStatus::DISCONNECTED;
+    ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 };
 
 } // namespace net
