@@ -5,6 +5,8 @@
 #include <string_view>
 #include <utility>
 
+/*************from string to enum***************/
+
 /**
  * @brief Extracts the value of the key "CrItMaGiC" from a string.
  */
@@ -76,7 +78,7 @@ template<typename Enum, std::size_t... Is>
 constexpr std::string_view dump_enum_impl(Enum value, std::index_sequence<Is...>) {
     std::string_view ret;
     (void
-    )((value == static_cast<Enum>(Is) && ((ret = _enum_value_name<static_cast<Enum>(Is)>()), false))
+    )((value == static_cast<Enum>(Is) && ((ret = enum_value_name<static_cast<Enum>(Is)>()), false))
       || ...);
     return ret;
 }
@@ -89,7 +91,7 @@ constexpr std::string_view dump_enum(Enum value) {
 template<typename Enum, std::size_t... Is>
 constexpr Enum parse_enum_impl(std::string_view name, std::index_sequence<Is...>) {
     std::size_t ret;
-    (void)((name == _enum_value_name<static_cast<Enum>(Is)>() && ((ret = Is), false)) || ...);
+    (void)((name == enum_value_name<static_cast<Enum>(Is)>() && ((ret = Is), false)) || ...);
     return static_cast<Enum>(ret);
 }
 
@@ -97,3 +99,5 @@ template<typename Enum>
 constexpr Enum parse_enum(std::string_view name) {
     return parse_enum_impl<Enum>(name, std::make_index_sequence<enum_range<Enum>()>());
 }
+
+/*************from enum to string***************/

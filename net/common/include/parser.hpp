@@ -21,9 +21,9 @@ public:
 
     virtual std::vector<uint8_t> write_res(const ResType& res) = 0;
 
-    virtual ReqType read_req(const std::vector<uint8_t>& req) = 0;
+    virtual ReqType read_req(std::vector<uint8_t>& req) = 0;
 
-    virtual ResType read_res(const std::vector<uint8_t>& res) = 0;
+    virtual ResType read_res(std::vector<uint8_t>& res) = 0;
 
     virtual bool req_read_finished() = 0;
 
@@ -42,11 +42,11 @@ public:
         return std::move(res);
     }
 
-    std::vector<uint8_t> read_req(const std::vector<uint8_t>& req) override {
+    std::vector<uint8_t> read_req(std::vector<uint8_t>& req) override {
         return std::move(req);
     }
 
-    std::vector<uint8_t> read_res(const std::vector<uint8_t>& res) override {
+    std::vector<uint8_t> read_res(std::vector<uint8_t>& res) override {
         return std::move(res);
     }
 
@@ -72,6 +72,17 @@ enum class HttpMethod {
     PATCH,
     TRACE,
     CONNECT,
+};
+
+static inline auto http_method_from_enum = [](HttpMethod method) {
+    static std::unordered_map<HttpMethod, std::string> method_map = {
+        { HttpMethod::GET, "GET" },         { HttpMethod::POST, "POST" },
+        { HttpMethod::PUT, "PUT" },         { HttpMethod::DELETE, "DELETE" },
+        { HttpMethod::HEAD, "HEAD" },       { HttpMethod::OPTIONS, "OPTIONS" },
+        { HttpMethod::PATCH, "PATCH" },     { HttpMethod::TRACE, "TRACE" },
+        { HttpMethod::CONNECT, "CONNECT" },
+    };
+    return method_map.at(method);
 };
 
 enum class HttpResponseCode {
@@ -141,20 +152,22 @@ enum class HttpResponseCode {
     NETWORK_AUTHENTICATION_REQUIRED = 511,
 };
 
-struct Response {
+struct HttpResponse {
     std::string version;
     HttpResponseCode status_code;
     std::string reason;
     std::unordered_map<std::string, std::string> headers;
     std::string body;
+    bool is_complete = false;
 };
 
-struct Request {
+struct HttpRequest {
     HttpMethod method;
     std::string url;
     std::string version;
     std::unordered_map<std::string, std::string> headers;
     std::string body;
+    bool is_complete = false;
 };
 
 class Http11Parser {
@@ -381,6 +394,10 @@ public:
     std::string url() {
         return this->headline_second();
     }
+
+    std::string version() {
+        return this->headline_first();
+    }
 };
 
 template<typename HeaderParser = Http11Parser>
@@ -396,9 +413,10 @@ public:
     }
 };
 
-class Http11HeaderWriter {
+class Http11Writer {
     std::vector<uint8_t> m_buffer;
 
+public:
     void reset_state() {
         m_buffer.clear();
     }
@@ -430,11 +448,12 @@ class Http11HeaderWriter {
     }
 };
 
-template<typename HeaderWriter = Http11HeaderWriter>
+template<typename HeaderWriter = Http11Writer>
 class HttpBaseWriter {
 protected:
     HeaderWriter m_header_writer;
 
+public:
     void begin_header(std::string_view first, std::string_view second, std::string_view third) {
         m_header_writer.begin_header(first, second, third);
     }
@@ -460,20 +479,97 @@ protected:
     }
 };
 
-template<typename HeaderWriter = Http11HeaderWriter>
+template<typename HeaderWriter = Http11Writer>
 class HttpRequestWriter: public HttpBaseWriter<HeaderWriter> {
 public:
     void begin_header(std::string_view method, std::string_view url, std::string_view version) {
-        this->begin_header(method, url, version);
+        this->HttpBaseWriter<HeaderWriter>::begin_header(method, url, version);
+    }
+
+    void begin_body(std::string body) {
+        this->write_body(body);
     }
 };
 
-template<typename HeaderWriter = Http11HeaderWriter>
+template<typename HeaderWriter = Http11Writer>
 class HttpResponseWriter: public HttpBaseWriter<HeaderWriter> {
 public:
     void begin_header(std::string_view version, std::string_view status, std::string_view reason) {
         this->begin_header(version, status, reason);
     }
+
+    void begin_body(std::string body) {
+        this->write_body(body);
+    }
+};
+
+class HttpParser: public BaseParser<HttpRequest, HttpResponse> {
+public:
+    HttpParser() = default;
+
+    std::vector<uint8_t> write_req(const HttpRequest& req) override {
+        m_res_writer.reset_state();
+        m_req_writer.begin_header(http_method_from_enum(req.method), req.url, req.version);
+        for (auto& [key, value]: req.headers) {
+            m_req_writer.write_header(key, value);
+        }
+        m_req_writer.end_header();
+        m_req_writer.write_body(req.body);
+        return m_req_writer.buffer();
+    }
+
+    std::vector<uint8_t> write_res(const HttpResponse& res) override {
+        m_res_writer.reset_state();
+        m_res_writer.begin_header(
+            res.version,
+            std::to_string(static_cast<int>(res.status_code)),
+            res.reason
+        );
+        for (auto& [key, value]: res.headers) {
+            m_res_writer.write_header(key, value);
+        }
+        m_res_writer.end_header();
+        m_res_writer.write_body(res.body);
+        return m_res_writer.buffer();
+    }
+
+    HttpRequest read_req(std::vector<uint8_t>& req) override {
+        m_req_parser.reset_state();
+        m_req_parser.push_chunk(req);
+        HttpRequest ret;
+        if (m_req_parser.header_finished()) {
+        } else {
+            ret.is_complete = false;
+        }
+
+        return ret;
+    }
+
+    HttpResponse read_res(std::vector<uint8_t>& res) override {
+        m_res_parser.reset_state();
+        m_res_parser.push_chunk(res);
+        HttpResponse ret;
+        if (m_res_parser.header_finished()) {
+        } else {
+            ret.is_complete = false;
+        }
+
+        return ret;
+    }
+
+    bool req_read_finished() override {
+        return m_req_parser.request_finished();
+    }
+
+    bool res_read_finished() override {
+        return m_res_parser.request_finished();
+    }
+
+private:
+    HttpRequestParser<Http11Parser> m_req_parser;
+    HttpResponseParser<Http11Parser> m_res_parser;
+    HttpRequestWriter<Http11Writer> m_req_writer;
+    HttpResponseWriter<Http11Writer> m_res_writer;
 };
 
 } // namespace net
