@@ -371,7 +371,7 @@ public:
                 }
             }
         } else {
-            body().append(chunk);
+            body().insert(body().end(), chunk.begin(), chunk.end());
             body_accumulated += chunk.size();
             if (body_accumulated >= m_content_length) {
                 m_body_finished = true;
