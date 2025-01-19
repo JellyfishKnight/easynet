@@ -10,7 +10,7 @@
  */
 constexpr std::string_view try_extract_value(std::string_view str) {
     auto critpos = str.find("CrItMaGiC =  ") + 12;
-    auto endpos =  str.find_first_of(";]");
+    auto endpos = str.find_first_of(";]");
     auto slice = str.substr(critpos, endpos - critpos);
     return slice;
 }
@@ -30,22 +30,23 @@ constexpr std::string_view try_remove_prefix(std::string_view str, std::string_v
     return str;
 }
 
-template <typename CrItMaGiC>
+template<typename CrItMaGiC>
 constexpr std::string_view enum_type_name() {
     constexpr std::string_view name = try_extract_value(__PRETTY_FUNCTION__);
     return name;
 }
 
-template <auto CrItMaGiC>
+template<auto CrItMaGiC>
 constexpr std::string_view enum_value_name() {
     constexpr auto type = enum_type_name<decltype(CrItMaGiC)>();
-    constexpr std::string_view name = try_remove_prefix(try_extract_value(__PRETTY_FUNCTION__), type);
+    constexpr std::string_view name =
+        try_remove_prefix(try_extract_value(__PRETTY_FUNCTION__), type);
     return name;
 }
 
 #if __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wenum-constexpr-conversion"
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wenum-constexpr-conversion"
 #endif
 
 template<typename Enum, std::size_t I0, std::size_t I1>
@@ -62,20 +63,21 @@ constexpr std::size_t enum_range_impl() {
     }
 }
 
-
-template <typename E>
+template<typename E>
 constexpr std::size_t enum_range() {
-    return _enum_range_impl<E, 0, 256>();
+    return enum_range_impl<E, 0, 256>();
 }
 
 #if __clang__
-#pragma clang diagnostic pop
+    #pragma clang diagnostic pop
 #endif
 
-template <typename Enum, std::size_t ...Is>
+template<typename Enum, std::size_t... Is>
 constexpr std::string_view dump_enum_impl(Enum value, std::index_sequence<Is...>) {
     std::string_view ret;
-    (void)((value == static_cast<Enum>(Is) && ((ret = _enum_value_name<static_cast<Enum>(Is)>()), false)) || ...);
+    (void
+    )((value == static_cast<Enum>(Is) && ((ret = _enum_value_name<static_cast<Enum>(Is)>()), false))
+      || ...);
     return ret;
 }
 
@@ -84,7 +86,7 @@ constexpr std::string_view dump_enum(Enum value) {
     return dump_enum_impl(value, std::make_index_sequence<enum_range<Enum>()>());
 }
 
-template<typename Enum, std::size_t ...Is>
+template<typename Enum, std::size_t... Is>
 constexpr Enum parse_enum_impl(std::string_view name, std::index_sequence<Is...>) {
     std::size_t ret;
     (void)((name == _enum_value_name<static_cast<Enum>(Is)>() && ((ret = Is), false)) || ...);

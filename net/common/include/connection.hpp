@@ -1,6 +1,7 @@
 #pragma once
 
 #include "address_resolver.hpp"
+#include "parser.hpp"
 #include "thread_pool.hpp"
 #include <cassert>
 #include <cstddef>
@@ -10,22 +11,28 @@
 #include <memory>
 #include <string>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <system_error>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 namespace net {
 
-enum class ConnectionStatus { CONNECTED, DISCONNECTED };
+enum class BaseConnectionStatus { CONNECTED, DISCONNECTED };
 
-template<typename ResType, typename ReqType>
-struct Connection: std::enable_shared_from_this<Connection<ResType, ReqType>> {
+template<typename ResType, typename ReqType, typename Index = void>
+struct BaseConnection: std::enable_shared_from_this<BaseConnection<ResType, ReqType>> {
     int m_fd;
     addressResolver::address m_addr;
-    std::function<ResType(const ReqType&)> m_handler;
-    ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
+    std::function<ResType(const ReqType&)> m_handler = nullptr;
+    BaseConnectionStatus m_status = BaseConnectionStatus::DISCONNECTED;
 
-    virtual std::function<ResType(const ReqType&)> get_handler() {
+    virtual void set_handler(std::function<ResType(const ReqType&)> handler) {
+        m_handler = handler;
+    }
+
+    virtual std::function<ResType(const ReqType&)> get_handler(Index index) {
         return m_handler;
     }
 };
@@ -39,6 +46,14 @@ public:
      * @param service service to bind to
      */
     Server(const std::string& ip, const std::string& service): m_ip(ip), m_service(service) {}
+
+    Server(const Server&) = delete;
+
+    Server(Server&&) = delete;
+
+    Server& operator=(const Server&) = delete;
+
+    Server& operator=(Server&&) = delete;
 
     /**
      * @brief Listen on the socket
@@ -74,24 +89,24 @@ public:
                 int client_fd = ::accept(m_lisen_fd, &client_addr.m_addr, &len);
                 if (client_fd == -1) {
                     std::cerr << std::format(
-                        "Failed to accept connection: {}",
+                        "Failed to accept BaseConnection: {}",
                         std::error_code(errno, std::system_category()).message()
                     ) << std::endl;
                     continue;
                 }
-                if (m_connections.contains(m_ip)) {
-                    if (m_connections[m_ip].contains(m_service)) {
-                        auto& connection = m_connections[m_ip][m_service];
-                        connection.m_fd = client_fd;
-                        connection.m_addr = client_addr;
+                if (m_BaseConnections.contains(m_ip)) {
+                    if (m_BaseConnections[m_ip].contains(m_service)) {
+                        auto& BaseConnection = m_BaseConnections[m_ip][m_service];
+                        BaseConnection.m_fd = client_fd;
+                        BaseConnection.m_addr = client_addr;
                         ///TODO: run handler
 
-                        connection.m_status = ConnectionStatus::CONNECTED;
+                        BaseConnection.m_status = BaseConnectionStatus::CONNECTED;
                     } else {
-                        m_connections[m_ip][m_service] = { client_fd, client_addr, nullptr };
+                        m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
                     }
                 } else {
-                    m_connections[m_ip][m_service] = { client_fd, client_addr, nullptr };
+                    m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
                 }
             }
         });
@@ -122,7 +137,7 @@ public:
                         int client_fd = ::accept(m_lisen_fd, &client_addr.m_addr, &len);
                         if (client_fd == -1) {
                             std::cerr << std::format(
-                                "Failed to accept connection: {}",
+                                "Failed to accept BaseConnection: {}",
                                 std::error_code(errno, std::system_category()).message()
                             ) << std::endl;
                             continue;
@@ -137,18 +152,20 @@ public:
                             ) << std::endl;
                             continue;
                         }
-                        if (m_connections.contains(m_ip)) {
-                            if (m_connections[m_ip].contains(m_service)) {
-                                auto& connection = m_connections[m_ip][m_service];
-                                connection.m_fd = client_fd;
-                                connection.m_addr = client_addr;
+                        if (m_BaseConnections.contains(m_ip)) {
+                            if (m_BaseConnections[m_ip].contains(m_service)) {
+                                auto& BaseConnection = m_BaseConnections[m_ip][m_service];
+                                BaseConnection.m_fd = client_fd;
+                                BaseConnection.m_addr = client_addr;
                             }
                         } else {
-                            m_connections[m_ip][m_service] = { client_fd, client_addr, nullptr };
+                            m_BaseConnections[m_ip][m_service] = { client_fd,
+                                                                   client_addr,
+                                                                   nullptr };
                         }
                     } else {
                         ///TODO: finish
-                        auto& connection = m_connections[m_ip][m_service];
+                        auto& BaseConnection = m_BaseConnections[m_ip][m_service];
                         char buffer[1024];
                         int num_bytes = ::recv(events[i].data.fd, buffer, 1024, 0);
                         if (num_bytes == -1) {
@@ -160,7 +177,8 @@ public:
                         }
                         ReqType req;
                         ResType res;
-                        connection.m_handler(req);
+                        // BaseConnection.m_handler(req);、
+                        BaseConnection.get_handler()(req);
                     }
                 }
             }
@@ -169,9 +187,9 @@ public:
     }
 
     /**
-     * @brief Add a handler for a connection
-     * @param ip ip address of the connection
-     * @param service service of the connection
+     * @brief Add a handler for a BaseConnection
+     * @param ip ip address of the BaseConnection
+     * @param service service of the BaseConnection
      * @param handler handler function
      * @return true if handler was added successfully
      */
@@ -180,25 +198,27 @@ public:
         const std::string& service,
         std::function<ResType(const ReqType&)> handler
     ) {
-        if (m_connections.contains(ip)) {
-            if (m_connections[ip].contains(service)) {
-                auto& conn = m_connections[ip][service];
-                conn.handler = handler;
-                ///TODO: run handler for existing connections
-                if (conn.m_status == ConnectionStatus::CONNECTED) {
+        if (m_BaseConnections.contains(ip)) {
+            if (m_BaseConnections[ip].contains(service)) {
+                auto& conn = m_BaseConnections[ip][service];
+                conn.set_handler(handler);
+                ///TODO: run handler for existing BaseConnections
+                if (conn.m_status == BaseConnectionStatus::CONNECTED) {
                 } else {
-                    conn.m_status = ConnectionStatus::CONNECTED;
+                    conn.m_status = BaseConnectionStatus::CONNECTED;
                 }
                 return true;
             }
         }
-        m_connections[ip][service].m_handler = handler;
+        m_BaseConnections[ip][service].m_handler = handler;
     }
 
     /**
      * @brief Destroy the Server object
      */
     ~Server() {
+        stop();
+        ::close(m_epoll_fd);
         ::close(m_lisen_fd);
     }
 
@@ -240,13 +260,13 @@ public:
         m_stop = true;
         m_accept_thread.join();
 
-        for (auto& [ip, services]: m_connections) {
+        for (auto& [ip, services]: m_BaseConnections) {
             for (auto& [service, conn]: services) {
                 ::close(conn.m_fd);
             }
         }
 
-        m_connections.clear();
+        m_BaseConnections.clear();
 
         if (m_thread_pool) {
             m_thread_pool->stop();
@@ -277,6 +297,22 @@ public:
     }
 
 private:
+    void write_res(const ResType& res, int fd) {
+        if (::send(fd, &res, sizeof(res), 0) == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to send data");
+        }
+    }
+
+    void read_req(ReqType& req, int fd) {
+        char buffer[1024];
+        int num_bytes = ::recv(fd, buffer, 1024, 0);
+        if (num_bytes == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to receive data");
+        }
+        // req = *reinterpret_cast<ReqType*>(buffer);
+    }
+
+
     std::string m_ip;
     std::string m_service;
     int m_lisen_fd;
@@ -290,11 +326,69 @@ private:
     utils::ThreadPool::SharedPtr m_thread_pool;
 
     // first key : ip, second key : port
-    std::unordered_map<std::string, std::unordered_map<std::string, Connection<ReqType, ResType>>>
-        m_connections;
+    std::unordered_map<
+        std::string,
+        std::unordered_map<std::string, BaseConnection<ReqType, ResType>>>
+        m_BaseConnections;
 };
 
 template<typename ResType, typename ReqType>
-class Client: std::enable_shared_from_this<Client<ResType, ReqType>> {};
+class Client: std::enable_shared_from_this<Client<ResType, ReqType>> {
+public:
+    Client(const std::string& ip, const std::string& service): m_ip(ip), m_service(service) {}
+
+    Client(const Client&) = delete;
+
+    Client(Client&&) = delete;
+
+    Client& operator=(const Client&) = delete;
+
+    Client& operator=(Client&&) = delete;
+
+    void connect() {
+        m_fd = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (m_fd == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to create socket");
+        }
+
+        addressResolver resolver;
+        m_addr = resolver.resolve(m_ip, m_service).get_address();
+        if (::connect(m_fd, m_addr.m_addr, m_addr.m_len) == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to connect to server");
+        }
+    }
+
+    void add_parser(std::function<std::vector<uint8_t>(ReqType)> req_parser) {
+        m_req_parser = req_parser;
+    }
+
+    ResType read_res() {
+        char buffer[1024];
+        int num_bytes = ::recv(m_fd, buffer, 1024, 0);
+        if (num_bytes == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to receive data");
+        }
+        ResType res;
+        // res = m_res_parser(buffer);
+
+        return res;
+    }
+
+    void write_req(const ReqType& req) {
+        if (::send(m_fd, &req, sizeof(req), 0) == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to send data");
+        }
+    }
+
+private:
+    std::string m_ip;
+    std::string m_service;
+    int m_fd;
+    addressResolver::address_ref m_addr;
+
+    std::function<std::vector<uint8_t>(ReqType)> m_req_parser;
+
+    BaseConnectionStatus m_status = BaseConnectionStatus::DISCONNECTED;
+};
 
 } // namespace net

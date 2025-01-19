@@ -13,6 +13,13 @@
 
 namespace net {
 
+
+template <typename RequestType, typename ResponseType>
+class BaseParser {
+    
+};
+
+
 enum class HttpMethod {
     UNKNOWN = -1,
     GET,
