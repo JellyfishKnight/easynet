@@ -7,8 +7,6 @@
 
 namespace utils {
 
-/*************from string to enum***************/
-
 constexpr std::string_view _try_extract_value(std::string_view str) {
     auto critpos = str.find("CrItMaGiC = ") + 12;
     auto endpos = str.find_first_of(";]");
@@ -93,6 +91,5 @@ template<class E>
 constexpr E parse_enum(std::string_view name) {
     return _parse_enum_impl<E>(name, std::make_index_sequence<_enum_range<E>()>());
 }
-/*************from enum to string***************/
 
 } // namespace utils

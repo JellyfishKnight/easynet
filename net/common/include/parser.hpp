@@ -391,7 +391,7 @@ template<typename HeaderParser = Http11Parser>
 class HttpRequestParser: public http_base_parser<HeaderParser> {
 public:
     HttpMethod method() {
-        return parse_enum<HttpMethod>(this->headline_first());
+        return utils::parse_enum<HttpMethod>(this->headline_first());
     }
 
     std::string url() {
