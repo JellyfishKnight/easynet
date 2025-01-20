@@ -47,11 +47,11 @@ public:
 
     Server(const Server&) = delete;
 
-    Server(Server&&) = delete;
+    Server(Server&&) = default;
 
     Server& operator=(const Server&) = delete;
 
-    Server& operator=(Server&&) = delete;
+    Server& operator=(Server&&) = default;
 
     /**
      * @brief Listen on the socket
