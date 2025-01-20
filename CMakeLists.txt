@@ -56,6 +56,11 @@ add_library(net::http ALIAS net_http)
 target_include_directories(net_http PUBLIC ./net/http/include)
 target_link_libraries(net_http net::utils net::common net::socket)
 
+add_executable(TcpServerTest ./demo/tcp_server.cpp)
+target_link_libraries(TcpServerTest net::utils net::common net::socket)
+add_executable(TcpClientTest ./demo/tcp_client.cpp)
+target_link_libraries(TcpClientTest net::utils net::common net::socket)
+
 
 # install headers
 

@@ -101,9 +101,9 @@ public:
                 conn.m_server_fd = m_lisen_fd;
                 conn.m_addr = client_addr;
                 if (m_thread_pool) {
-                    m_thread_pool->submit([this, conn]() { handle_connection(); });
+                    m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
                 } else {
-                    std::thread([this]() { handle_connection(); }).detach();
+                    std::thread([this, &conn]() { handle_connection(conn); }).detach();
                 }
                 conn.m_status = ConnectionStatus::CONNECTED;
             }
@@ -171,7 +171,7 @@ public:
      * @brief Add a handler for a Server, the old handler will be kept in threadpool
      * @param handler handler function
      */
-    bool add_handler(std::function<ResType(const ReqType&)> handler) {
+    void add_handler(std::function<ResType(const ReqType&)> handler) {
         m_default_handler = handler;
     }
 
