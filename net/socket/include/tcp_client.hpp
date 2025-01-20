@@ -1,13 +1,14 @@
 #pragma once
 
 #include "connection.hpp"
+#include "parser.hpp"
 #include <cstdint>
 #include <sys/types.h>
 #include <vector>
 
 namespace net {
 
-class TcpClient: public Client<std::vector<uint8_t>, std::vector<uint8_t>> {
+class TcpClient: public Client<std::vector<uint8_t>, std::vector<uint8_t>, NoneParser> {
 public:
     TcpClient(const std::string& ip, const std::string& service): Client(ip, service) {}
 

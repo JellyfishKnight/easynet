@@ -5,6 +5,7 @@
 #include "thread_pool.hpp"
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <functional>
 #include <iostream>
@@ -91,7 +92,11 @@ public:
                     ) << std::endl;
                     continue;
                 }
-                auto& Connection = m_Connections[m_ip][m_service];
+                std::string client_ip =
+                    ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+                std::string client_service =
+                    std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
+                auto& Connection = m_Connections[client_ip][client_service];
                 Connection.m_client_fd = client_fd;
                 Connection.m_server_fd = m_lisen_fd;
                 Connection.m_addr = client_addr;
@@ -145,15 +150,14 @@ public:
                             ) << std::endl;
                             continue;
                         }
-                        if (m_Connections.contains(m_ip)) {
-                            if (m_Connections[m_ip].contains(m_service)) {
-                                auto& Connection = m_Connections[m_ip][m_service];
-                                Connection.m_client_fd = client_fd;
-                                Connection.m_addr = client_addr;
-                            }
-                        } else {
-                            m_Connections[m_ip][m_service] = { client_fd, client_addr };
-                        }
+                        std::string client_ip =
+                            ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+                        std::string client_service = std::to_string(
+                            ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port)
+                        );
+                        auto& Connection = m_Connections[client_ip][client_service];
+                        Connection.m_client_fd = client_fd;
+                        Connection.m_addr = client_addr;
                     } else {
                         handle_connection_epoll();
                     }
@@ -228,6 +232,16 @@ public:
 
         if (m_thread_pool) {
             m_thread_pool->stop();
+        }
+    }
+
+    void stop(const std::string& ip, const std::string& service) {
+        if (m_Connections.contains(ip)) {
+            if (m_Connections[ip].contains(service)) {
+                auto& Connection = m_Connections[ip][service];
+                ::close(Connection.m_client_fd);
+                m_Connections[ip].erase(service);
+            }
         }
     }
 
@@ -310,20 +324,30 @@ public:
         }
     }
 
+    void close() {
+        if (::close(m_fd) == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to close socket");
+        }
+    }
+
     ResType read_res() {
-        char buffer[1024];
-        int num_bytes = ::recv(m_fd, buffer, 1024, 0);
+        std::vector<uint8_t> buffer(1024);
+        ssize_t num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
         if (num_bytes == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to receive data");
         }
+        if (num_bytes == 0) {
+            throw std::system_error(errno, std::system_category(), "Connection closed");
+        }
         ResType res;
-        // res = m_res_parser(buffer);
-
+        m_parser->read_req(buffer);
         return res;
     }
 
     void write_req(const ReqType& req) {
-        if (::send(m_fd, &req, sizeof(req), 0) == -1) {
+        auto buffer = m_parser->write_req(req);
+
+        if (::send(m_fd, buffer.data(), buffer.size(), 0) == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to send data");
         }
     }
