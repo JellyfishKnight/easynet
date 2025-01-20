@@ -1,4 +1,6 @@
-#include "tcp_server.hpp"
+#include "socket.hpp"
+#include <cstdint>
+#include <vector>
 
 namespace net {
 
@@ -20,10 +22,25 @@ void TcpServer::read_req(std::vector<uint8_t>& req, const Connection& fd) {
     req = std::move(buffer);
 }
 
-void TcpServer::handle_connection() {
-    
+void TcpServer::handle_connection(const Connection& conn) {
+    try {
+        while (true) {
+            std::vector<uint8_t> req;
+            read_req(req, conn);
+            auto req_parsed = m_parser->read_req(req);
+            if (m_parser->req_read_finished()) {
+                auto res = m_default_handler(req_parsed);
+                auto res_buffer = m_parser->write_res(res);
+                write_res(res_buffer, conn);
+            }
+        }
+    } catch (std::system_error const& e) {
+        std::cerr << std::format("handler closed because of exception: {}", e.what()) << std::endl;
+    }
 }
 
-void TcpServer::handle_connection_epoll() {}
+void TcpServer::handle_connection_epoll() {
+    
+}
 
 } // namespace net

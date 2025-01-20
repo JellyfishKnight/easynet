@@ -1,8 +1,27 @@
 #pragma once
 
 #include "connection.hpp"
+#include "parser.hpp"
+#include <cstdint>
+#include <sys/types.h>
+#include <vector>
 
 namespace net {
+
+class TcpClient: public Client<std::vector<uint8_t>, std::vector<uint8_t>, NoneParser> {
+public:
+    TcpClient(const std::string& ip, const std::string& service): Client(ip, service) {}
+
+    TcpClient(const TcpClient&) = delete;
+
+    TcpClient(TcpClient&&) = default;
+
+    TcpClient& operator=(const TcpClient&) = delete;
+
+    TcpClient& operator=(TcpClient&&) = default;
+
+private:
+};
 
 class TcpServer: public Server<std::vector<uint8_t>, std::vector<uint8_t>, Connection, NoneParser> {
 public:
@@ -21,7 +40,7 @@ private:
 
     void read_req(std::vector<uint8_t>& req, const Connection& fd) final;
 
-    void handle_connection() final;
+    void handle_connection(const Connection& conn) final;
 
     void handle_connection_epoll() final;
 };

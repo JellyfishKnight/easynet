@@ -96,16 +96,16 @@ public:
                     ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
                 std::string client_service =
                     std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
-                auto& Connection = m_Connections[client_ip][client_service];
-                Connection.m_client_fd = client_fd;
-                Connection.m_server_fd = m_lisen_fd;
-                Connection.m_addr = client_addr;
+                auto& conn = m_Connections[client_ip][client_service];
+                conn.m_client_fd = client_fd;
+                conn.m_server_fd = m_lisen_fd;
+                conn.m_addr = client_addr;
                 if (m_thread_pool) {
-                    m_thread_pool->submit([this]() { handle_connection(); });
+                    m_thread_pool->submit([this, conn]() { handle_connection(); });
                 } else {
                     std::thread([this]() { handle_connection(); }).detach();
                 }
-                Connection.m_status = ConnectionStatus::CONNECTED;
+                conn.m_status = ConnectionStatus::CONNECTED;
             }
         });
         return true;
@@ -155,9 +155,9 @@ public:
                         std::string client_service = std::to_string(
                             ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port)
                         );
-                        auto& Connection = m_Connections[client_ip][client_service];
-                        Connection.m_client_fd = client_fd;
-                        Connection.m_addr = client_addr;
+                        auto& conn = m_Connections[client_ip][client_service];
+                        conn.m_client_fd = client_fd;
+                        conn.m_addr = client_addr;
                     } else {
                         handle_connection_epoll();
                     }
@@ -273,7 +273,7 @@ protected:
 
     virtual void read_req(ReqType& req, const Connection& fd) = 0;
 
-    virtual void handle_connection() = 0;
+    virtual void handle_connection(const Connection& conn) = 0;
 
     virtual void handle_connection_epoll() = 0;
 
