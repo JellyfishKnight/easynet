@@ -22,18 +22,20 @@ namespace net {
 
 enum class ConnectionStatus { CONNECTED, DISCONNECTED };
 
-template<typename ResType, typename ReqType>
-struct BaseConnection: std::enable_shared_from_this<BaseConnection<ResType, ReqType>> {
-    using SharedPtr = std::shared_ptr<BaseConnection<ResType, ReqType>>;
+struct Connection: std::enable_shared_from_this<Connection> {
+    using SharedPtr = std::shared_ptr<Connection>;
 
-    int m_fd;
+    int m_client_fd;
+    int m_server_fd;
+
     addressResolver::address m_addr;
     ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 };
 
-template<typename ResType, typename ReqType, typename ConnectionType>
-    requires std::is_base_of_v<BaseConnection<ResType, ReqType>, ConnectionType>
-class Server: std::enable_shared_from_this<Server<ResType, ReqType, ConnectionType>> {
+template<typename ResType, typename ReqType, typename ConnectionType, typename ParserType>
+    requires std::is_base_of_v<Connection, ConnectionType>
+    && std::is_base_of_v<BaseParser<ReqType, ResType>, ParserType>
+class Server: std::enable_shared_from_this<Server<ResType, ReqType, ConnectionType, ParserType>> {
 public:
     /**
      * @brief Construct a new Server object
@@ -84,29 +86,21 @@ public:
                 int client_fd = ::accept(m_lisen_fd, &client_addr.m_addr, &len);
                 if (client_fd == -1) {
                     std::cerr << std::format(
-                        "Failed to accept BaseConnection: {}",
+                        "Failed to accept Connection: {}",
                         std::error_code(errno, std::system_category()).message()
                     ) << std::endl;
                     continue;
                 }
-                if (m_BaseConnections.contains(m_ip)) {
-                    if (m_BaseConnections[m_ip].contains(m_service)) {
-                        auto& BaseConnection = m_BaseConnections[m_ip][m_service];
-                        BaseConnection.m_fd = client_fd;
-                        BaseConnection.m_addr = client_addr;
-                        ///TODO: run handler
-                        if (m_thread_pool) {
-                            m_thread_pool->submit([this]() { handle_connection(); });
-                        } else {
-                            std::thread([this]() { handle_connection(); }).detach();
-                        }
-                        BaseConnection.m_status = ConnectionStatus::CONNECTED;
-                    } else {
-                        m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
-                    }
+                auto& Connection = m_Connections[m_ip][m_service];
+                Connection.m_client_fd = client_fd;
+                Connection.m_server_fd = m_lisen_fd;
+                Connection.m_addr = client_addr;
+                if (m_thread_pool) {
+                    m_thread_pool->submit([this]() { handle_connection(); });
                 } else {
-                    m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
+                    std::thread([this]() { handle_connection(); }).detach();
                 }
+                Connection.m_status = ConnectionStatus::CONNECTED;
             }
         });
         return true;
@@ -136,7 +130,7 @@ public:
                         int client_fd = ::accept(m_lisen_fd, &client_addr.m_addr, &len);
                         if (client_fd == -1) {
                             std::cerr << std::format(
-                                "Failed to accept BaseConnection: {}",
+                                "Failed to accept Connection: {}",
                                 std::error_code(errno, std::system_category()).message()
                             ) << std::endl;
                             continue;
@@ -151,14 +145,14 @@ public:
                             ) << std::endl;
                             continue;
                         }
-                        if (m_BaseConnections.contains(m_ip)) {
-                            if (m_BaseConnections[m_ip].contains(m_service)) {
-                                auto& BaseConnection = m_BaseConnections[m_ip][m_service];
-                                BaseConnection.m_fd = client_fd;
-                                BaseConnection.m_addr = client_addr;
+                        if (m_Connections.contains(m_ip)) {
+                            if (m_Connections[m_ip].contains(m_service)) {
+                                auto& Connection = m_Connections[m_ip][m_service];
+                                Connection.m_client_fd = client_fd;
+                                Connection.m_addr = client_addr;
                             }
                         } else {
-                            m_BaseConnections[m_ip][m_service] = { client_fd, client_addr };
+                            m_Connections[m_ip][m_service] = { client_fd, client_addr };
                         }
                     } else {
                         handle_connection_epoll();
@@ -170,30 +164,11 @@ public:
     }
 
     /**
-     * @brief Add a handler for a BaseConnection
-     * @param ip ip address of the BaseConnection
-     * @param service service of the BaseConnection
+     * @brief Add a handler for a Server, the old handler will be kept in threadpool
      * @param handler handler function
-     * @return true if handler was added successfully
      */
-    bool add_handler(
-        const std::string& ip,
-        const std::string& service,
-        std::function<ResType(const ReqType&)> handler
-    ) {
-        if (m_BaseConnections.contains(ip)) {
-            if (m_BaseConnections[ip].contains(service)) {
-                auto& conn = m_BaseConnections[ip][service];
-                conn.set_handler(handler);
-                ///TODO: run handler for existing BaseConnections
-                if (conn.m_status == ConnectionStatus::CONNECTED) {
-                } else {
-                    conn.m_status = ConnectionStatus::CONNECTED;
-                }
-                return true;
-            }
-        }
-        m_BaseConnections[ip][service].m_handler = handler;
+    bool add_handler(std::function<ResType(const ReqType&)> handler) {
+        m_default_handler = handler;
     }
 
     /**
@@ -243,13 +218,13 @@ public:
         m_stop = true;
         m_accept_thread.join();
 
-        for (auto& [ip, services]: m_BaseConnections) {
+        for (auto& [ip, services]: m_Connections) {
             for (auto& [service, conn]: services) {
-                ::close(conn.m_fd);
+                ::close(conn.m_client_fd);
             }
         }
 
-        m_BaseConnections.clear();
+        m_Connections.clear();
 
         if (m_thread_pool) {
             m_thread_pool->stop();
@@ -280,9 +255,9 @@ public:
     }
 
 protected:
-    virtual void write_res(const ResType& res, const ConnectionType& fd) = 0;
+    virtual void write_res(const ResType& res, const Connection& fd) = 0;
 
-    virtual void read_req(ReqType& req, const ConnectionType& fd) = 0;
+    virtual void read_req(ReqType& req, const Connection& fd) = 0;
 
     virtual void handle_connection() = 0;
 
@@ -296,6 +271,8 @@ protected:
     bool m_stop = false;
     bool m_epoll = false;
 
+    std::function<ResType(const ReqType&)> m_default_handler;
+
     std::thread m_accept_thread;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
@@ -303,21 +280,22 @@ protected:
     // first key : ip, second key : port
     std::unordered_map<std::string, std::unordered_map<std::string, ConnectionType>> m_Connections;
 
-    typename BaseParser<ReqType, ResType>::SharedPtr m_parser;
+    std::shared_ptr<ParserType> m_parser;
 };
 
-template<typename ResType, typename ReqType>
-class Client: std::enable_shared_from_this<Client<ResType, ReqType>> {
+template<typename ResType, typename ReqType, typename ParserType>
+    requires std::is_base_of_v<BaseParser<ReqType, ResType>, ParserType>
+class Client: std::enable_shared_from_this<Client<ResType, ReqType, ParserType>> {
 public:
     Client(const std::string& ip, const std::string& service): m_ip(ip), m_service(service) {}
 
     Client(const Client&) = delete;
 
-    Client(Client&&) = delete;
+    Client(Client&&) = default;
 
     Client& operator=(const Client&) = delete;
 
-    Client& operator=(Client&&) = delete;
+    Client& operator=(Client&&) = default;
 
     void connect() {
         m_fd = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -330,10 +308,6 @@ public:
         if (::connect(m_fd, m_addr.m_addr, m_addr.m_len) == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to connect to server");
         }
-    }
-
-    void add_parser(std::function<std::vector<uint8_t>(ReqType)> req_parser) {
-        m_req_parser = req_parser;
     }
 
     ResType read_res() {
@@ -360,7 +334,7 @@ private:
     int m_fd;
     addressResolver::address_ref m_addr;
 
-    std::function<std::vector<uint8_t>(ReqType)> m_req_parser;
+    std::shared_ptr<ParserType> m_parser;
 
     ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 };
