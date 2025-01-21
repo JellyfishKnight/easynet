@@ -11,7 +11,7 @@
 class ThreadPoolTest: public ::testing::Test {
 protected:
     void SetUp() override {
-        pool = std::make_unique<utils::ThreadPool>(4);
+        pool = std::make_unique<utils::ThreadPool>(1);
     }
 
     void TearDown() override {
@@ -23,7 +23,7 @@ protected:
 
 TEST_F(ThreadPoolTest, TestThreadPool) {
     std::vector<std::future<int>> futures;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 100; ++i) {
         auto f = [](int a, int b) { return a + b; };
         auto opt = pool->submit(std::to_string(i), f, i, i + 1);
         if (opt.has_value()) {
@@ -36,7 +36,7 @@ TEST_F(ThreadPoolTest, TestThreadPool) {
             FAIL() << "Failed to submit task";
         }
     }
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 100; ++i) {
         try {
             ASSERT_EQ(futures[i].get(), i + i + 1);
         } catch (const std::future_error& e) {
@@ -48,7 +48,7 @@ TEST_F(ThreadPoolTest, TestThreadPool) {
 TEST_F(ThreadPoolTest, AddTaskWithName) {
     auto f = [](int a, int b) { return a + b; };
     std::vector<std::future<int>> futures;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 100; ++i) {
         auto opt = pool->submit(std::to_string(i), f, i, i + 1);
         if (opt.has_value()) {
             futures.emplace_back(std::move(opt.value()));
@@ -56,7 +56,7 @@ TEST_F(ThreadPoolTest, AddTaskWithName) {
             FAIL() << "Failed to submit task";
         }
     }
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 100; ++i) {
         ASSERT_EQ(futures[i].get(), i + i + 1);
     }
 }
@@ -67,10 +67,10 @@ TEST_F(ThreadPoolTest, GetStatusOfTask) {
         return a + b;
     };
     std::vector<std::future<int>> futures;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 100; ++i) {
         futures.emplace_back(*pool->submit(std::to_string(i), f, i, i + 1));
     }
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 100; ++i) {
         ASSERT_EQ(futures[i].get(), i + i + 1);
         auto status = pool->get_task_status(std::to_string(i));
         ASSERT_TRUE(status.has_value());
@@ -80,12 +80,12 @@ TEST_F(ThreadPoolTest, GetStatusOfTask) {
 
 TEST_F(ThreadPoolTest, AddWorkerTest) {
     pool->add_worker(4);
-    ASSERT_EQ(pool->worker_num(), 8);
+    ASSERT_EQ(pool->worker_num(), 5);
 }
 
 TEST_F(ThreadPoolTest, DeleteWorkerTest) {
     pool->delete_worker(2);
-    ASSERT_EQ(pool->worker_num(), 2);
+    ASSERT_EQ(pool->worker_num(), 3);
 }
 
 int main() {

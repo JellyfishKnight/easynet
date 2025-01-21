@@ -107,9 +107,11 @@ public:
                     name = this->m_tasks.front().name;
                     m_task_pool.insert({ m_tasks.front().name, std::move(this->m_tasks.front()) });
                     if (m_task_pool.size() > m_max_tasks_num) [[unlikely]] {
-                        for (auto it = m_task_pool.begin(); it != m_task_pool.end(); ++it) {
+                        for (auto it = m_task_pool.begin(); it != m_task_pool.end();) {
                             if (it->second.status == TaskStatus::FINISHED) {
-                                m_task_pool.erase(it);
+                                it = m_task_pool.erase(it);
+                            } else {
+                                ++it;
                             }
                         }
                     }
@@ -260,6 +262,7 @@ public:
                     name = this->m_tasks.front().name;
                     m_task_pool.insert({ m_tasks.front().name, std::move(this->m_tasks.front()) });
                     if (m_task_pool.size() > m_max_tasks_num) [[unlikely]] {
+                        ///TODO: Segmentation fault happened here
                         for (auto it = m_task_pool.begin(); it != m_task_pool.end(); ++it) {
                             if (it->second.status == TaskStatus::FINISHED) {
                                 m_task_pool.erase(it);

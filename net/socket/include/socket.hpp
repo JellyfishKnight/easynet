@@ -34,7 +34,7 @@ public:
     }
 
     TcpServer(const TcpServer&) = delete;
-
+   
     TcpServer(TcpServer&&) = default;
 
     TcpServer& operator=(const TcpServer&) = delete;
