@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <format>
 #include <functional>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -123,7 +124,9 @@ public:
                     if (m_thread_pool) {
                         m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
                     } else {
-                        std::thread([this, &conn]() { handle_connection(conn); }).detach();
+                        std::async(std::launch::async, [this, &conn]() {
+                            handle_connection(conn);
+                        });
                     }
                     conn.m_status = ConnectionStatus::CONNECTED;
                 }

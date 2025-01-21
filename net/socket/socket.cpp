@@ -77,7 +77,7 @@ void TcpServer::handle_connection(const Connection& conn) {
             }
         }
     } catch (std::system_error const& e) {
-        std::cerr << std::format("handler closed because of exception: {}", e.what()) << std::endl;
+        // std::cerr << std::format("handler closed because of exception: {}", e.what()) << std::endl;
     }
 }
 

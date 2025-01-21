@@ -1,5 +1,6 @@
 #pragma once
 
+#include "enum_parser.hpp"
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -105,7 +106,7 @@ public:
                         return;
                     }
                     name = this->m_tasks.front().name;
-                    m_task_pool.insert({ m_tasks.front().name, std::move(this->m_tasks.front()) });
+                    m_task_pool.insert({ name, std::move(this->m_tasks.front()) });
                     if (m_task_pool.size() > m_max_tasks_num) [[unlikely]] {
                         for (auto it = m_task_pool.begin(); it != m_task_pool.end();) {
                             if (it->second.status == TaskStatus::FINISHED) {
@@ -117,7 +118,14 @@ public:
                     }
                     this->m_tasks.pop_front();
                 }
-                m_task_pool.at(name)();
+                try {
+                    if (m_task_pool.at(name).status == TaskStatus::WAITING) {
+                        m_task_pool.at(name)();
+                    }
+                } catch (const std::future_error& e) {
+                    std::cerr << dump_enum(m_task_pool.at(name).status) << " " << e.what()
+                              << std::endl;
+                }
             }
         };
         for (std::size_t i = 0; i < nums_threads; i++) {
@@ -271,8 +279,14 @@ public:
                     }
                     this->m_tasks.pop_front();
                 }
-                m_task_pool[name]();
-                m_task_pool[name].status = TaskStatus::FINISHED;
+                try {
+                    if (m_task_pool.at(name).status == TaskStatus::WAITING) {
+                        m_task_pool.at(name)();
+                    }
+                } catch (const std::future_error& e) {
+                    std::cerr << dump_enum(m_task_pool.at(name).status) << " " << e.what()
+                              << std::endl;
+                }
             }
         };
         std::lock_guard<std::mutex> lock(m_queue_mutex);

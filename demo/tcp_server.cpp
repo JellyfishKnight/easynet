@@ -22,7 +22,7 @@ int main() {
         server->enable_thread_pool(10);
         server->add_handler([server](const std::vector<uint8_t>& req) {
             std::string req_str { req.begin(), req.end() };
-            std::cout << "Received request: " << req_str << std::endl;
+            // std::cout << "Received request: " << req_str << std::endl;
             return std::vector<uint8_t> { req_str.begin(), req_str.end() };
         });
     } catch (std::system_error const& e) {
@@ -39,7 +39,7 @@ int main() {
     while (true) {
         std::string input;
         std::cin >> input;
-        std::cout << "Received input: " << input << std::endl;
+        // std::cout << "Received input: " << input << std::endl;
         if (input == "exit") {
             server->stop();
             break;
