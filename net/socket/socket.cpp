@@ -2,6 +2,7 @@
 // #include "print.hpp"
 #include <cstdint>
 #include <exception>
+#include <stdexcept>
 #include <vector>
 
 namespace net {
@@ -13,7 +14,7 @@ std::vector<uint8_t> TcpClient::read_res() {
         throw std::system_error(errno, std::system_category(), "Failed to receive data");
     }
     if (num_bytes == 0) {
-        throw std::runtime_error("Connection reset by peer");
+        throw std::runtime_error("Connection reset by peer while reading");
     }
     return m_parser->read_req(buffer);
 }
@@ -32,11 +33,7 @@ void TcpServer::write_res(const std::vector<uint8_t>& res, const Connection& fd)
         throw std::system_error(errno, std::system_category(), "Failed to send data");
     }
     if (num_bytes == 0) {
-        throw std::system_error(
-            0,
-            std::system_category(),
-            "Connection reset by peer while writing"
-        );
+        throw std::runtime_error("Connection reset by peer while writing");
     }
 }
 
@@ -47,11 +44,7 @@ void TcpServer::read_req(std::vector<uint8_t>& req, const Connection& fd) {
         throw std::system_error(errno, std::system_category(), "Failed to receive data");
     }
     if (num_bytes == 0) {
-        throw std::system_error(
-            0,
-            std::system_category(),
-            "Connection reset by peer while reading"
-        );
+        throw std::runtime_error("Connection reset by peer while reading");
     }
     buffer.resize(num_bytes);
     req = std::move(buffer);
@@ -69,15 +62,11 @@ void TcpServer::handle_connection(const Connection& conn) {
             if (m_parser->req_read_finished()) {
                 auto res = m_default_handler(req_parsed);
                 auto res_buffer = m_parser->write_res(res);
-                try {
-                    write_res(res_buffer, conn);
-                } catch (std::exception const& e) {
-                    std::cerr << std::format("Failed to write response: {}", e.what()) << std::endl;
-                }
+                write_res(res_buffer, conn);
             }
         }
-    } catch (std::system_error const& e) {
-        // std::cerr << std::format("handler closed because of exception: {}", e.what()) << std::endl;
+    } catch (std::runtime_error const& e) {
+        std::cerr << std::format("handler closed because of exception: {}", e.what()) << std::endl;
     }
 }
 
