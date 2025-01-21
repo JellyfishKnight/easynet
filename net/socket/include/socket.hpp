@@ -22,7 +22,9 @@ public:
 
     TcpClient& operator=(TcpClient&&) = default;
 
-private:
+    std::vector<uint8_t> read_res() final;
+
+    void write_req(const std::vector<uint8_t>& req) final;
 };
 
 class TcpServer: public Server<std::vector<uint8_t>, std::vector<uint8_t>, Connection, NoneParser> {

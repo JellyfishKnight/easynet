@@ -2,6 +2,7 @@
 
 #include "address_resolver.hpp"
 #include "parser.hpp"
+#include "print.hpp"
 #include "thread_pool.hpp"
 #include <cassert>
 #include <cstddef>
@@ -331,7 +332,7 @@ public:
         }
     }
 
-    ResType read_res() {
+    virtual ResType read_res() {
         std::vector<uint8_t> buffer(1024);
         ssize_t num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
         if (num_bytes == -1) {
@@ -340,12 +341,10 @@ public:
         if (num_bytes == 0) {
             throw std::runtime_error("Connection reset by peer");
         }
-        ResType res;
-        m_parser->read_req(buffer);
-        return res;
+        return m_parser->read_req(buffer);
     }
 
-    void write_req(const ReqType& req) {
+    virtual void write_req(const ReqType& req) {
         auto buffer = m_parser->write_req(req);
 
         if (::send(m_fd, buffer.data(), buffer.size(), 0) == -1) {
