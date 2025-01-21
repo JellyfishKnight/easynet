@@ -10,7 +10,9 @@ namespace net {
 
 class TcpClient: public Client<std::vector<uint8_t>, std::vector<uint8_t>, NoneParser> {
 public:
-    TcpClient(const std::string& ip, const std::string& service): Client(ip, service) {}
+    TcpClient(const std::string& ip, const std::string& service): Client(ip, service) {
+        m_parser = std::make_shared<NoneParser>();
+    }
 
     TcpClient(const TcpClient&) = delete;
 
@@ -25,7 +27,9 @@ private:
 
 class TcpServer: public Server<std::vector<uint8_t>, std::vector<uint8_t>, Connection, NoneParser> {
 public:
-    TcpServer(const std::string& ip, const std::string& service): Server(ip, service) {}
+    TcpServer(const std::string& ip, const std::string& service): Server(ip, service) {
+        m_parser = std::make_shared<NoneParser>();
+    }
 
     TcpServer(const TcpServer&) = delete;
 

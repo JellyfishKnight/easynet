@@ -1,18 +1,47 @@
 #include "socket.hpp"
+#include <cstdlib>
+#include <memory>
 
 int main() {
-    net::TcpServer server("127.0.0.1", "8080");
+    std::shared_ptr<net::TcpServer> server;
+    try {
+        server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
+    } catch (std::system_error const& e) {
+        std::cerr << "Failed to create server: " << e.what() << std::endl;
+        return 1;
+    }
 
-    server.listen();
+    try {
+        server->listen();
+    } catch (std::system_error const& e) {
+        std::cerr << "Failed to listen on socket: " << e.what() << std::endl;
+        return 1;
+    }
 
-    server.enable_thread_pool(10);
-    server.add_handler([](const std::vector<uint8_t>& req) {
-        std::string req_str { req.begin(), req.end() };
-        std::cout << "Received request: " << req_str << std::endl;
-        return std::vector<uint8_t> { req.rbegin(), req.rend() };
-    });
+    try {
+        server->enable_thread_pool(10);
+        server->add_handler([server](const std::vector<uint8_t>& req) {
+            std::string req_str { req.begin(), req.end() };
+            std::cout << "Received request: " << req_str << std::endl;
+            if (req_str == "exit") {
+                server->stop();
+            }
+            return std::vector<uint8_t> { req_str.begin(), req_str.end() };
+        });
+    } catch (std::system_error const& e) {
+        std::cerr << "Failed to start server: " << e.what() << std::endl;
+        return 1;
+    }
 
-    server.start();
+    try {
+        server->start();
+    } catch (std::system_error const& e) {
+        std::cerr << "Failed to start server: " << e.what() << std::endl;
+        return 1;
+    }
+
+    while (true) {
+    };
 
     return 0;
 }

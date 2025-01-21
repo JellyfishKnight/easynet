@@ -10,6 +10,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -178,7 +179,7 @@ public:
     /**
      * @brief Destroy the Server object
      */
-    ~Server() {
+    virtual ~Server() {
         stop();
         ::close(m_epoll_fd);
         ::close(m_lisen_fd);
@@ -285,7 +286,7 @@ protected:
     bool m_stop = false;
     bool m_epoll = false;
 
-    std::function<ResType(const ReqType&)> m_default_handler;
+    std::function<ResType(const ReqType&)> m_default_handler = nullptr;
 
     std::thread m_accept_thread;
 
@@ -337,7 +338,7 @@ public:
             throw std::system_error(errno, std::system_category(), "Failed to receive data");
         }
         if (num_bytes == 0) {
-            throw std::system_error(errno, std::system_category(), "Connection closed");
+            throw std::runtime_error("Connection reset by peer");
         }
         ResType res;
         m_parser->read_req(buffer);
@@ -352,7 +353,7 @@ public:
         }
     }
 
-private:
+protected:
     std::string m_ip;
     std::string m_service;
     int m_fd;
