@@ -11,6 +11,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
@@ -84,30 +85,48 @@ public:
         m_stop = false;
         m_accept_thread = std::thread([this]() {
             while (!m_stop) {
-                addressResolver::address client_addr;
-                socklen_t len;
-                int client_fd = ::accept(m_lisen_fd, &client_addr.m_addr, &len);
-                if (client_fd == -1) {
+                // use select to avoid blocking on accept
+                fd_set readfds;
+                FD_ZERO(&readfds);
+                FD_SET(m_lisen_fd, &readfds);
+                struct timeval timeout = { 1, 0 };
+                int ret = ::select(m_lisen_fd + 1, &readfds, nullptr, nullptr, &timeout);
+                if (ret == -1) {
                     std::cerr << std::format(
-                        "Failed to accept Connection: {}",
+                        "Failed to wait for events: {}",
                         std::error_code(errno, std::system_category()).message()
                     ) << std::endl;
                     continue;
                 }
-                std::string client_ip =
-                    ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
-                std::string client_service =
-                    std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
-                auto& conn = m_Connections[client_ip][client_service];
-                conn.m_client_fd = client_fd;
-                conn.m_server_fd = m_lisen_fd;
-                conn.m_addr = client_addr;
-                if (m_thread_pool) {
-                    m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
-                } else {
-                    std::thread([this, &conn]() { handle_connection(conn); }).detach();
+                if (ret == 0) {
+                    continue;
                 }
-                conn.m_status = ConnectionStatus::CONNECTED;
+                if (FD_ISSET(m_lisen_fd, &readfds)) {
+                    addressResolver::address client_addr;
+                    socklen_t len;
+                    int client_fd = ::accept(m_lisen_fd, &client_addr.m_addr, &len);
+                    if (client_fd == -1) {
+                        std::cerr << std::format(
+                            "Failed to accept Connection: {}",
+                            std::error_code(errno, std::system_category()).message()
+                        ) << std::endl;
+                        continue;
+                    }
+                    std::string client_ip =
+                        ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+                    std::string client_service =
+                        std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
+                    auto& conn = m_Connections[client_ip][client_service];
+                    conn.m_client_fd = client_fd;
+                    conn.m_server_fd = m_lisen_fd;
+                    conn.m_addr = client_addr;
+                    if (m_thread_pool) {
+                        m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
+                    } else {
+                        std::thread([this, &conn]() { handle_connection(conn); }).detach();
+                    }
+                    conn.m_status = ConnectionStatus::CONNECTED;
+                }
             }
         });
         return true;
@@ -229,7 +248,6 @@ public:
                 ::close(conn.m_client_fd);
             }
         }
-
         m_Connections.clear();
 
         if (m_thread_pool) {
@@ -346,7 +364,6 @@ public:
 
     virtual void write_req(const ReqType& req) {
         auto buffer = m_parser->write_req(req);
-
         if (::send(m_fd, buffer.data(), buffer.size(), 0) == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to send data");
         }

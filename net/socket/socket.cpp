@@ -32,7 +32,11 @@ void TcpServer::write_res(const std::vector<uint8_t>& res, const Connection& fd)
         throw std::system_error(errno, std::system_category(), "Failed to send data");
     }
     if (num_bytes == 0) {
-        throw std::system_error(0, std::system_category(), "Connection reset by peer");
+        throw std::system_error(
+            0,
+            std::system_category(),
+            "Connection reset by peer while writing"
+        );
     }
 }
 
@@ -43,7 +47,11 @@ void TcpServer::read_req(std::vector<uint8_t>& req, const Connection& fd) {
         throw std::system_error(errno, std::system_category(), "Failed to receive data");
     }
     if (num_bytes == 0) {
-        throw std::system_error(0, std::system_category(), "Connection reset by peer");
+        throw std::system_error(
+            0,
+            std::system_category(),
+            "Connection reset by peer while reading"
+        );
     }
     buffer.resize(num_bytes);
     req = std::move(buffer);
