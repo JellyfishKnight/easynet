@@ -3,6 +3,7 @@
 #include "parser.hpp"
 #include <format>
 #include <iostream>
+#include <string_view>
 
 namespace net {
 
@@ -31,7 +32,6 @@ void HttpServer::write_res(const HttpResponse& res, const Connection& fd) {
 
 void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
     std::vector<uint8_t> buffer(1024);
-    HttpRequest req_t;
     while (!m_parser->req_read_finished()) {
         buffer.resize(1024);
         auto num_bytes = ::recv(fd.m_client_fd, buffer.data(), buffer.size(), 0);
@@ -45,7 +45,7 @@ void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
         buffer.resize(num_bytes);
         m_parser->read_req(buffer, req);
     }
-    req = std::move(req_t);
+    m_parser->reset_state();
 }
 
 void HttpServer::handle_connection(const Connection& conn) {

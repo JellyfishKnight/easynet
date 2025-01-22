@@ -60,7 +60,10 @@ add_executable(TcpServerTest ./demo/tcp_server.cpp)
 target_link_libraries(TcpServerTest PUBLIC net::utils net::common net::socket)
 add_executable(TcpClientTest ./demo/tcp_client.cpp)
 target_link_libraries(TcpClientTest PUBLIC net::utils net::common net::socket)
-
+add_executable(HttpServerTest ./demo/http_server.cpp)
+target_link_libraries(HttpServerTest PUBLIC net::utils net::common net::socket net::http)
+add_executable(HttpClientTest ./demo/http_client.cpp)
+target_link_libraries(HttpClientTest PUBLIC net::utils net::common net::socket net::http)
 
 # install headers
 
@@ -75,52 +78,16 @@ find_package(GTest REQUIRED)
 
 # utils tests
 
-add_executable(
-  LoggerTest
-  utils/tests/test_logger.cpp
-)
+add_executable(LoggerTest utils/tests/test_logger.cpp)
+target_include_directories(LoggerTest PUBLIC ./utils/include)
+target_link_libraries(LoggerTest GTest::GTest utils)
 
-target_include_directories(
-  LoggerTest PUBLIC
-  ./utils/include
-)
+add_executable(PrintTest utils/tests/test_print.cpp)
+target_include_directories(PrintTest PUBLIC ./utils/include)
+target_link_libraries(PrintTest GTest::GTest utils)
 
-target_link_libraries(
-  LoggerTest
-  GTest::GTest
-  utils
-)
-
-add_executable(
-  PrintTest
-  utils/tests/test_print.cpp
-)
-
-target_include_directories(
-  PrintTest PUBLIC
-  ./utils/include
-)
-
-target_link_libraries(
-  PrintTest
-  GTest::GTest
-  utils
-)
-
-add_executable(
-  ThreadPoolTest
-  utils/tests/test_thread_pool.cpp
-)
-
-target_include_directories(
-  ThreadPoolTest PUBLIC
-  ./utils/include
-)
-
-target_link_libraries(
-  ThreadPoolTest
-  GTest::GTest
-  utils
-)
+add_executable(ThreadPoolTest utils/tests/test_thread_pool.cpp)
+target_include_directories(ThreadPoolTest PUBLIC ./utils/include)
+target_link_libraries(ThreadPoolTest GTest::GTest utils)
 
 

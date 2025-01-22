@@ -486,7 +486,6 @@ public:
             out_req.version = m_req_parser.version();
             out_req.headers = m_req_parser.headers();
             out_req.body = std::move(m_req_parser.body());
-            m_req_parser.reset_state();
         }
     }
 
@@ -508,6 +507,11 @@ public:
 
     bool res_read_finished() override {
         return m_res_parser.request_finished();
+    }
+
+    void reset_state() {
+        m_res_parser.reset_state();
+        m_req_parser.reset_state();
     }
 
 private:

@@ -42,6 +42,8 @@ template<typename ResType, typename ReqType, typename ConnectionType>
     requires std::is_base_of_v<Connection, ConnectionType>
 class Server: std::enable_shared_from_this<Server<ResType, ReqType, ConnectionType>> {
 public:
+    enum class ServerStatus : uint8_t { STOPPED = 0, LISTENING, CONNECTED };
+
     /**
      * @brief Construct a new Server object
      * @param ip ip address to bind to
@@ -77,12 +79,19 @@ public:
         if (::listen(m_lisen_fd, 10) == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to listen on socket");
         }
+        m_status = ServerStatus::LISTENING;
     }
 
     /*
      * @brief Start the server
     */
     bool start() {
+        if (m_status != ServerStatus::LISTENING) {
+            std::cerr
+                << "Server is not listening, please listen first. If Server is running, please stop first."
+                << std::endl;
+            return false;
+        }
         m_stop = false;
         m_accept_thread = std::thread([this]() {
             while (!m_stop) {
@@ -132,10 +141,17 @@ public:
                 }
             }
         });
+        m_status = ServerStatus::CONNECTED;
         return true;
     }
 
     bool start_epoll(std::size_t event_size) {
+        if (m_status != ServerStatus::LISTENING) {
+            std::cerr
+                << "Server is not listening, please listen first. If Server is running, please stop first."
+                << std::endl;
+            return false;
+        }
         if (!m_epoll) {
             std::cerr << "Epoll is not enabled, please enable epoll first" << std::endl;
             return false;
@@ -188,6 +204,7 @@ public:
                 }
             }
         });
+        m_status = ServerStatus::CONNECTED;
         return true;
     }
 
@@ -315,6 +332,8 @@ protected:
     std::thread m_accept_thread;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
+
+    ServerStatus m_status = ServerStatus::STOPPED;
 
     // first key : ip, second key : port
     std::unordered_map<std::string, std::unordered_map<std::string, ConnectionType>> m_Connections;
