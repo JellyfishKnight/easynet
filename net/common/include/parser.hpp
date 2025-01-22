@@ -31,37 +31,6 @@ public:
     virtual bool res_read_finished() = 0;
 };
 
-class NoneParser: public BaseParser<std::vector<uint8_t>, std::vector<uint8_t>> {
-public:
-    NoneParser() = default;
-
-    std::vector<uint8_t> write_req(const std::vector<uint8_t>& req) override {
-        return std::move(req);
-    }
-
-    std::vector<uint8_t> write_res(const std::vector<uint8_t>& res) override {
-        return std::move(res);
-    }
-
-    void read_req(std::vector<uint8_t>& req, std::vector<uint8_t>& req_out) override {
-        req_out = std::move(req);
-    }
-
-    void read_res(std::vector<uint8_t>& res, std::vector<uint8_t>& res_out) override {
-        res_out = std::move(res);
-    }
-
-    bool req_read_finished() override {
-        return true;
-    }
-
-    bool res_read_finished() override {
-        return true;
-    }
-
-    ~NoneParser() = default;
-};
-
 enum class HttpMethod {
     UNKNOWN = -1,
     GET,

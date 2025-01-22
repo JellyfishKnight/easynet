@@ -4,7 +4,7 @@
 
 namespace net {
 
-class HttpServer: public Server<HttpResponse, HttpRequest, Connection, HttpParser> {
+class HttpServer: public Server<HttpResponse, HttpRequest, Connection> {
 public:
     HttpServer(const std::string& ip, const std::string& service): Server(ip, service) {
         m_parser = std::make_shared<HttpParser>();
@@ -26,6 +26,8 @@ private:
     void handle_connection(const Connection& conn) final;
 
     void handle_connection_epoll() final;
+
+    std::shared_ptr<HttpParser> m_parser;
 };
 
 } // namespace net

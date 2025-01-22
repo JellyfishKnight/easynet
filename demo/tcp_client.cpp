@@ -67,7 +67,6 @@ int main() {
     req.version = http_parser.version();
     req.url = http_parser.url();
     req.headers = http_parser.headers();
-    req.is_complete = true;
     req.method = http_parser.method();
     req.body = std::move(http_parser.body());
 

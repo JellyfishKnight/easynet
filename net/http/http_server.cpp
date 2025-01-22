@@ -31,4 +31,23 @@ void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
     req = std::move(req_t);
 }
 
+void HttpServer::handle_connection(const Connection& conn) {
+    try {
+        while (true) {
+            if (m_default_handler == nullptr) {
+                throw std::runtime_error("No handler set");
+            }
+            HttpRequest req;
+            read_req(req, conn);
+
+            // auto res = m_default_handler(req_parsed);
+            // write_res(res, conn);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to handle connection: " << e.what() << std::endl;
+    }
+}
+
+void HttpServer::handle_connection_epoll() {}
+
 } // namespace net

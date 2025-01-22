@@ -37,10 +37,9 @@ struct Connection: std::enable_shared_from_this<Connection> {
     ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 };
 
-template<typename ResType, typename ReqType, typename ConnectionType, typename ParserType>
+template<typename ResType, typename ReqType, typename ConnectionType>
     requires std::is_base_of_v<Connection, ConnectionType>
-    && std::is_base_of_v<BaseParser<ReqType, ResType>, ParserType>
-class Server: std::enable_shared_from_this<Server<ResType, ReqType, ConnectionType, ParserType>> {
+class Server: std::enable_shared_from_this<Server<ResType, ReqType, ConnectionType>> {
 public:
     /**
      * @brief Construct a new Server object
@@ -316,13 +315,10 @@ protected:
 
     // first key : ip, second key : port
     std::unordered_map<std::string, std::unordered_map<std::string, ConnectionType>> m_Connections;
-
-    std::shared_ptr<ParserType> m_parser;
 };
 
-template<typename ResType, typename ReqType, typename ParserType>
-    requires std::is_base_of_v<BaseParser<ReqType, ResType>, ParserType>
-class Client: std::enable_shared_from_this<Client<ResType, ReqType, ParserType>> {
+template<typename ResType, typename ReqType>
+class Client: std::enable_shared_from_this<Client<ResType, ReqType>> {
 public:
     Client(const std::string& ip, const std::string& service): m_ip(ip), m_service(service) {}
 
@@ -334,7 +330,7 @@ public:
 
     Client& operator=(Client&&) = default;
 
-    void connect() {
+    void connect_server() {
         m_fd = ::socket(AF_INET, SOCK_STREAM, 0);
         if (m_fd == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to create socket");
@@ -353,32 +349,15 @@ public:
         }
     }
 
-    virtual ResType read_res() {
-        std::vector<uint8_t> buffer(1024);
-        ssize_t num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
-        if (num_bytes == -1) {
-            throw std::system_error(errno, std::system_category(), "Failed to receive data");
-        }
-        if (num_bytes == 0) {
-            throw std::runtime_error("Connection reset by peer");
-        }
-        return m_parser->read_req(buffer);
-    }
+    virtual ResType read_res() = 0;
 
-    virtual void write_req(const ReqType& req) {
-        auto buffer = m_parser->write_req(req);
-        if (::send(m_fd, buffer.data(), buffer.size(), 0) == -1) {
-            throw std::system_error(errno, std::system_category(), "Failed to send data");
-        }
-    }
+    virtual void write_req(const ReqType& req) = 0;
 
 protected:
     std::string m_ip;
     std::string m_service;
     int m_fd;
     addressResolver::address_ref m_addr;
-
-    std::shared_ptr<ParserType> m_parser;
 
     ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 };
