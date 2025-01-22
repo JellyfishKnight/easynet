@@ -3,7 +3,9 @@
 #include "parser.hpp"
 #include <format>
 #include <iostream>
+#include <stdexcept>
 #include <string_view>
+#include <unistd.h>
 
 namespace net {
 
@@ -39,8 +41,8 @@ void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
             throw std::system_error(errno, std::system_category(), "Failed to receive data");
         }
         if (num_bytes == 0) {
-            std::cerr << "Connection reset by peer while reading\n";
-            break;
+            ::close(fd.m_client_fd);
+            throw std::runtime_error("Connection reset by peer while reading");
         }
         buffer.resize(num_bytes);
         m_parser->read_req(buffer, req);

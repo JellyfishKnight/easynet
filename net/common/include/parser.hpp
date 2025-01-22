@@ -473,6 +473,9 @@ public:
         for (auto& [key, value]: res.headers) {
             m_res_writer.write_header(key, value);
         }
+        if (!res.body.empty() && !res.headers.contains("Content-Length")) {
+            m_res_writer.write_header("Content-Length", std::to_string(res.body.size()));
+        }
         m_res_writer.end_header();
         m_res_writer.write_body(res.body);
         return std::vector<uint8_t>(m_res_writer.buffer().begin(), m_res_writer.buffer().end());

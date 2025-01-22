@@ -16,7 +16,7 @@ std::vector<uint8_t> TcpClient::read_res() {
         throw std::system_error(errno, std::system_category(), "Failed to receive data");
     }
     if (num_bytes == 0) {
-        std::cerr << "Connection reset by peer while reading\n";
+        throw std::runtime_error("Connection reset by peer while reading");
     }
     buffer.resize(num_bytes);
     return buffer;
@@ -45,7 +45,8 @@ void TcpServer::read_req(std::vector<uint8_t>& req, const Connection& fd) {
         throw std::system_error(errno, std::system_category(), "Failed to receive data");
     }
     if (num_bytes == 0) {
-        std::cerr << "Connection reset by peer while reading\n";
+        ::close(fd.m_client_fd);
+        throw std::runtime_error("Connection reset by peer while reading");
     }
     buffer.resize(num_bytes);
     req = std::move(buffer);

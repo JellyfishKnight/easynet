@@ -20,8 +20,7 @@ HttpResponse HttpClient::read_res() {
             throw std::system_error(errno, std::system_category(), "Failed to receive data");
         }
         if (num_bytes == 0) {
-            std::cerr << "Connection reset by peer while reading\n";
-            break;
+            throw std::runtime_error("Connection reset by peer while reading");
         }
         buffer.resize(num_bytes);
         m_parser->read_res(buffer, res);

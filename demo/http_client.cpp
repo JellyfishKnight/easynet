@@ -14,12 +14,7 @@ int main() {
             client.close();
             return 0;
         }
-        net::HttpRequest req;
-        req.version = HTTP_VERSION_1_1;
-        req.method = net::HttpMethod::GET;
-        req.url = "/";
-        client.write_req(req);
-        auto res = client.read_res();
+        auto res = client.get("/");
         std::cout << "Http version: " << res.version << std::endl;
         std::cout << "Status Code: " << static_cast<int>(res.status_code) << std::endl;
         std::cout << "Reason: " << res.reason << std::endl;
