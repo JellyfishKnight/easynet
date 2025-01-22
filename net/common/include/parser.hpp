@@ -22,9 +22,9 @@ public:
 
     virtual std::vector<uint8_t> write_res(const ResType& res) = 0;
 
-    virtual ReqType read_req(std::vector<uint8_t>& req) = 0;
+    virtual void read_req(std::vector<uint8_t>& req, ReqType& req_out) = 0;
 
-    virtual ResType read_res(std::vector<uint8_t>& res) = 0;
+    virtual void read_res(std::vector<uint8_t>& res, ResType& res_out) = 0;
 
     virtual bool req_read_finished() = 0;
 
@@ -43,12 +43,12 @@ public:
         return std::move(res);
     }
 
-    std::vector<uint8_t> read_req(std::vector<uint8_t>& req) override {
-        return std::move(req);
+    void read_req(std::vector<uint8_t>& req, std::vector<uint8_t>& req_out) override {
+        req_out = std::move(req);
     }
 
-    std::vector<uint8_t> read_res(std::vector<uint8_t>& res) override {
-        return std::move(res);
+    void read_res(std::vector<uint8_t>& res, std::vector<uint8_t>& res_out) override {
+        res_out = std::move(res);
     }
 
     bool req_read_finished() override {
@@ -148,7 +148,6 @@ struct HttpResponse {
     std::string reason;
     std::unordered_map<std::string, std::string> headers;
     std::string body;
-    bool is_complete = false;
 };
 
 struct HttpRequest {
@@ -157,7 +156,6 @@ struct HttpRequest {
     std::string version;
     std::unordered_map<std::string, std::string> headers;
     std::string body;
-    bool is_complete = false;
 };
 
 struct http11_header_parser {
@@ -397,6 +395,10 @@ struct http_response_parser: _http_base_parser<HeaderParser> {
             return -1;
         }
     }
+
+    std::string version() {
+        return this->_headline_first();
+    }
 };
 
 struct http11_header_writer {
@@ -477,23 +479,65 @@ class HttpParser: public BaseParser<HttpRequest, HttpResponse> {
 public:
     HttpParser() = default;
 
-    std::vector<uint8_t> write_req(const HttpRequest& req) override {}
+    std::vector<uint8_t> write_req(const HttpRequest& req) override {
+        m_req_writer.reset_state();
+        m_req_writer.begin_header(utils::dump_enum(req.method), req.url);
+        for (auto& [key, value]: req.headers) {
+            m_req_writer.write_header(key, value);
+        }
+        m_req_writer.end_header();
+        m_req_writer.write_body(req.body);
+        return std::vector<uint8_t>(m_req_writer.buffer().begin(), m_req_writer.buffer().end());
+    }
 
-    std::vector<uint8_t> write_res(const HttpResponse& res) override {}
+    std::vector<uint8_t> write_res(const HttpResponse& res) override {
+        m_res_writer.reset_state();
+        m_res_writer.begin_header(static_cast<int>(res.status_code));
+        for (auto& [key, value]: res.headers) {
+            m_res_writer.write_header(key, value);
+        }
+        m_res_writer.end_header();
+        m_res_writer.write_body(res.body);
+        return std::vector<uint8_t>(m_res_writer.buffer().begin(), m_res_writer.buffer().end());
+    }
 
-    HttpRequest read_req(std::vector<uint8_t>& req) override {}
+    void read_req(std::vector<uint8_t>& req, HttpRequest& out_req) override {
+        m_req_parser.push_chunk(std::string_view(reinterpret_cast<char*>(req.data()), req.size()));
+        if (m_req_parser.request_finished()) {
+            out_req.method = m_req_parser.method();
+            out_req.url = m_req_parser.url();
+            out_req.version = m_req_parser.version();
+            out_req.headers = m_req_parser.headers();
+            out_req.body = std::move(m_req_parser.body());
+            m_req_parser.reset_state();
+        }
+    }
 
-    HttpResponse read_res(std::vector<uint8_t>& res) override {}
+    void read_res(std::vector<uint8_t>& res, HttpResponse& out_res) override {
+        m_res_parser.push_chunk(std::string_view(reinterpret_cast<char*>(res.data()), res.size()));
+        if (m_res_parser.request_finished()) {
+            out_res.version = m_res_parser.version();
+            out_res.status_code = static_cast<HttpResponseCode>(m_res_parser.status());
+            out_res.reason = utils::dump_enum(out_res.status_code);
+            out_res.headers = m_res_parser.headers();
+            out_res.body = std::move(m_res_parser.body());
+            m_res_parser.reset_state();
+        }
+    }
 
-    bool req_read_finished() override {}
+    bool req_read_finished() override {
+        return m_req_parser.request_finished();
+    }
 
-    bool res_read_finished() override {}
+    bool res_read_finished() override {
+        return m_res_parser.request_finished();
+    }
 
 private:
-    // HttpRequestParser<Http11Parser> m_req_parser;
-    // HttpResponseParser<Http11Parser> m_res_parser;
-    // HttpRequestWriter<Http11Writer> m_req_writer;
-    // HttpResponseWriter<Http11Writer> m_res_writer;
+    http_response_parser<> m_res_parser;
+    http_request_parser<> m_req_parser;
+    http_request_writer<> m_req_writer;
+    http_response_writer<> m_res_writer;
 };
 
 } // namespace net
