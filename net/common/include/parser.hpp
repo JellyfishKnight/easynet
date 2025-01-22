@@ -500,7 +500,6 @@ public:
             out_res.reason = utils::dump_enum(out_res.status_code);
             out_res.headers = m_res_parser.headers();
             out_res.body = std::move(m_res_parser.body());
-            m_res_parser.reset_state();
         }
     }
 

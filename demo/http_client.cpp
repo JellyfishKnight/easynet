@@ -6,7 +6,6 @@ int main() {
     net::HttpClient client("127.0.0.1", "8080");
 
     client.connect_server();
-
     while (true) {
         std::string input;
         std::cin >> input;

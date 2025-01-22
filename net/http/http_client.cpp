@@ -25,6 +25,7 @@ HttpResponse HttpClient::read_res() {
         buffer.resize(num_bytes);
         m_parser->read_res(buffer, res);
     }
+    m_parser->reset_state();
     return res;
 }
 
