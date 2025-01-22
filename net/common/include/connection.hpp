@@ -15,6 +15,7 @@
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <system_error>
@@ -134,16 +135,16 @@ public:
         return true;
     }
 
-    bool start_epoll() {
+    bool start_epoll(std::size_t event_size) {
         if (!m_epoll) {
             std::cerr << "Epoll is not enabled, please enable epoll first" << std::endl;
             return false;
         }
         m_stop = false;
-        m_accept_thread = std::thread([this]() {
+        m_accept_thread = std::thread([this, event_size]() {
             while (!m_stop) {
-                struct ::epoll_event events[10];
-                int num_events = ::epoll_wait(m_epoll_fd, events, 10, -1);
+                std::vector<struct ::epoll_event> events(event_size);
+                int num_events = ::epoll_wait(m_epoll_fd, events.data(), 10, -1);
                 if (num_events == -1) {
                     std::cerr << std::format(
                         "Failed to wait for events: {}",
@@ -182,7 +183,7 @@ public:
                         conn.m_client_fd = client_fd;
                         conn.m_addr = client_addr;
                     } else {
-                        handle_connection_epoll();
+                        handle_connection_epoll(events[i]);
                     }
                 }
             }
@@ -244,7 +245,7 @@ public:
     void stop() {
         m_stop = true;
         m_accept_thread.join();
-
+        m_epoll = false;
         for (auto& [ip, services]: m_Connections) {
             for (auto& [service, conn]: services) {
                 ::close(conn.m_client_fd);
@@ -255,6 +256,7 @@ public:
         if (m_thread_pool) {
             m_thread_pool->stop();
         }
+        m_thread_pool.reset();
     }
 
     void stop(const std::string& ip, const std::string& service) {
@@ -288,6 +290,7 @@ public:
                 "Failed to add listen socket to epoll"
             );
         }
+        m_epoll = true;
     }
 
 protected:
@@ -297,7 +300,7 @@ protected:
 
     virtual void handle_connection(const Connection& conn) = 0;
 
-    virtual void handle_connection_epoll() = 0;
+    virtual void handle_connection_epoll(const struct ::epoll_event& event) = 0;
 
     std::string m_ip;
     std::string m_service;

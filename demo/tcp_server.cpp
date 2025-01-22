@@ -19,7 +19,8 @@ int main() {
     }
 
     try {
-        server->enable_thread_pool(10);
+        // server->enable_thread_pool(10);
+        server->enable_epoll();
         server->add_handler([server](const std::vector<uint8_t>& req) {
             std::string req_str { req.begin(), req.end() };
             std::cout << "Received request: " << req_str << std::endl;
@@ -31,7 +32,8 @@ int main() {
     }
 
     try {
-        server->start();
+        // server->start();
+        server->start_epoll(10);
     } catch (std::system_error const& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         return 1;

@@ -18,6 +18,8 @@ namespace net {
 template<typename ReqType, typename ResType>
 class BaseParser: std::enable_shared_from_this<BaseParser<ReqType, ResType>> {
 public:
+    BaseParser<ReqType, ResType>() = default;
+
     virtual std::vector<uint8_t> write_req(const ReqType& req) = 0;
 
     virtual std::vector<uint8_t> write_res(const ResType& res) = 0;
@@ -29,6 +31,8 @@ public:
     virtual bool req_read_finished() = 0;
 
     virtual bool res_read_finished() = 0;
+
+    virtual ~BaseParser<ReqType, ResType>() = default;
 };
 
 enum class HttpMethod {

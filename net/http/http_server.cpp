@@ -25,7 +25,7 @@ void HttpServer::write_res(const HttpResponse& res, const Connection& fd) {
         throw std::system_error(errno, std::system_category(), "Failed to send data");
     }
     if (num_bytes == 0) {
-        throw std::runtime_error("Connection reset by peer while writing");
+        std::cerr << "Connection reset by peer while writing\n";
     }
 }
 
@@ -39,7 +39,8 @@ void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
             throw std::system_error(errno, std::system_category(), "Failed to receive data");
         }
         if (num_bytes == 0) {
-            throw std::runtime_error("Connection reset by peer while reading");
+            std::cerr << "Connection reset by peer while reading\n";
+            break;
         }
         buffer.resize(num_bytes);
         m_parser->read_req(buffer, req);
@@ -74,9 +75,7 @@ void HttpServer::handle_connection(const Connection& conn) {
     }
 }
 
-void HttpServer::handle_connection_epoll() {
-    
-}
+void HttpServer::handle_connection_epoll(const struct ::epoll_event& event) {}
 
 void HttpServer::get(
     const std::string path,

@@ -45,7 +45,7 @@ private:
 
     void handle_connection(const Connection& conn) final;
 
-    void handle_connection_epoll() final;
+    void handle_connection_epoll(const struct ::epoll_event& event) final;
 };
 
 } // namespace net
