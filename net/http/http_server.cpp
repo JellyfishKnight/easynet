@@ -1,6 +1,22 @@
 #include "http_server.hpp"
+#include "enum_parser.hpp"
+#include "parser.hpp"
+#include <format>
+#include <iostream>
 
 namespace net {
+
+HttpServer::HttpServer(const std::string& ip, const std::string& service):
+    Server(ip, service),
+    m_handlers {
+        { HttpMethod::GET, m_get_handlers },        { HttpMethod::POST, m_post_handlers },
+        { HttpMethod::PUT, m_put_handlers },        { HttpMethod::TRACE, m_trace_handler },
+        { HttpMethod::DELETE, m_delete_handlers },  { HttpMethod::OPTIONS, m_options_handler },
+        { HttpMethod::CONNECT, m_connect_handler }, { HttpMethod::PATCH, m_patch_handler },
+        { HttpMethod::HEAD, m_head_handler },
+    } {
+    m_parser = std::make_shared<HttpParser>();
+}
 
 void HttpServer::write_res(const HttpResponse& res, const Connection& fd) {
     auto res_buffer = m_parser->write_res(res);
@@ -34,20 +50,95 @@ void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
 void HttpServer::handle_connection(const Connection& conn) {
     try {
         while (true) {
-            if (m_default_handler == nullptr) {
-                throw std::runtime_error("No handler set");
-            }
             HttpRequest req;
             read_req(req, conn);
-
-            // auto res = m_default_handler(req_parsed);
-            // write_res(res, conn);
+            if (!m_handlers.contains(req.method)) {
+                std::cerr << std::format("No handler for method: {}", utils::dump_enum(req.method))
+                          << std::endl;
+                continue;
+            }
+            if (!m_handlers.at(req.method).contains(req.url)) {
+                std::cerr << std::format(
+                    "No handler for path: {} in method {}",
+                    req.url,
+                    utils::dump_enum(req.method)
+                ) << std::endl;
+                continue;
+            }
+            auto handler = m_handlers.at(req.method).at(req.url);
+            auto res = handler(req);
+            write_res(res, conn);
         }
     } catch (const std::exception& e) {
         std::cerr << "Failed to handle connection: " << e.what() << std::endl;
     }
 }
 
-void HttpServer::handle_connection_epoll() {}
+void HttpServer::handle_connection_epoll() {
+    
+}
+
+void HttpServer::get(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::GET)[path] = handler;
+}
+
+void HttpServer::post(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::POST)[path] = handler;
+}
+
+void HttpServer::put(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::PUT)[path] = handler;
+}
+
+void HttpServer::del(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::DELETE)[path] = handler;
+}
+
+void HttpServer::head(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::HEAD)[path] = handler;
+}
+
+void HttpServer::trace(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::TRACE)[path] = handler;
+}
+
+void HttpServer::connect(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::CONNECT)[path] = handler;
+}
+
+void HttpServer::options(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::OPTIONS)[path] = handler;
+}
+
+void HttpServer::patch(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_handlers.at(HttpMethod::PATCH)[path] = handler;
+}
 
 } // namespace net
