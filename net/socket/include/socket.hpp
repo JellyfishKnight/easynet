@@ -69,15 +69,15 @@ public:
 
     SocketServer& operator=(SocketServer&&) = default;
 
-    virtual ~SocketServer() = default;
+    virtual ~SocketServer();
 
-    virtual std::optional<std::string> listen() = 0;
+    virtual std::optional<std::string> listen();
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
 
-    virtual std::optional<std::string> close() = 0;
+    virtual std::optional<std::string> close();
 
     int get_fd() const;
 
@@ -85,13 +85,18 @@ public:
 
     void enable_thread_pool(std::size_t worker_num);
 
-    void enable_epoll(std::size_t event_num);
+    std::optional<std::string> enable_epoll(std::size_t event_num);
+
+    void set_logger(const utils::LoggerManager::Logger& logger);
 
 protected:
     std::string get_error_msg();
 
     int m_listen_fd;
-    addressResolver::address m_addr;
+    addressResolver m_addr_resolver;
+    addressResolver::address_info m_addr_info;
+    std::string m_ip;
+    std::string m_service;
 
     std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)> m_default_handler;
 
