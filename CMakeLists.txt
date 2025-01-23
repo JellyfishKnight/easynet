@@ -35,7 +35,6 @@ message(STATUS "LIBRARY_OUTPUT_PATH: ${EXECUTABLE_OUTPUT_PATH}")
 
 # build net
 aux_source_directory(./utils utils_src)
-aux_source_directory(./net/common net_common_src)
 aux_source_directory(./net/socket net_socket_src)
 aux_source_directory(./net/http net_http_src)
 
@@ -43,29 +42,24 @@ add_library(utils STATIC ${utils_src})
 add_library(net::utils ALIAS utils)
 target_include_directories(utils PUBLIC ./utils/include)
 
-add_library(net_common STATIC ${net_common_src})
-add_library(net::common ALIAS net_common)
-target_include_directories(net_common PUBLIC ./net/common/include ${OPENSSL_INCLUDE_DIR})
-target_link_libraries(net_common PUBLIC net::utils OpenSSL::SSL OpenSSL::Crypto)
-
 add_library(net_socket STATIC ${net_socket_src})
 add_library(net::socket ALIAS net_socket)
 target_include_directories(net_socket PUBLIC ./net/socket/include)
-target_link_libraries(net_socket PUBLIC net::utils net::common)
+target_link_libraries(net_socket PUBLIC net::utils)
 
 add_library(net_http STATIC ${net_http_src})
 add_library(net::http ALIAS net_http)
 target_include_directories(net_http PUBLIC ./net/http/include ${OPENSSL_INCLUDE_DIR})
-target_link_libraries(net_http PUBLIC net::utils net::common net::socket OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(net_http PUBLIC net::utils net::socket OpenSSL::SSL OpenSSL::Crypto)
 
 add_executable(TcpServerTest ./demo/tcp_server.cpp)
-target_link_libraries(TcpServerTest PUBLIC net::utils net::common net::socket)
+target_link_libraries(TcpServerTest PUBLIC net::utils net::socket)
 add_executable(TcpClientTest ./demo/tcp_client.cpp)
-target_link_libraries(TcpClientTest PUBLIC net::utils net::common net::socket)
+target_link_libraries(TcpClientTest PUBLIC net::utils net::socket)
 add_executable(HttpServerTest ./demo/http_server.cpp)
-target_link_libraries(HttpServerTest PUBLIC net::utils net::common net::socket net::http)
+target_link_libraries(HttpServerTest PUBLIC net::utils net::socket net::http)
 add_executable(HttpClientTest ./demo/http_client.cpp)
-target_link_libraries(HttpClientTest PUBLIC net::utils net::common net::socket net::http)
+target_link_libraries(HttpClientTest PUBLIC net::utils net::socket net::http)
 
 # install headers
 
