@@ -15,26 +15,6 @@
 
 namespace net {
 
-template<typename ReqType, typename ResType>
-class BaseParser: std::enable_shared_from_this<BaseParser<ReqType, ResType>> {
-public:
-    BaseParser<ReqType, ResType>() = default;
-
-    virtual std::vector<uint8_t> write_req(const ReqType& req) = 0;
-
-    virtual std::vector<uint8_t> write_res(const ResType& res) = 0;
-
-    virtual void read_req(std::vector<uint8_t>& req, ReqType& req_out) = 0;
-
-    virtual void read_res(std::vector<uint8_t>& res, ResType& res_out) = 0;
-
-    virtual bool req_read_finished() = 0;
-
-    virtual bool res_read_finished() = 0;
-
-    virtual ~BaseParser<ReqType, ResType>() = default;
-};
-
 enum class HttpMethod {
     UNKNOWN = -1,
     GET,
@@ -452,69 +432,22 @@ struct http_response_writer: _http_base_writer<HeaderWriter> {
     }
 };
 
-class HttpParser: public BaseParser<HttpRequest, HttpResponse> {
+class HttpParser: public std::enable_shared_from_this<HttpParser> {
 public:
     HttpParser() = default;
 
-    std::vector<uint8_t> write_req(const HttpRequest& req) override {
-        m_req_writer.reset_state();
-        m_req_writer.begin_header(utils::dump_enum(req.method), req.url);
-        for (auto& [key, value]: req.headers) {
-            m_req_writer.write_header(key, value);
-        }
-        m_req_writer.end_header();
-        m_req_writer.write_body(req.body);
-        return std::vector<uint8_t>(m_req_writer.buffer().begin(), m_req_writer.buffer().end());
-    }
+    std::vector<uint8_t> write_req(const HttpRequest& req);
 
-    std::vector<uint8_t> write_res(const HttpResponse& res) override {
-        m_res_writer.reset_state();
-        m_res_writer.begin_header(static_cast<int>(res.status_code));
-        for (auto& [key, value]: res.headers) {
-            m_res_writer.write_header(key, value);
-        }
-        if (!res.body.empty() && !res.headers.contains("Content-Length")) {
-            m_res_writer.write_header("Content-Length", std::to_string(res.body.size()));
-        }
-        m_res_writer.end_header();
-        m_res_writer.write_body(res.body);
-        return std::vector<uint8_t>(m_res_writer.buffer().begin(), m_res_writer.buffer().end());
-    }
+    std::vector<uint8_t> write_res(const HttpResponse& res);
 
-    void read_req(std::vector<uint8_t>& req, HttpRequest& out_req) override {
-        m_req_parser.push_chunk(std::string_view(reinterpret_cast<char*>(req.data()), req.size()));
-        if (m_req_parser.request_finished()) {
-            out_req.method = m_req_parser.method();
-            out_req.url = m_req_parser.url();
-            out_req.version = m_req_parser.version();
-            out_req.headers = m_req_parser.headers();
-            out_req.body = std::move(m_req_parser.body());
-        }
-    }
+    void read_req(std::vector<uint8_t>& req, HttpRequest& out_req);
 
-    void read_res(std::vector<uint8_t>& res, HttpResponse& out_res) override {
-        m_res_parser.push_chunk(std::string_view(reinterpret_cast<char*>(res.data()), res.size()));
-        if (m_res_parser.request_finished()) {
-            out_res.version = m_res_parser.version();
-            out_res.status_code = static_cast<HttpResponseCode>(m_res_parser.status());
-            out_res.reason = utils::dump_enum(out_res.status_code);
-            out_res.headers = m_res_parser.headers();
-            out_res.body = std::move(m_res_parser.body());
-        }
-    }
+    void read_res(std::vector<uint8_t>& res, HttpResponse& out_res);
 
-    bool req_read_finished() override {
-        return m_req_parser.request_finished();
-    }
+    bool req_read_finished();
+    bool res_read_finished();
 
-    bool res_read_finished() override {
-        return m_res_parser.request_finished();
-    }
-
-    void reset_state() {
-        m_res_parser.reset_state();
-        m_req_parser.reset_state();
-    }
+    void reset_state();
 
 private:
     http_response_parser<> m_res_parser;
