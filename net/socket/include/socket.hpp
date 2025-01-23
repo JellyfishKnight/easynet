@@ -1,5 +1,6 @@
 #pragma once
 
+#include "address_resolver.hpp"
 #include "connection.hpp"
 #include "logger.hpp"
 #include "thread_pool.hpp"
@@ -27,15 +28,15 @@ public:
 
     SocketClient& operator=(SocketClient&&) = default;
 
-    virtual ~SocketClient() = default;
+    virtual ~SocketClient();
 
-    virtual std::optional<std::string> connect() = 0;
+    virtual std::optional<std::string> connect();
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t&> data) = 0;
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
 
-    virtual std::optional<std::string> close() = 0;
+    virtual std::optional<std::string> close();
 
     int get_fd() const;
 
@@ -45,7 +46,8 @@ protected:
     std::string get_error_msg();
 
     int m_fd;
-    addressResolver::address m_addr;
+    addressResolver m_addr_resolver;
+    addressResolver::address_info m_addr_info;
     std::string m_ip;
     std::string m_service;
 
@@ -55,7 +57,7 @@ protected:
     utils::LoggerManager::Logger m_logger;
 };
 
-class SocketServer {
+class SocketServer: std::enable_shared_from_this<SocketServer> {
 public:
     SocketServer(const std::string& ip, const std::string& service);
 

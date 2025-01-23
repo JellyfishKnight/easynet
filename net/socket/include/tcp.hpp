@@ -1,10 +1,11 @@
 #pragma once
 
+#include "socket.hpp"
 namespace net {
 
-class TcpClient: public Client<std::vector<uint8_t>, std::vector<uint8_t>> {
+class TcpClient: public SocketClient {
 public:
-    TcpClient(const std::string& ip, const std::string& service): Client(ip, service) {}
+    TcpClient(const std::string& ip, const std::string& service): SocketClient(ip, service) {}
 
     TcpClient(const TcpClient&) = delete;
 
