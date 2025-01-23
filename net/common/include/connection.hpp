@@ -69,6 +69,12 @@ public:
             throw std::system_error(errno, std::system_category(), "Failed to create socket");
         }
 
+        int opt = 1;
+        auto ret = ::setsockopt(m_lisen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        if (ret == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to set socket options");
+        }
+
         addressResolver resolver;
         auto addr_info = resolver.resolve(m_ip, m_service);
         if (::bind(m_lisen_fd, addr_info.get_address().m_addr, addr_info.get_address().m_len) == -1)
@@ -220,9 +226,9 @@ public:
      * @brief Destroy the Server object
      */
     virtual ~Server() {
-        stop();
-        ::close(m_epoll_fd);
-        ::close(m_lisen_fd);
+        if (!m_stop) {
+            stop();
+        }
     }
 
     /**
@@ -262,18 +268,21 @@ public:
     void stop() {
         m_stop = true;
         m_accept_thread.join();
-        m_epoll = false;
+        if (m_epoll) {
+            ::close(m_epoll_fd);
+            m_epoll = false;
+        }
         for (auto& [ip, services]: m_Connections) {
             for (auto& [service, conn]: services) {
                 ::close(conn.m_client_fd);
             }
         }
         m_Connections.clear();
-
+        ::close(m_lisen_fd);
         if (m_thread_pool) {
             m_thread_pool->stop();
+            m_thread_pool.reset();
         }
-        m_thread_pool.reset();
     }
 
     void stop(const std::string& ip, const std::string& service) {

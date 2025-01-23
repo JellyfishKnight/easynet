@@ -52,7 +52,7 @@ void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
 
 void HttpServer::handle_connection(const Connection& conn) {
     try {
-        while (true) {
+        while (!m_stop) {
             HttpRequest req;
             read_req(req, conn);
             if (!m_handlers.contains(req.method)) {

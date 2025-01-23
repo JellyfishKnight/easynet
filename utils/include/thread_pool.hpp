@@ -317,7 +317,9 @@ public:
     }
 
     ~ThreadPool() {
-        this->stop();
+        if (!this->m_stop) {
+            this->stop();
+        }
     }
 
     /**
