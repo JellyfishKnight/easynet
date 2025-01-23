@@ -21,7 +21,7 @@ int main() {
 
     auto content = readFileToString("/home/jk/Projects/net/index/index.html");
 
-    server.enable_thread_pool(10);
+    server.enable_thread_pool(96);
     server.get("/", [&content](const net::HttpRequest& req) {
         net::HttpResponse res;
         res.version = HTTP_VERSION_1_1;

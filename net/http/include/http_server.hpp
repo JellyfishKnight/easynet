@@ -3,12 +3,17 @@
 #include "connection.hpp"
 #include "parser.hpp"
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
 namespace net {
 
-class HttpServer: public Server<HttpResponse, HttpRequest, Connection> {
+struct HttpConnection: public Connection {
+    HttpParser m_parser;
+};
+
+class HttpServer: public Server<HttpResponse, HttpRequest, HttpConnection> {
 public:
     HttpServer(const std::string& ip, const std::string& service);
 
@@ -18,7 +23,7 @@ public:
 
     HttpServer& operator=(const HttpServer&) = delete;
 
-    HttpServer& operator=(HttpServer&&) = default;
+    HttpServer& operator=(HttpServer&&) = delete;
 
     void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
@@ -39,11 +44,11 @@ public:
     void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
 private:
-    void write_res(const HttpResponse& res, const Connection& fd) final;
+    void write_res(const HttpResponse& res, HttpConnection& fd) final;
 
-    void read_req(HttpRequest& req, const Connection& fd) final;
+    void read_req(HttpRequest& req, HttpConnection& fd) final;
 
-    void handle_connection(const Connection& conn) final;
+    void handle_connection(HttpConnection& conn) final;
 
     void handle_connection_epoll(const struct ::epoll_event& event) final;
 
@@ -60,8 +65,6 @@ private:
     MethodHandlers m_patch_handler;
 
     const std::unordered_map<HttpMethod, MethodHandlers&> m_handlers;
-
-    std::shared_ptr<HttpParser> m_parser;
 };
 
 } // namespace net

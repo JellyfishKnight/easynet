@@ -39,11 +39,11 @@ public:
     TcpServer& operator=(TcpServer&&) = default;
 
 private:
-    void write_res(const std::vector<uint8_t>& res, const Connection& fd) final;
+    void write_res(const std::vector<uint8_t>& res, Connection& fd) final;
 
-    void read_req(std::vector<uint8_t>& req, const Connection& fd) final;
+    void read_req(std::vector<uint8_t>& req, Connection& fd) final;
 
-    void handle_connection(const Connection& conn) final;
+    void handle_connection(Connection& conn) final;
 
     void handle_connection_epoll(const struct ::epoll_event& event) final;
 };

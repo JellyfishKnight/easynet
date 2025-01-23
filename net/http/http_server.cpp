@@ -17,12 +17,10 @@ HttpServer::HttpServer(const std::string& ip, const std::string& service):
         { HttpMethod::DELETE, m_delete_handlers },  { HttpMethod::OPTIONS, m_options_handler },
         { HttpMethod::CONNECT, m_connect_handler }, { HttpMethod::PATCH, m_patch_handler },
         { HttpMethod::HEAD, m_head_handler },
-    } {
-    m_parser = std::make_shared<HttpParser>();
-}
+    } {}
 
-void HttpServer::write_res(const HttpResponse& res, const Connection& fd) {
-    auto res_buffer = m_parser->write_res(res);
+void HttpServer::write_res(const HttpResponse& res, HttpConnection& fd) {
+    auto res_buffer = fd.m_parser.write_res(res);
     int num_bytes = ::send(fd.m_client_fd, res_buffer.data(), res_buffer.size(), 0);
     if (num_bytes == -1) {
         throw std::system_error(errno, std::system_category(), "Failed to send data");
@@ -32,9 +30,9 @@ void HttpServer::write_res(const HttpResponse& res, const Connection& fd) {
     }
 }
 
-void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
+void HttpServer::read_req(HttpRequest& req, HttpConnection& fd) {
     std::vector<uint8_t> buffer(1024);
-    while (!m_parser->req_read_finished()) {
+    while (!fd.m_parser.req_read_finished()) {
         buffer.resize(1024);
         auto num_bytes = ::recv(fd.m_client_fd, buffer.data(), buffer.size(), 0);
         if (num_bytes == -1) {
@@ -45,12 +43,12 @@ void HttpServer::read_req(HttpRequest& req, const Connection& fd) {
             throw std::runtime_error("Connection reset by peer while reading");
         }
         buffer.resize(num_bytes);
-        m_parser->read_req(buffer, req);
+        fd.m_parser.read_req(buffer, req);
     }
-    m_parser->reset_state();
+    fd.m_parser.reset_state();
 }
 
-void HttpServer::handle_connection(const Connection& conn) {
+void HttpServer::handle_connection(HttpConnection& conn) {
     try {
         while (!m_stop) {
             HttpRequest req;

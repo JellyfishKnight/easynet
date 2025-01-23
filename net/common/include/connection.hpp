@@ -320,11 +320,11 @@ public:
     }
 
 protected:
-    virtual void write_res(const ResType& res, const Connection& fd) = 0;
+    virtual void write_res(const ResType& res, ConnectionType& fd) = 0;
 
-    virtual void read_req(ReqType& req, const Connection& fd) = 0;
+    virtual void read_req(ReqType& req, ConnectionType& fd) = 0;
 
-    virtual void handle_connection(const Connection& conn) = 0;
+    virtual void handle_connection(ConnectionType& conn) = 0;
 
     virtual void handle_connection_epoll(const struct ::epoll_event& event) = 0;
 

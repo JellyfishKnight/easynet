@@ -28,7 +28,7 @@ void TcpClient::write_req(const std::vector<uint8_t>& req) {
     }
 }
 
-void TcpServer::write_res(const std::vector<uint8_t>& res, const Connection& fd) {
+void TcpServer::write_res(const std::vector<uint8_t>& res, Connection& fd) {
     int num_bytes = ::send(fd.m_client_fd, res.data(), res.size(), 0);
     if (num_bytes == -1) {
         throw std::system_error(errno, std::system_category(), "Failed to send data");
@@ -38,7 +38,7 @@ void TcpServer::write_res(const std::vector<uint8_t>& res, const Connection& fd)
     }
 }
 
-void TcpServer::read_req(std::vector<uint8_t>& req, const Connection& fd) {
+void TcpServer::read_req(std::vector<uint8_t>& req, Connection& fd) {
     std::vector<uint8_t> buffer(1024);
     ssize_t num_bytes = ::recv(fd.m_client_fd, buffer.data(), buffer.size(), 0);
     if (num_bytes == -1) {
@@ -52,7 +52,7 @@ void TcpServer::read_req(std::vector<uint8_t>& req, const Connection& fd) {
     req = std::move(buffer);
 }
 
-void TcpServer::handle_connection(const Connection& conn) {
+void TcpServer::handle_connection(Connection& conn) {
     try {
         while (true) {
             if (m_default_handler == nullptr) {
