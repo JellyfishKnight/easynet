@@ -406,9 +406,12 @@ std::optional<std::string> SocketServer::start() {
                     continue;
                 }
                 if (FD_ISSET(m_listen_fd, &readfds)) {
-                    addressResolver::address client_addr;
-                    socklen_t len;
-                    int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &len);
+                    addressResolver::address_info client_addr;
+                    int client_fd = ::accept(
+                        m_listen_fd,
+                        client_addr.get_address().m_addr,
+                        &client_addr.get_address().m_len
+                    );
                     if (client_fd == -1) {
                         if (m_logger_set) {
                             NET_LOG_ERROR(
@@ -421,10 +424,12 @@ std::optional<std::string> SocketServer::start() {
                             << std::format("Failed to accept Connection: {}\n", get_error_msg());
                         continue;
                     }
-                    std::string client_ip =
-                        ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
-                    std::string client_service =
-                        std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
+                    std::string client_ip = ::inet_ntoa(
+                        ((struct sockaddr_in*)client_addr.get_address().m_addr)->sin_addr
+                    );
+                    std::string client_service = std::to_string(
+                        ntohs(((struct sockaddr_in*)client_addr.get_address().m_addr)->sin_port)
+                    );
                     auto& conn = m_connections[{ client_ip, client_service }];
                     conn.m_client_fd = client_fd;
                     conn.m_server_fd = m_listen_fd;
@@ -433,6 +438,7 @@ std::optional<std::string> SocketServer::start() {
                     conn.m_server_service = m_service;
                     conn.m_client_ip = client_ip;
                     conn.m_client_service = client_service;
+                    conn.m_addr = client_addr;
                     if (m_thread_pool) {
                         m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
                     } else {
@@ -481,10 +487,6 @@ void SocketServer::handle_connection_epoll(const struct ::epoll_event& event) {
         return;
     }
     this->write(res, event);
-}
-
-const Connection& SocketServer::get_connection(const ConnectionKey& key) {
-    return m_connections.at(key);
 }
 
 void SocketServer::add_handler(

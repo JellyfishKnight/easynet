@@ -83,11 +83,6 @@ public:
 
     virtual std::optional<std::string> listen();
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, const Connection& conn);
-
-    virtual std::optional<std::string>
-    write(const std::vector<uint8_t>& data, const Connection& conn);
-
     virtual std::optional<std::string> close(const Connection& conn);
 
     virtual std::optional<std::string> close();
@@ -102,14 +97,17 @@ public:
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
-    const Connection& get_connection(const ConnectionKey& key);
-
     SocketType type() const;
 
     void
     add_handler(std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)>& handler);
 
 protected:
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, const Connection& conn);
+
+    virtual std::optional<std::string>
+    write(const std::vector<uint8_t>& data, const Connection& conn);
+
     virtual std::optional<std::string>
     read(std::vector<uint8_t>& data, const struct ::epoll_event& conn);
 

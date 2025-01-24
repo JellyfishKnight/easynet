@@ -18,7 +18,7 @@ class addressResolver {
 public:
     struct address_ref {
         struct ::sockaddr* m_addr;
-        ::socklen_t m_len;
+        ::socklen_t& m_len;
     };
 
     struct address {

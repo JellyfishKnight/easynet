@@ -1,6 +1,7 @@
 #pragma once
 
 #include "socket.hpp"
+#include <string>
 
 namespace net {
 
@@ -27,7 +28,7 @@ public:
     connect() override;
 };
 
-class UdpServer : public SocketServer {
+class UdpServer: public SocketServer {
 public:
     UdpServer(const std::string& ip, const std::string& service, SocketType type);
 
@@ -39,19 +40,25 @@ public:
 
     UdpServer& operator=(UdpServer&&) = default;
 
-    std::optional<std::string> listen() override;
+    [[deprecated("Udp dosen't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    listen() override;
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, const Connection& conn) override;
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    read(std::vector<uint8_t>& data, const Connection& conn) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, const Connection& conn) override;
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    write(const std::vector<uint8_t>& data, const Connection& conn) override;
 
-    std::optional<std::string> close(const Connection& conn) override;
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    close(const Connection& conn) override;
 
     std::optional<std::string> close() override;
 
-    
-
-
+    std::optional<std::string> start() override;
 };
 
 }; // namespace net

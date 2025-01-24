@@ -41,7 +41,7 @@ struct Connection: std::enable_shared_from_this<Connection> {
     int m_client_fd;
     int m_server_fd;
 
-    addressResolver::address m_addr;
+    addressResolver::address_info m_addr;
     ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 };
 
