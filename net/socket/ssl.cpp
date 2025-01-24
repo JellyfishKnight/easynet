@@ -1,5 +1,7 @@
 #include "ssl.hpp"
+#include "tcp.hpp"
 #include <memory>
+#include <utility>
 
 namespace net {
 
@@ -41,37 +43,45 @@ SSLSession::SSLSession(std::shared_ptr<SSLContext> ctx) {
     if (m_ssl == nullptr) {
         throw std::runtime_error("Failed to create SSL session: " + get_ssl_error());
     }
+    m_closed = true;
 }
 
-void SSLSession::set_socket(int fd) {
-    if (SSL_set_fd(m_ssl.get(), fd) == 0) {
-        throw std::runtime_error("Failed to set socket to SSL session: " + get_ssl_error());
-    }
-}
-
-void SSLSession::handshake() {
+std::optional<std::string> SSLSession::handshake() {
     if (SSL_connect(m_ssl.get()) <= 0) {
-        throw std::runtime_error("Failed to establish SSL connection: " + get_ssl_error());
+        return "Failed to establish SSL connection: " + get_ssl_error();
     }
+    m_closed = false;
+    return std::nullopt;
 }
 
-void SSLSession::write(const std::vector<uint8_t>& data) {
+std::optional<std::string> SSLSession::write(const std::vector<uint8_t>& data) {
+    if (m_closed) {
+        return "SSL session is closed";
+    }
     if (SSL_write(m_ssl.get(), data.data(), data.size()) <= 0) {
         throw std::runtime_error("Failed to write data to SSL session: " + get_ssl_error());
     }
 }
 
-void SSLSession::read(std::vector<uint8_t>& data) {
+std::optional<std::string> SSLSession::read(std::vector<uint8_t>& data) {
+    if (m_closed) {
+        return "SSL session is closed";
+    }
     data.resize(1024);
     int num_bytes = SSL_read(m_ssl.get(), data.data(), data.size());
     if (num_bytes <= 0) {
-        throw std::runtime_error("Failed to read data from SSL session: " + get_ssl_error());
+        return "Failed to read data from SSL session: " + get_ssl_error();
     }
     data.resize(num_bytes);
+    return std::nullopt;
 }
 
-void SSLSession::close() {
-    SSL_shutdown(m_ssl.get());
+std::optional<std::string> SSLSession::close() {
+    if (SSL_shutdown(m_ssl.get()) <= 0) {
+        return "Failed to close SSL session: " + get_ssl_error();
+    }
+    m_closed = true;
+    return std::nullopt;
 }
 
 std::string SSLSession::get_ssl_error() {
@@ -81,7 +91,15 @@ std::string SSLSession::get_ssl_error() {
 }
 
 SSLSession::~SSLSession() {
-    close();
+    if (!m_closed) {
+        close();
+    }
 }
 
+std::optional<std::string> SSLSession::set_socket(int fd) {
+    if (SSL_set_fd(m_ssl.get(), fd) <= 0) {
+        return "Failed to set socket for SSL session: " + get_ssl_error();
+    }
+    return std::nullopt;
+}
 } // namespace net

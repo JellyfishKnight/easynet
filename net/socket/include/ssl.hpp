@@ -1,10 +1,12 @@
 #pragma once
 
+#include "tcp.hpp"
 #include <cstdint>
 #include <memory>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/types.h>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -33,27 +35,55 @@ class SSLSession {
 public:
     SSLSession(std::shared_ptr<SSLContext> ctx);
 
-    ~SSLSession();
+    virtual ~SSLSession();
 
     SSLSession(const SSLSession&) = delete;
     SSLSession(SSLSession&&) = default;
     SSLSession& operator=(const SSLSession&) = delete;
     SSLSession& operator=(SSLSession&&) = default;
 
-    void set_socket(int fd);
+    virtual std::optional<std::string> handshake();
 
-    void handshake();
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
 
-    void write(const std::vector<uint8_t>& data);
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
 
-    void read(std::vector<uint8_t>& data);
+    virtual std::optional<std::string> close();
 
-    void close();
+    virtual std::optional<std::string> set_socket(int fd);
 
-private:
+protected:
     std::string get_ssl_error();
 
     std::shared_ptr<SSL> m_ssl;
+    std::shared_ptr<SSLContext> m_ctx;
+
+    bool m_closed;
+};
+
+class SSLClient: public SSLSession {
+public:
+    SSLClient(std::shared_ptr<SSLContext> ctx);
+
+    ~SSLClient();
+
+    SSLClient(const SSLClient&) = delete;
+    SSLClient(SSLClient&&) = default;
+    SSLClient& operator=(const SSLClient&) = delete;
+    SSLClient& operator=(SSLClient&&) = default;
+
+    std::optional<std::string> set_socket(std::shared_ptr<TcpClient> client);
+
+    std::optional<std::string> handshake();
+
+    std::optional<std::string> write(const std::vector<uint8_t>& data);
+
+    std::optional<std::string> read(std::vector<uint8_t>& data);
+
+    std::optional<std::string> close();
+
+protected:
+    std::shared_ptr<TcpClient> m_client;
 };
 
 } // namespace net
