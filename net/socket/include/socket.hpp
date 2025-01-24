@@ -12,6 +12,7 @@
 #include <string>
 #include <sys/epoll.h>
 #include <sys/types.h>
+#include <unordered_map>
 #include <vector>
 
 namespace net {
@@ -73,9 +74,12 @@ public:
 
     virtual std::optional<std::string> listen();
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, const Connection& conn);
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
+    virtual std::optional<std::string>
+    write(const std::vector<uint8_t>& data, const Connection& conn);
+
+    virtual std::optional<std::string> close(const Connection& conn);
 
     virtual std::optional<std::string> close();
 
@@ -89,8 +93,20 @@ public:
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
+    const Connection& get_connection(const ConnectionKey& key);
+
 protected:
+    virtual std::optional<std::string>
+    read(std::vector<uint8_t>& data, const struct ::epoll_event& conn);
+
+    virtual std::optional<std::string>
+    write(const std::vector<uint8_t>& data, const struct ::epoll_event& conn);
+
     std::string get_error_msg();
+
+    virtual void handle_connection(Connection& conn);
+
+    virtual void handle_connection_epoll(const struct ::epoll_event& event);
 
     int m_listen_fd;
     addressResolver m_addr_resolver;
@@ -104,6 +120,7 @@ protected:
     std::vector<struct ::epoll_event> m_events;
     int m_epoll_fd;
 
+    std::unordered_map<ConnectionKey, Connection> m_connections;
     bool m_stop;
     bool m_epoll_enabled;
 

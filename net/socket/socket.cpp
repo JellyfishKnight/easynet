@@ -195,11 +195,11 @@ std::optional<std::string> SocketServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string> SocketServer::read(std::vector<uint8_t>& data) {
-    if (m_status != ConnectionStatus::CONNECTED) {
+std::optional<std::string> SocketServer::read(std::vector<uint8_t>& data, const Connection& conn) {
+    if (m_status != ConnectionStatus::CONNECTED || conn.m_status != ConnectionStatus::CONNECTED) {
         return "Server is not connected";
     }
-    ssize_t num_bytes = ::recv(m_listen_fd, data.data(), data.size(), 0);
+    ssize_t num_bytes = ::recv(conn.m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
@@ -216,11 +216,55 @@ std::optional<std::string> SocketServer::read(std::vector<uint8_t>& data) {
     return std::nullopt;
 }
 
-std::optional<std::string> SocketServer::write(const std::vector<uint8_t>& data) {
+std::optional<std::string>
+SocketServer::read(std::vector<uint8_t>& data, const struct ::epoll_event& conn) {
     if (m_status != ConnectionStatus::CONNECTED) {
         return "Server is not connected";
     }
-    ssize_t num_bytes = ::send(m_listen_fd, data.data(), data.size(), 0);
+    ssize_t num_bytes = ::recv(conn.data.fd, data.data(), data.size(), 0);
+    if (num_bytes == -1) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+        }
+        return get_error_msg();
+    }
+    if (num_bytes == 0) {
+        if (m_logger_set) {
+            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+        }
+        return "Connection reset by peer while reading";
+    }
+    data.resize(num_bytes);
+    return std::nullopt;
+}
+
+std::optional<std::string>
+SocketServer::write(const std::vector<uint8_t>& data, const Connection& conn) {
+    if (m_status != ConnectionStatus::CONNECTED) {
+        return "Server is not connected";
+    }
+    ssize_t num_bytes = ::send(conn.m_client_fd, data.data(), data.size(), 0);
+    if (num_bytes == -1) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+        }
+        return get_error_msg();
+    }
+    if (num_bytes == 0) {
+        if (m_logger_set) {
+            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+        }
+        return "Connection reset by peer while writing";
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string>
+SocketServer::write(const std::vector<uint8_t>& data, const struct ::epoll_event& conn) {
+    if (m_status != ConnectionStatus::CONNECTED) {
+        return "Server is not connected";
+    }
+    ssize_t num_bytes = ::send(conn.data.fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
@@ -243,12 +287,10 @@ std::optional<std::string> SocketServer::close() {
         ::close(m_epoll_fd);
         m_epoll_enabled = false;
     }
-    //         for (auto& [ip, services]: m_Connections) {
-    //             for (auto& [service, conn]: services) {
-    //                 ::close(conn.m_client_fd);
-    //             }
-    //         }
-    //         m_Connections.clear();
+    for (auto& [Key, Conn]: m_connections) {
+        ::close(Conn.m_client_fd);
+    }
+    m_connections.clear();
     if (m_thread_pool) {
         m_thread_pool->stop();
         m_thread_pool.reset();
@@ -319,15 +361,16 @@ std::optional<std::string> SocketServer::start() {
                             continue;
                         }
                     } else {
-                        // if (m_thread_pool) {
-                        //     m_thread_pool->submit([this, &events, i]() {
-                        //         handle_connection_epoll(events[i]);
-                        //     });
-                        // } else {
-                        //     std::async(std::launch::async, [this, &events, i]() {
-                        //         handle_connection_epoll(events[i]);
-                        //     });
-                        // }
+                        if (m_thread_pool) {
+                            m_thread_pool->submit([this, &events, i]() {
+                                handle_connection_epoll(events[i]);
+                            });
+                        } else {
+                            auto unused_future =
+                                std::async(std::launch::async, [this, &events, i]() {
+                                    handle_connection_epoll(events[i]);
+                                });
+                        }
                     }
                 }
             }
@@ -371,25 +414,66 @@ std::optional<std::string> SocketServer::start() {
                         ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
                     std::string client_service =
                         std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
-
-                    // if (m_thread_pool) {
-                    //     m_thread_pool->submit([this, client_fd, client_ip, client_service]() {
-                    //         handle_connection(client_fd, client_ip, client_service);
-                    //     });
-                    // } else {
-                    //     std::async(
-                    //         std::launch::async,
-                    //         [this, client_fd, client_ip, client_service]() {
-                    //             handle_connection(client_fd, client_ip, client_service);
-                    //         }
-                    //     );
-                    // }
+                    auto& conn = m_connections[{ client_ip, client_service }];
+                    conn.m_client_fd = client_fd;
+                    conn.m_server_fd = m_listen_fd;
+                    conn.m_status = ConnectionStatus::CONNECTED;
+                    conn.m_server_ip = m_ip;
+                    conn.m_server_service = m_service;
+                    conn.m_client_ip = client_ip;
+                    conn.m_client_service = client_service;
+                    if (m_thread_pool) {
+                        m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
+                    } else {
+                        auto unused_future = std::async(std::launch::async, [this, &conn]() {
+                            handle_connection(conn);
+                        });
+                    }
                 }
             }
         });
     }
     m_status = ConnectionStatus::CONNECTED;
     return std::nullopt;
+}
+
+void SocketServer::handle_connection(Connection& conn) {
+    try {
+        while (true) {
+            if (m_default_handler == nullptr) {
+                throw std::runtime_error("No handler set");
+            }
+            std::vector<uint8_t> req(1024), res;
+            read(req, conn);
+            m_default_handler(res, req);
+            if (res.empty()) {
+                continue;
+            }
+            write(res, conn);
+        }
+    } catch (std::runtime_error const& e) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "handler closed because of exception: {}", e.what());
+        }
+        std::cerr << std::format("handler closed because of exception: {}\n", e.what());
+    }
+}
+
+void SocketServer::handle_connection_epoll(const struct ::epoll_event& event) {
+    if (m_default_handler == nullptr) {
+        throw std::runtime_error("No handler set");
+    }
+    std::vector<uint8_t> buffer(1024), res;
+    read(buffer, event);
+    m_default_handler(res, buffer);
+    if (res.empty()) {
+        return;
+    }
+    write(res, event);
+}
+
+const Connection& SocketServer::get_connection(const ConnectionKey& key) {
+    return m_connections.at(key);
 }
 
 } // namespace net
