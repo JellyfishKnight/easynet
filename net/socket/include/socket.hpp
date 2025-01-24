@@ -17,9 +17,15 @@
 
 namespace net {
 
+enum class SocketType : uint8_t {
+    TCP = 1,
+    UDP,
+    RAW,
+};
+
 class SocketClient: std::enable_shared_from_this<SocketClient> {
 public:
-    SocketClient(const std::string& ip, const std::string& service);
+    SocketClient(const std::string& ip, const std::string& service, SocketType type);
 
     SocketClient(const SocketClient&) = delete;
 
@@ -41,6 +47,8 @@ public:
 
     int get_fd() const;
 
+    SocketType type() const;
+
     void set_logger(const utils::LoggerManager::Logger& logger);
 
 protected:
@@ -53,6 +61,7 @@ protected:
     std::string m_service;
 
     ConnectionStatus m_status;
+    SocketType m_socket_type;
 
     bool m_logger_set;
     utils::LoggerManager::Logger m_logger;
@@ -60,7 +69,7 @@ protected:
 
 class SocketServer: std::enable_shared_from_this<SocketServer> {
 public:
-    SocketServer(const std::string& ip, const std::string& service);
+    SocketServer(const std::string& ip, const std::string& service, SocketType type);
 
     SocketServer(const SocketServer&) = delete;
 
@@ -95,6 +104,11 @@ public:
 
     const Connection& get_connection(const ConnectionKey& key);
 
+    SocketType type() const;
+
+    void
+    add_handler(std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)>& handler);
+
 protected:
     virtual std::optional<std::string>
     read(std::vector<uint8_t>& data, const struct ::epoll_event& conn);
@@ -127,6 +141,7 @@ protected:
     std::thread m_accept_thread;
 
     ConnectionStatus m_status;
+    SocketType m_socket_type;
 
     bool m_logger_set;
     utils::LoggerManager::Logger m_logger;

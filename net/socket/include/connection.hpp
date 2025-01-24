@@ -1,9 +1,12 @@
 #pragma once
 
 #include "address_resolver.hpp"
+#include <cstdint>
 #include <memory>
 
 namespace net {
+
+
 struct ConnectionKey {
     std::string m_ip;
     std::string m_service;

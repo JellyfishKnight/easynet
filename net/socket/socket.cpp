@@ -7,14 +7,15 @@
 #include <optional>
 #include <string>
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <system_error>
 #include <unistd.h>
 
 namespace net {
 
-SocketClient::SocketClient(const std::string& ip, const std::string& service) {
-    m_fd = ::socket(AF_INET, SOCK_STREAM, 0);
+SocketClient::SocketClient(const std::string& ip, const std::string& service, SocketType type) {
+    m_fd = ::socket(AF_INET, static_cast<__socket_type>(type), 0);
     if (m_fd == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
@@ -26,6 +27,7 @@ SocketClient::SocketClient(const std::string& ip, const std::string& service) {
     m_service = service;
     m_logger_set = false;
     m_status = ConnectionStatus::DISCONNECTED;
+    m_socket_type = type;
 }
 
 SocketClient::~SocketClient() {
@@ -36,6 +38,10 @@ SocketClient::~SocketClient() {
 
 int SocketClient::get_fd() const {
     return m_fd;
+}
+
+SocketType SocketClient::type() const {
+    return m_socket_type;
 }
 
 void SocketClient::set_logger(const utils::LoggerManager::Logger& logger) {
@@ -111,8 +117,8 @@ std::optional<std::string> SocketClient::close() {
     return std::nullopt;
 }
 
-SocketServer::SocketServer(const std::string& ip, const std::string& service) {
-    m_listen_fd = ::socket(AF_INET, SOCK_STREAM, 0);
+SocketServer::SocketServer(const std::string& ip, const std::string& service, SocketType type) {
+    m_listen_fd = ::socket(AF_INET, static_cast<__socket_type>(type), 0);
     if (m_listen_fd == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
@@ -128,12 +134,17 @@ SocketServer::SocketServer(const std::string& ip, const std::string& service) {
     m_default_handler = nullptr;
     m_stop = true;
     m_status = ConnectionStatus::DISCONNECTED;
+    m_socket_type = type;
 }
 
 SocketServer::~SocketServer() {
     if (m_status == ConnectionStatus::CONNECTED) {
         close();
     }
+}
+
+SocketType SocketServer::type() const {
+    return m_socket_type;
 }
 
 int SocketServer::get_fd() const {
@@ -444,12 +455,12 @@ void SocketServer::handle_connection(Connection& conn) {
                 throw std::runtime_error("No handler set");
             }
             std::vector<uint8_t> req(1024), res;
-            read(req, conn);
+            this->read(req, conn);
             m_default_handler(res, req);
             if (res.empty()) {
                 continue;
             }
-            write(res, conn);
+            this->write(res, conn);
         }
     } catch (std::runtime_error const& e) {
         if (m_logger_set) {
@@ -464,16 +475,22 @@ void SocketServer::handle_connection_epoll(const struct ::epoll_event& event) {
         throw std::runtime_error("No handler set");
     }
     std::vector<uint8_t> buffer(1024), res;
-    read(buffer, event);
+    this->read(buffer, event);
     m_default_handler(res, buffer);
     if (res.empty()) {
         return;
     }
-    write(res, event);
+    this->write(res, event);
 }
 
 const Connection& SocketServer::get_connection(const ConnectionKey& key) {
     return m_connections.at(key);
+}
+
+void SocketServer::add_handler(
+    std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)>& handler
+) {
+    m_default_handler = handler;
 }
 
 } // namespace net
