@@ -25,7 +25,7 @@ enum class SocketType : uint8_t {
 
 class SocketClient: std::enable_shared_from_this<SocketClient> {
 public:
-    SocketClient(const std::string& ip, const std::string& service, SocketType type);
+    SocketClient() = default;
 
     SocketClient(const SocketClient&) = delete;
 
@@ -35,11 +35,11 @@ public:
 
     SocketClient& operator=(SocketClient&&) = default;
 
-    virtual ~SocketClient();
+    virtual ~SocketClient() = default;
 
-    virtual std::optional<std::string> connect();
+    virtual std::optional<std::string> connect() = 0;
 
-    virtual std::optional<std::string> close();
+    virtual std::optional<std::string> close() = 0;
 
     int get_fd() const;
 
@@ -50,9 +50,9 @@ public:
 protected:
     std::string get_error_msg();
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
 
     int m_fd;
     addressResolver m_addr_resolver;
@@ -69,7 +69,7 @@ protected:
 
 class SocketServer: std::enable_shared_from_this<SocketServer> {
 public:
-    SocketServer(const std::string& ip, const std::string& service, SocketType type);
+    SocketServer() = default;
 
     SocketServer(const SocketServer&) = delete;
 
@@ -79,15 +79,15 @@ public:
 
     SocketServer& operator=(SocketServer&&) = default;
 
-    virtual ~SocketServer();
+    virtual ~SocketServer() = default;
 
     virtual std::optional<std::string> listen();
 
     virtual std::optional<std::string> close();
 
-    int get_fd() const;
-
     virtual std::optional<std::string> start();
+
+    int get_fd() const;
 
     void enable_thread_pool(std::size_t worker_num);
 
@@ -106,9 +106,9 @@ protected:
     virtual std::optional<std::string>
     write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
-    std::string get_error_msg();
-
     virtual void handle_connection(Connection::SharedPtr conn);
+
+    std::string get_error_msg();
 
     std::optional<std::string> get_peer_info(
         int fd,
