@@ -1,7 +1,9 @@
 #pragma once
 
 #include "connection.hpp"
-#include "parser.hpp"
+#include "http_parser.hpp"
+#include "ssl.hpp"
+#include "tcp.hpp"
 #include <functional>
 #include <memory>
 #include <string>
@@ -9,11 +11,8 @@
 
 namespace net {
 
-struct HttpConnection: public Connection {
-    HttpParser m_parser;
-};
 
-class HttpServer: public Server<HttpResponse, HttpRequest, HttpConnection> {
+class HttpServer {
 public:
     HttpServer(const std::string& ip, const std::string& service);
 

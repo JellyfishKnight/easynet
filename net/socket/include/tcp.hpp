@@ -21,7 +21,6 @@ public:
 
     std::optional<std::string> close() override;
 
-protected:
     std::optional<std::string> read(std::vector<uint8_t>& data) override;
 
     std::optional<std::string> write(const std::vector<uint8_t>& data) override;
@@ -47,6 +46,7 @@ public:
 
     std::optional<std::string> start() override;
 
+protected:
     std::optional<std::string>
     read(std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
 

@@ -33,6 +33,10 @@ public:
 
     std::shared_ptr<SSL_CTX> get();
 
+    static std::shared_ptr<SSLContext> create() {
+        return std::make_shared<SSLContext>();
+    }
+
 private:
     std::shared_ptr<SSL_CTX> m_ctx;
 };

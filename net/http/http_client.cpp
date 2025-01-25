@@ -1,43 +1,38 @@
 #include "http_client.hpp"
-#include "parser.hpp"
 #include <algorithm>
+#include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
 namespace net {
 
-HttpClient::HttpClient(const std::string& ip, const std::string& service): Client(ip, service) {
+HttpClient::HttpClient(const std::string& ip, const std::string& service) {
     m_parser = std::make_shared<HttpParser>();
+    m_client = std::make_shared<TcpClient>(ip, service);
 }
 
-HttpResponse HttpClient::read_res() {
+std::optional<std::string> HttpClient::read_res(HttpResponse& res) {
     std::vector<uint8_t> buffer(1024);
-    HttpResponse res;
     while (!m_parser->res_read_finished()) {
         buffer.resize(1024);
-        auto num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
-        if (num_bytes == -1) {
-            throw std::system_error(errno, std::system_category(), "Failed to receive data");
+        auto err = m_client->read(buffer);
+        if (err.has_value()) {
+            return err;
         }
-        if (num_bytes == 0) {
-            throw std::runtime_error("Connection reset by peer while reading");
-        }
-        buffer.resize(num_bytes);
         m_parser->read_res(buffer, res);
     }
     m_parser->reset_state();
-    return res;
+    return std::nullopt;
 }
 
-void HttpClient::write_req(const HttpRequest& req) {
+std::optional<std::string> HttpClient::write_req(const HttpRequest& req) {
     auto buffer = m_parser->write_req(req);
-    auto nums_byte = ::send(m_fd, buffer.data(), buffer.size(), 0);
-    if (nums_byte == -1) {
-        throw std::system_error(errno, std::system_category(), "Failed to send data");
+    auto err = m_client->write(buffer);
+    if (err.has_value()) {
+        return err;
     }
-    if (nums_byte == 0) {
-        std::cerr << "Connection reset by peer while writting\n";
-    }
+    return std::nullopt;
 }
 
 HttpResponse HttpClient::get(
@@ -50,8 +45,16 @@ HttpResponse HttpClient::get(
     req.url = path;
     req.headers = headers;
     req.version = version;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_get(
@@ -76,8 +79,16 @@ HttpResponse HttpClient::post(
     req.version = version;
     req.url = path;
     req.body = body;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_post(
@@ -103,8 +114,16 @@ HttpResponse HttpClient::put(
     req.version = version;
     req.url = path;
     req.body = body;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_put(
@@ -128,8 +147,16 @@ HttpResponse HttpClient::del(
     req.headers = headers;
     req.version = version;
     req.url = path;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_del(
@@ -154,8 +181,16 @@ HttpResponse HttpClient::patch(
     req.version = version;
     req.url = path;
     req.body = body;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_patch(
@@ -179,8 +214,16 @@ HttpResponse HttpClient::head(
     req.headers = headers;
     req.version = version;
     req.url = path;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_head(
@@ -203,8 +246,16 @@ HttpResponse HttpClient::options(
     req.headers = headers;
     req.version = version;
     req.url = path;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_options(
@@ -227,8 +278,16 @@ HttpResponse HttpClient::connect(
     req.headers = headers;
     req.version = version;
     req.url = path;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_connect(
@@ -251,8 +310,16 @@ HttpResponse HttpClient::trace(
     req.headers = headers;
     req.version = version;
     req.url = path;
-    write_req(req);
-    return read_res();
+    auto err = write_req(req);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    HttpResponse res;
+    err = read_res(res);
+    if (err.has_value()) {
+        throw std::runtime_error(err.value());
+    }
+    return res;
 }
 
 std::future<HttpResponse> HttpClient::async_trace(

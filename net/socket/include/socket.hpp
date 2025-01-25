@@ -47,12 +47,12 @@ public:
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
-protected:
-    std::string get_error_msg();
-
     virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
 
     virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
+
+protected:
+    std::string get_error_msg();
 
     int m_fd;
     addressResolver m_addr_resolver;
