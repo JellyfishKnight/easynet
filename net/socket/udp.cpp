@@ -1,6 +1,6 @@
 #include "udp.hpp"
 #include "address_resolver.hpp"
-#include "socket.hpp"
+#include "socket_base.hpp"
 #include <cstdint>
 #include <future>
 #include <optional>

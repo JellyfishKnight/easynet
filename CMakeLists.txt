@@ -37,10 +37,16 @@ message(STATUS "LIBRARY_OUTPUT_PATH: ${EXECUTABLE_OUTPUT_PATH}")
 aux_source_directory(./utils utils_src)
 aux_source_directory(./net/socket net_socket_src)
 aux_source_directory(./net/http net_http_src)
+aux_source_directory(./net/common net_common_src)
+
 
 add_library(utils STATIC ${utils_src})
 add_library(net::utils ALIAS utils)
 target_include_directories(utils PUBLIC ./utils/include)
+
+add_library(common STATIC ${net_common_src})
+add_library(net::common ALIAS common)
+target_include_directories(common PUBLIC ./net/common/include)
 
 add_library(net_socket STATIC ${net_socket_src})
 add_library(net::socket ALIAS net_socket)

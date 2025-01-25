@@ -1,5 +1,5 @@
 #include "ssl.hpp"
-#include "socket.hpp"
+#include "socket_base.hpp"
 #include "tcp.hpp"
 #include <algorithm>
 #include <memory>

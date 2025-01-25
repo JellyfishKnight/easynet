@@ -1,6 +1,6 @@
 #pragma once
 
-#include "socket.hpp"
+#include "socket_base.hpp"
 #include <string>
 
 namespace net {
