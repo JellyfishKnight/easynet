@@ -31,39 +31,13 @@ private:
     std::shared_ptr<SSL_CTX> m_ctx;
 };
 
-class SSLSession {
+class SSLClient: public TcpClient {
 public:
-    SSLSession(std::shared_ptr<SSLContext> ctx);
-
-    virtual ~SSLSession();
-
-    SSLSession(const SSLSession&) = delete;
-    SSLSession(SSLSession&&) = default;
-    SSLSession& operator=(const SSLSession&) = delete;
-    SSLSession& operator=(SSLSession&&) = default;
-
-    virtual std::optional<std::string> handshake();
-
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
-
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
-
-    virtual std::optional<std::string> close();
-
-    virtual std::optional<std::string> set_socket(int fd);
-
-protected:
-    std::string get_ssl_error();
-
-    std::shared_ptr<SSL> m_ssl;
-    std::shared_ptr<SSLContext> m_ctx;
-
-    bool m_closed;
-};
-
-class SSLClient: public SSLSession {
-public:
-    SSLClient(std::shared_ptr<SSLContext> ctx);
+    SSLClient(
+        std::shared_ptr<SSLContext> ctx,
+        const std::string& ip,
+        const std::string& service,
+    );
 
     ~SSLClient();
 
@@ -72,18 +46,18 @@ public:
     SSLClient& operator=(const SSLClient&) = delete;
     SSLClient& operator=(SSLClient&&) = default;
 
-    std::optional<std::string> set_socket(std::shared_ptr<TcpClient> client);
+    std::optional<std::string> write(const std::vector<uint8_t>& data) override;
 
-    std::optional<std::string> handshake();
+    std::optional<std::string> read(std::vector<uint8_t>& data) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data);
+    std::optional<std::string> connect() override;
 
-    std::optional<std::string> read(std::vector<uint8_t>& data);
-
-    std::optional<std::string> close();
+    std::optional<std::string> close() override;
 
 protected:
     std::shared_ptr<TcpClient> m_client;
+    std::shared_ptr<SSL> m_ssl;
+    std::shared_ptr<SSLContext> m_ctx;
 };
 
 } // namespace net
