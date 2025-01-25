@@ -3,6 +3,7 @@
 #include "address_resolver.hpp"
 #include <cstdint>
 #include <memory>
+#include <sys/epoll.h>
 
 namespace net {
 

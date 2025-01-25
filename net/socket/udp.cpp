@@ -90,19 +90,13 @@ UdpServer::listen() {
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect"
 )]] std::optional<std::string>
-UdpServer::read(std::vector<uint8_t>& data, const Connection& conn) {
+UdpServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
     return std::nullopt;
 }
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect"
 )]] std::optional<std::string>
-UdpServer::write(const std::vector<uint8_t>& data, const Connection& conn) {
-    return std::nullopt;
-}
-
-[[deprecated("Udp doesn't need connection, this function will cause no effect"
-)]] std::optional<std::string>
-UdpServer::close(const Connection& conn) {
+UdpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
     return std::nullopt;
 }
 
@@ -277,6 +271,7 @@ std::optional<std::string> UdpServer::start() {
             }
         });
     }
+    return std::nullopt;
 }
 
 } // namespace net

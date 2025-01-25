@@ -39,10 +39,6 @@ public:
 
     virtual std::optional<std::string> connect();
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
-
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
-
     virtual std::optional<std::string> close();
 
     int get_fd() const;
@@ -53,6 +49,10 @@ public:
 
 protected:
     std::string get_error_msg();
+
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data);
+
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data);
 
     int m_fd;
     addressResolver m_addr_resolver;
@@ -83,8 +83,6 @@ public:
 
     virtual std::optional<std::string> listen();
 
-    virtual std::optional<std::string> close(const Connection& conn);
-
     virtual std::optional<std::string> close();
 
     int get_fd() const;
@@ -103,22 +101,21 @@ public:
     add_handler(std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)>& handler);
 
 protected:
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, const Connection& conn);
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
     virtual std::optional<std::string>
-    write(const std::vector<uint8_t>& data, const Connection& conn);
-
-    virtual std::optional<std::string>
-    read(std::vector<uint8_t>& data, const struct ::epoll_event& conn);
-
-    virtual std::optional<std::string>
-    write(const std::vector<uint8_t>& data, const struct ::epoll_event& conn);
+    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
     std::string get_error_msg();
 
-    virtual void handle_connection(Connection& conn);
+    virtual void handle_connection(Connection::SharedPtr conn);
 
-    virtual void handle_connection_epoll(const struct ::epoll_event& event);
+    std::optional<std::string> get_peer_info(
+        int fd,
+        std::string& ip,
+        std::string& service,
+        addressResolver::address_info& info
+    );
 
     int m_listen_fd;
     addressResolver m_addr_resolver;
@@ -132,7 +129,7 @@ protected:
     std::vector<struct ::epoll_event> m_events;
     int m_epoll_fd;
 
-    std::unordered_map<ConnectionKey, Connection> m_connections;
+    std::unordered_map<ConnectionKey, Connection::SharedPtr> m_connections;
     bool m_stop;
     bool m_epoll_enabled;
 

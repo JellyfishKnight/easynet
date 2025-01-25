@@ -1,9 +1,12 @@
 #include "socket.hpp"
+#include "address_resolver.hpp"
 #include "connection.hpp"
 #include "logger.hpp"
+#include <cassert>
 #include <cstddef>
 #include <format>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <sys/select.h>
@@ -206,11 +209,12 @@ std::optional<std::string> SocketServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string> SocketServer::read(std::vector<uint8_t>& data, const Connection& conn) {
-    if (m_status != ConnectionStatus::CONNECTED || conn.m_status != ConnectionStatus::CONNECTED) {
+std::optional<std::string>
+SocketServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+    if (m_status != ConnectionStatus::CONNECTED || conn->m_status != ConnectionStatus::CONNECTED) {
         return "Server is not connected";
     }
-    ssize_t num_bytes = ::recv(conn.m_client_fd, data.data(), data.size(), 0);
+    ssize_t num_bytes = ::recv(conn->m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
@@ -228,54 +232,11 @@ std::optional<std::string> SocketServer::read(std::vector<uint8_t>& data, const 
 }
 
 std::optional<std::string>
-SocketServer::read(std::vector<uint8_t>& data, const struct ::epoll_event& conn) {
+SocketServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
     if (m_status != ConnectionStatus::CONNECTED) {
         return "Server is not connected";
     }
-    ssize_t num_bytes = ::recv(conn.data.fd, data.data(), data.size(), 0);
-    if (num_bytes == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
-        }
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
-        }
-        return "Connection reset by peer while reading";
-    }
-    data.resize(num_bytes);
-    return std::nullopt;
-}
-
-std::optional<std::string>
-SocketServer::write(const std::vector<uint8_t>& data, const Connection& conn) {
-    if (m_status != ConnectionStatus::CONNECTED) {
-        return "Server is not connected";
-    }
-    ssize_t num_bytes = ::send(conn.m_client_fd, data.data(), data.size(), 0);
-    if (num_bytes == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
-        }
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
-        }
-        return "Connection reset by peer while writing";
-    }
-    return std::nullopt;
-}
-
-std::optional<std::string>
-SocketServer::write(const std::vector<uint8_t>& data, const struct ::epoll_event& conn) {
-    if (m_status != ConnectionStatus::CONNECTED) {
-        return "Server is not connected";
-    }
-    ssize_t num_bytes = ::send(conn.data.fd, data.data(), data.size(), 0);
+    ssize_t num_bytes = ::send(conn->m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
@@ -299,7 +260,7 @@ std::optional<std::string> SocketServer::close() {
         m_epoll_enabled = false;
     }
     for (auto& [Key, Conn]: m_connections) {
-        ::close(Conn.m_client_fd);
+        ::close(Conn->m_client_fd);
     }
     m_connections.clear();
     if (m_thread_pool) {
@@ -372,15 +333,33 @@ std::optional<std::string> SocketServer::start() {
                             continue;
                         }
                     } else {
-                        if (m_thread_pool) {
-                            m_thread_pool->submit([this, &events, i]() {
-                                handle_connection_epoll(events[i]);
-                            });
+                        auto conn = std::make_shared<Connection>();
+                        conn->m_client_fd = events[i].data.fd;
+                        conn->m_server_fd = m_listen_fd;
+                        conn->m_status = ConnectionStatus::CONNECTED;
+                        conn->m_server_ip = m_ip;
+                        conn->m_server_service = m_service;
+                        auto err = get_peer_info(
+                            conn->m_client_fd,
+                            conn->m_client_ip,
+                            conn->m_client_service,
+                            conn->m_addr
+                        );
+                        if (err.has_value()) {
+                            if (m_logger_set) {
+                                NET_LOG_ERROR(m_logger, "Failed to get peer info: {}", err.value());
+                            }
+                            std::cerr << std::format("Failed to get peer info: {}\n", err.value());
+                            continue;
                         } else {
-                            auto unused_future =
-                                std::async(std::launch::async, [this, &events, i]() {
-                                    handle_connection_epoll(events[i]);
-                                });
+                            m_connections[{ conn->m_client_ip, conn->m_client_service }] = conn;
+                        }
+                        if (m_thread_pool) {
+                            m_thread_pool->submit([this, conn]() { handle_connection(conn); });
+                        } else {
+                            auto unused_future = std::async(std::launch::async, [this, conn]() {
+                                handle_connection(conn);
+                            });
                         }
                     }
                 }
@@ -431,14 +410,15 @@ std::optional<std::string> SocketServer::start() {
                         ntohs(((struct sockaddr_in*)client_addr.get_address().m_addr)->sin_port)
                     );
                     auto& conn = m_connections[{ client_ip, client_service }];
-                    conn.m_client_fd = client_fd;
-                    conn.m_server_fd = m_listen_fd;
-                    conn.m_status = ConnectionStatus::CONNECTED;
-                    conn.m_server_ip = m_ip;
-                    conn.m_server_service = m_service;
-                    conn.m_client_ip = client_ip;
-                    conn.m_client_service = client_service;
-                    conn.m_addr = client_addr;
+                    conn = std::make_shared<Connection>();
+                    conn->m_client_fd = client_fd;
+                    conn->m_server_fd = m_listen_fd;
+                    conn->m_status = ConnectionStatus::CONNECTED;
+                    conn->m_server_ip = m_ip;
+                    conn->m_server_service = m_service;
+                    conn->m_client_ip = client_ip;
+                    conn->m_client_service = client_service;
+                    conn->m_addr = client_addr;
                     if (m_thread_pool) {
                         m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
                     } else {
@@ -454,45 +434,52 @@ std::optional<std::string> SocketServer::start() {
     return std::nullopt;
 }
 
-void SocketServer::handle_connection(Connection& conn) {
-    try {
-        while (true) {
-            if (m_default_handler == nullptr) {
-                throw std::runtime_error("No handler set");
+void SocketServer::handle_connection(Connection::SharedPtr conn) {
+    assert(m_default_handler != nullptr);
+    int ctrl = m_epoll_fd ? 0 : 1;
+    do {
+        std::vector<uint8_t> req(1024), res;
+        auto err = this->read(req, conn);
+        if (err.has_value()) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", err.value());
             }
-            std::vector<uint8_t> req(1024), res;
-            this->read(req, conn);
-            m_default_handler(res, req);
-            if (res.empty()) {
-                continue;
+            std::cerr << std::format("Failed to read from socket: {}\n", err.value());
+            break;
+        }
+        m_default_handler(res, req);
+        if (res.empty()) {
+            continue;
+        }
+        err = this->write(res, conn);
+        if (err.has_value()) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", err.value());
             }
-            this->write(res, conn);
+            std::cerr << std::format("Failed to write to socket: {}\n", err.value());
+            break;
         }
-    } catch (std::runtime_error const& e) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "handler closed because of exception: {}", e.what());
-        }
-        std::cerr << std::format("handler closed because of exception: {}\n", e.what());
-    }
-}
-
-void SocketServer::handle_connection_epoll(const struct ::epoll_event& event) {
-    if (m_default_handler == nullptr) {
-        throw std::runtime_error("No handler set");
-    }
-    std::vector<uint8_t> buffer(1024), res;
-    this->read(buffer, event);
-    m_default_handler(res, buffer);
-    if (res.empty()) {
-        return;
-    }
-    this->write(res, event);
+    } while (ctrl);
 }
 
 void SocketServer::add_handler(
     std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)>& handler
 ) {
     m_default_handler = handler;
+}
+
+std::optional<std::string> SocketServer::get_peer_info(
+    int fd,
+    std::string& ip,
+    std::string& service,
+    addressResolver::address_info& info
+) {
+    if (::getpeername(fd, info.get_address().m_addr, &info.get_address().m_len) == 0) {
+        ip = ::inet_ntoa(((struct sockaddr_in*)info.get_address().m_addr)->sin_addr);
+        service = std::to_string(ntohs(((struct sockaddr_in*)info.get_address().m_addr)->sin_port));
+        return std::nullopt;
+    }
+    return std::format("Get peer info failed: {}", get_error_msg());
 }
 
 } // namespace net

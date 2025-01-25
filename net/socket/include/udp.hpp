@@ -44,21 +44,18 @@ public:
     )]] std::optional<std::string>
     listen() override;
 
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
-    read(std::vector<uint8_t>& data, const Connection& conn) override;
-
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
-    write(const std::vector<uint8_t>& data, const Connection& conn) override;
-
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
-    close(const Connection& conn) override;
-
     std::optional<std::string> close() override;
 
     std::optional<std::string> start() override;
+
+protected:
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    read(std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
+
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
 };
 
 }; // namespace net

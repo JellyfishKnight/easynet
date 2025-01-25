@@ -12,6 +12,12 @@
 
 namespace net {
 
+struct SSLConnection: public Connection {
+    SSLConnection(): Connection() {}
+
+    std::shared_ptr<SSL> m_ssl;
+};
+
 class SSLContext: std::enable_shared_from_this<SSLContext> {
 public:
     SSLContext();
@@ -56,7 +62,7 @@ protected:
     std::shared_ptr<SSLContext> m_ctx;
 };
 
-class SSLServer : public TcpServer {
+class SSLServer: public TcpServer {
 public:
     SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
@@ -71,17 +77,18 @@ public:
 
     std::optional<std::string> listen() override;
 
-    std::optional<std::string> close(const Connection& conn) override;
-
-    std::optional<std::string> read(std::vector<uint8_t>& data, const Connection& conn) override;
-
-    std::optional<std::string> write(const std::vector<uint8_t>& data, const Connection& conn) override;
-
     std::optional<std::string> start() override;
 
 protected:
+    std::optional<std::string>
+    read(std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
+
+    std::optional<std::string>
+    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
+
+    void handle_connection(Connection::SharedPtr conn) override;
+
     std::shared_ptr<SSLContext> m_ctx;
-    std::shared_ptr<SSL> m_ssl;
 };
 
 } // namespace net
