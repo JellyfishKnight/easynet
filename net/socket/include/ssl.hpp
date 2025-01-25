@@ -33,11 +33,7 @@ private:
 
 class SSLClient: public TcpClient {
 public:
-    SSLClient(
-        std::shared_ptr<SSLContext> ctx,
-        const std::string& ip,
-        const std::string& service,
-    );
+    SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
     ~SSLClient();
 
@@ -58,6 +54,34 @@ protected:
     std::shared_ptr<TcpClient> m_client;
     std::shared_ptr<SSL> m_ssl;
     std::shared_ptr<SSLContext> m_ctx;
+};
+
+class SSLServer : public TcpServer {
+public:
+    SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
+
+    ~SSLServer();
+
+    SSLServer(const SSLServer&) = delete;
+    SSLServer(SSLServer&&) = default;
+    SSLServer& operator=(const SSLServer&) = delete;
+    SSLServer& operator=(SSLServer&&) = default;
+
+    std::optional<std::string> close() override;
+
+    std::optional<std::string> listen() override;
+
+    std::optional<std::string> close(const Connection& conn) override;
+
+    std::optional<std::string> read(std::vector<uint8_t>& data, const Connection& conn) override;
+
+    std::optional<std::string> write(const std::vector<uint8_t>& data, const Connection& conn) override;
+
+    std::optional<std::string> start() override;
+
+protected:
+    std::shared_ptr<SSLContext> m_ctx;
+    std::shared_ptr<SSL> m_ssl;
 };
 
 } // namespace net

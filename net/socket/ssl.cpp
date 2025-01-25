@@ -45,7 +45,7 @@ SSLClient::SSLClient(
     const std::string& ip,
     const std::string& service
 ):
-    TcpClient(ip, service, SocketType::TCP),
+    TcpClient(ip, service),
     m_ctx(std::move(ctx)) {
     m_ssl = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
     if (m_ssl == nullptr) {
@@ -86,6 +86,47 @@ std::optional<std::string> SSLClient::close() {
     }
     return TcpClient::close();
 }
+
+SSLServer::SSLServer(
+    std::shared_ptr<SSLContext> ctx,
+    const std::string& ip,
+    const std::string& service
+):
+    TcpServer(ip, service),
+    m_ctx(std::move(ctx)) {
+    m_ssl = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
+    if (m_ssl == nullptr) {
+        throw std::runtime_error("Failed to create SSL object");
+    }
+    SSL_set_fd(m_ssl.get(), m_listen_fd);
+}
+
+std::optional<std::string> SSLServer::listen() {
+    if (TcpServer::listen().has_value()) {
+        return "Failed to listen on socket";
+    }
+    if (SSL_accept(m_ssl.get()) <= 0) {
+        return "Failed to accept SSL connection";
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> SSLServer::close(const Connection& conn) {
+    if (SSL_shutdown(m_ssl.get()) == 0) {
+        return "Failed to shutdown SSL connection";
+    }
+    return TcpServer::close(conn);
+}
+
+std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Connection& conn) {
+    int num_bytes = SSL_read(m_ssl.get(), data.data(), data.size());
+    if (num_bytes <= 0) {
+        return "Failed to read data";
+    }
+    data.resize(num_bytes);
+    return std::nullopt;
+}
+
 
 
 } // namespace net

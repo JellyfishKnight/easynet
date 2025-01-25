@@ -7,7 +7,7 @@ namespace net {
 
 class UdpClient: public SocketClient {
 public:
-    UdpClient(const std::string& ip, const std::string& service, SocketType type);
+    UdpClient(const std::string& ip, const std::string& service);
 
     UdpClient(const UdpClient&) = delete;
 
@@ -30,7 +30,7 @@ public:
 
 class UdpServer: public SocketServer {
 public:
-    UdpServer(const std::string& ip, const std::string& service, SocketType type);
+    UdpServer(const std::string& ip, const std::string& service);
 
     UdpServer(const UdpServer&) = delete;
 

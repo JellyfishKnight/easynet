@@ -5,8 +5,7 @@ namespace net {
 
 class TcpClient: public SocketClient {
 public:
-    TcpClient(const std::string& ip, const std::string& service, SocketType type):
-        SocketClient(ip, service, type) {}
+    TcpClient(const std::string& ip, const std::string& service);
 
     TcpClient(const TcpClient&) = delete;
 
@@ -19,8 +18,7 @@ public:
 
 class TcpServer: public SocketServer {
 public:
-    TcpServer(const std::string& ip, const std::string& service, SocketType type):
-        SocketServer(ip, service, type) {}
+    TcpServer(const std::string& ip, const std::string& service);
 
     TcpServer(const TcpServer&) = delete;
 

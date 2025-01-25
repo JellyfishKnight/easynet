@@ -1,5 +1,6 @@
 #include "udp.hpp"
 #include "address_resolver.hpp"
+#include "socket.hpp"
 #include <cstdint>
 #include <future>
 #include <optional>
@@ -9,8 +10,8 @@
 
 namespace net {
 
-UdpClient::UdpClient(const std::string& ip, const std::string& service, SocketType type):
-    SocketClient(ip, service, type) {}
+UdpClient::UdpClient(const std::string& ip, const std::string& service):
+    SocketClient(ip, service, SocketType::UDP) {}
 
 std::optional<std::string> UdpClient::read(std::vector<uint8_t>& data) {
     ssize_t num_bytes = ::recvfrom(
@@ -78,8 +79,8 @@ UdpClient::connect() {
     return std::nullopt;
 }
 
-UdpServer::UdpServer(const std::string& ip, const std::string& service, SocketType type):
-    SocketServer(ip, service, type) {}
+UdpServer::UdpServer(const std::string& ip, const std::string& service):
+    SocketServer(ip, service, SocketType::UDP) {}
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect"
 )]] std::optional<std::string>
