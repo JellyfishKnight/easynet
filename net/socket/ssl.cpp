@@ -185,7 +185,6 @@ std::optional<std::string> SSLServer::start() {
                             );
                             continue;
                         }
-                    } else {
                         auto conn = std::make_shared<SSLConnection>();
                         auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);
                         ssl_conn->m_client_fd = events[i].data.fd;
@@ -197,6 +196,13 @@ std::optional<std::string> SSLServer::start() {
                             std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) {
                                 SSL_free(ssl);
                             });
+                        if (ssl_conn->m_ssl == nullptr) {
+                            if (m_logger_set) {
+                                NET_LOG_ERROR(m_logger, "Failed to create SSL object");
+                            }
+                            std::cerr << "Failed to create SSL object\n";
+                            continue;
+                        }
                         auto err = get_peer_info(
                             ssl_conn->m_client_fd,
                             ssl_conn->m_client_ip,
@@ -212,13 +218,25 @@ std::optional<std::string> SSLServer::start() {
                         } else {
                             m_connections[{ conn->m_client_ip, conn->m_client_service }] = conn;
                         }
+                        SSL_set_fd(ssl_conn->m_ssl.get(), client_fd);
+                    } else {
+                        std::string ip, service;
+                        addressResolver::address_info info;
+                        auto err = get_peer_info(events[i].data.fd, ip, service, info);
+                        if (err.has_value()) {
+                            if (m_logger_set) {
+                                NET_LOG_ERROR(m_logger, "Failed to get peer info: {}", err.value());
+                            }
+                            std::cerr << std::format("Failed to get peer info: {}\n", err.value());
+                            continue;
+                        }
+                        auto& conn = m_connections.at({ ip, service });
                         if (m_thread_pool) {
                             m_thread_pool->submit([this, conn]() { handle_connection(conn); });
                         } else {
-                            auto unused_future =
-                                std::async(std::launch::async, [this, conn]() {
-                                    handle_connection(conn);
-                                });
+                            auto unused_future = std::async(std::launch::async, [this, conn]() {
+                                handle_connection(conn);
+                            });
                         }
                     }
                 }

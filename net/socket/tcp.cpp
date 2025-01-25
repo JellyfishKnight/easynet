@@ -223,7 +223,6 @@ std::optional<std::string> TcpServer::start() {
                             );
                             continue;
                         }
-                    } else {
                         auto conn = std::make_shared<Connection>();
                         conn->m_client_fd = events[i].data.fd;
                         conn->m_server_fd = m_listen_fd;
@@ -245,6 +244,18 @@ std::optional<std::string> TcpServer::start() {
                         } else {
                             m_connections[{ conn->m_client_ip, conn->m_client_service }] = conn;
                         }
+                    } else {
+                        std::string ip, service;
+                        addressResolver::address_info info;
+                        auto err = get_peer_info(events[i].data.fd, ip, service, info);
+                        if (err.has_value()) {
+                            if (m_logger_set) {
+                                NET_LOG_ERROR(m_logger, "Failed to get peer info: {}", err.value());
+                            }
+                            std::cerr << std::format("Failed to get peer info: {}\n", err.value());
+                            continue;
+                        }
+                        auto& conn = m_connections.at({ ip, service });
                         if (m_thread_pool) {
                             m_thread_pool->submit([this, conn]() { handle_connection(conn); });
                         } else {
