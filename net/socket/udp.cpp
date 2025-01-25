@@ -10,8 +10,27 @@
 
 namespace net {
 
-UdpClient::UdpClient(const std::string& ip, const std::string& service):
-    SocketClient(ip, service, SocketType::UDP) {}
+UdpClient::UdpClient(const std::string& ip, const std::string& service) {
+    m_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (m_fd == -1) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
+        }
+        throw std::system_error(errno, std::system_category(), "Failed to create socket");
+    }
+    m_addr_info = m_addr_resolver.resolve(ip, service);
+    m_ip = ip;
+    m_service = service;
+    m_logger_set = false;
+    m_status = ConnectionStatus::DISCONNECTED;
+    m_socket_type = SocketType::UDP;
+}
+
+UdpClient::~UdpClient() {
+    if (m_status == ConnectionStatus::CONNECTED) {
+        close();
+    }
+}
 
 std::optional<std::string> UdpClient::read(std::vector<uint8_t>& data) {
     ssize_t num_bytes = ::recvfrom(
@@ -79,8 +98,31 @@ UdpClient::connect() {
     return std::nullopt;
 }
 
-UdpServer::UdpServer(const std::string& ip, const std::string& service):
-    SocketServer(ip, service, SocketType::UDP) {}
+UdpServer::UdpServer(const std::string& ip, const std::string& service) {
+    m_listen_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (m_listen_fd == -1) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
+        }
+        throw std::system_error(errno, std::system_category(), "Failed to create socket");
+    }
+    m_addr_info = m_addr_resolver.resolve(ip, service);
+    m_ip = ip;
+    m_service = service;
+    m_logger_set = false;
+    m_epoll_enabled = false;
+    m_thread_pool = nullptr;
+    m_default_handler = nullptr;
+    m_stop = true;
+    m_status = ConnectionStatus::DISCONNECTED;
+    m_socket_type = SocketType::UDP;
+}
+
+UdpServer::~UdpServer() {
+    if (m_status == ConnectionStatus::CONNECTED) {
+        close();
+    }
+}
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect"
 )]] std::optional<std::string>

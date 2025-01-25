@@ -17,6 +17,8 @@ public:
 
     UdpClient& operator=(UdpClient&&) = default;
 
+    ~UdpClient();
+
     std::optional<std::string> read(std::vector<uint8_t>& data) override;
 
     std::optional<std::string> write(const std::vector<uint8_t>& data) override;
@@ -39,6 +41,8 @@ public:
     UdpServer& operator=(const UdpServer&) = delete;
 
     UdpServer& operator=(UdpServer&&) = default;
+
+    ~UdpServer();
 
     [[deprecated("Udp dosen't need connection, this function will cause no effect"
     )]] std::optional<std::string>
