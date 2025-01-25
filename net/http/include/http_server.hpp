@@ -4,13 +4,14 @@
 #include "http_parser.hpp"
 #include "ssl.hpp"
 #include "tcp.hpp"
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace net {
-
 
 class HttpServer {
 public:
@@ -42,14 +43,13 @@ public:
 
     void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
+    // Set server settings by get this server
+    TcpServer& server();
+
+    void add_ssl_context(std::shared_ptr<SSLContext> ctx);
+
 private:
-    void write_res(const HttpResponse& res, HttpConnection& fd) final;
-
-    void read_req(HttpRequest& req, HttpConnection& fd) final;
-
-    void handle_connection(HttpConnection& conn) final;
-
-    void handle_connection_epoll(const struct ::epoll_event& event) final;
+    void handler(std::vector<uint8_t>& res, const std::vector<uint8_t>& req);
 
     using MethodHandlers =
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;
@@ -64,6 +64,8 @@ private:
     MethodHandlers m_patch_handler;
 
     const std::unordered_map<HttpMethod, MethodHandlers&> m_handlers;
+
+    std::shared_ptr<TcpServer> m_server;
 };
 
 } // namespace net
