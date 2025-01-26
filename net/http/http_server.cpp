@@ -1,6 +1,7 @@
 #include "http_server.hpp"
 #include "connection.hpp"
 #include "enum_parser.hpp"
+#include "http_parser.hpp"
 #include <cassert>
 #include <format>
 #include <iostream>
@@ -166,14 +167,45 @@ void HttpServer::set_handler() {
         try {
             handler = m_handlers.at(method).find(path);
         } catch (const std::out_of_range& e) {
-            response = m_error_handler(request);
+            if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
+                response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
+                res = parser->write_res(response);
+                return;
+            } else {
+                response.version = HTTP_VERSION_1_1;
+                response.status_code = HttpResponseCode::BAD_REQUEST;
+                response.reason = utils::dump_enum(HttpResponseCode::BAD_REQUEST);
+                response.headers["Content-Length"] = "0";
+            }
             res = parser->write_res(response);
             return;
         }
         if (handler == m_handlers.at(method).end()) {
-            response = m_error_handler(request);
+            if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
+                res = parser->write_res(response);
+                return;
+            } else {
+                response.version = HTTP_VERSION_1_1;
+                response.status_code = HttpResponseCode::NOT_FOUND;
+                response.reason = utils::dump_enum(HttpResponseCode::NOT_FOUND);
+                response.headers["Content-Length"] = "0";
+            }
+            res = parser->write_res(response);
+            return;
         } else {
-            response = handler->second(request);
+            try {
+                response = handler->second(request);
+            } catch (const HttpResponseCode& e) {
+                if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(e)(request);
+                } else {
+                    response.version = HTTP_VERSION_1_1;
+                    response.status_code = e;
+                    response.reason = utils::dump_enum(e);
+                    response.headers["Content-Length"] = "0";
+                }
+            }
         }
         res = parser->write_res(response);
     };
