@@ -20,6 +20,8 @@ struct SSLConnection: public Connection {
 
 class SSLContext: std::enable_shared_from_this<SSLContext> {
 public:
+    using SharedPtr = std::shared_ptr<SSLContext>;
+
     SSLContext();
 
     ~SSLContext();

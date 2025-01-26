@@ -17,3 +17,6 @@ cmake-build-debug/*
 
 index/*
 index/
+
+keys/*
+keys/

@@ -8,11 +8,15 @@
 
 namespace net {
 
+enum class SSLMethod : uint8_t {
+
+};
+
 SSLContext::SSLContext() {
     SSL_library_init();
     OpenSSL_add_all_algorithms();
     SSL_load_error_strings();
-    m_ctx = std::shared_ptr<SSL_CTX>(SSL_CTX_new(SSLv23_client_method()), [](SSL_CTX* ctx) {
+    m_ctx = std::shared_ptr<SSL_CTX>(SSL_CTX_new(TLS_method()), [](SSL_CTX* ctx) {
         SSL_CTX_free(ctx);
     });
     if (m_ctx == nullptr) {
@@ -323,9 +327,9 @@ void SSLServer::handle_connection(Connection::SharedPtr conn) {
     auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);
     if (SSL_accept(ssl_conn->m_ssl.get()) <= 0) {
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to establish SSL connection: {}", get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to establish SSL connection");
         }
-        std::cerr << std::format("Failed to establish SSL connection: {}\n", get_error_msg());
+        std::cerr << std::format("Failed to establish SSL connection\n");
         return;
     }
     TcpServer::handle_connection(conn);
