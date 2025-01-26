@@ -1,5 +1,7 @@
 #include "http_server.hpp"
+#include "connection.hpp"
 #include "enum_parser.hpp"
+#include <cassert>
 #include <format>
 #include <iostream>
 #include <optional>
@@ -18,6 +20,7 @@ HttpServer::HttpServer(const std::string& ip, const std::string& service):
         { HttpMethod::HEAD, m_head_handler },
     } {
     m_server = std::make_shared<TcpServer>(ip, service);
+    set_handler();
 }
 
 void HttpServer::get(
@@ -121,6 +124,60 @@ std::string HttpServer::get_service() const {
 
 ConnectionStatus HttpServer::status() const {
     return m_server->status();
+}
+
+void HttpServer::add_ssl_context(std::shared_ptr<SSLContext> ctx) {
+    assert(
+        m_server->status() == ConnectionStatus::DISCONNECTED
+        && "SSL context can only be added when server is disconnected"
+    );
+    m_server = std::make_shared<SSLServer>(ctx, m_server->get_ip(), m_server->get_service());
+    set_handler();
+}
+
+void HttpServer::add_error_handler(
+    HttpResponseCode err_code,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    m_error_handlers[err_code] = handler;
+}
+
+void HttpServer::set_handler() {
+    auto handler = [this](
+                       std::vector<uint8_t>& res,
+                       std::vector<uint8_t>& req,
+                       const Connection& conn
+                   ) {
+        HttpRequest request;
+        HttpResponse response;
+        if (!m_parsers.contains({ conn.m_client_ip, conn.m_client_service })) {
+            m_parsers[{ conn.m_client_ip, conn.m_client_service }] = std::make_shared<HttpParser>();
+        }
+        auto& parser = m_parsers.at({ conn.m_client_ip, conn.m_client_service });
+        parser->read_req(req, request);
+        if (!parser->req_read_finished()) {
+            res.clear();
+            return;
+        }
+        auto method = request.method;
+        auto path = request.url;
+        std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
+            handler;
+        try {
+            handler = m_handlers.at(method).find(path);
+        } catch (const std::out_of_range& e) {
+            response = m_error_handler(request);
+            res = parser->write_res(response);
+            return;
+        }
+        if (handler == m_handlers.at(method).end()) {
+            response = m_error_handler(request);
+        } else {
+            response = handler->second(request);
+        }
+        res = parser->write_res(response);
+    };
+    m_server->add_handler(std::move(handler));
 }
 
 } // namespace net

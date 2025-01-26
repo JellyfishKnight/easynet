@@ -64,10 +64,21 @@ public:
 
     ConnectionStatus status() const;
 
+    /**
+     * @brief Add an SSL context to the server
+     * @note This function should be called before calling connect_server, and once called this function, 
+    *        the settings of server will be reset 
+     *       (like thread pool, epoll, etc.)
+     */
     void add_ssl_context(std::shared_ptr<SSLContext> ctx);
 
+    void add_error_handler(
+        HttpResponseCode err_code,
+        std::function<HttpResponse(const HttpRequest&)> handler
+    );
+
 private:
-    void handler(std::vector<uint8_t>& res, const std::vector<uint8_t>& req);
+    void set_handler();
 
     using MethodHandlers =
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;
@@ -82,6 +93,11 @@ private:
     MethodHandlers m_patch_handler;
 
     const std::unordered_map<HttpMethod, MethodHandlers&> m_handlers;
+
+    std::unordered_map<ConnectionKey, std::shared_ptr<HttpParser>> m_parsers;
+
+    std::unordered_map<HttpResponseCode, std::function<HttpResponse(const HttpRequest&)>>
+        m_error_handlers;
 
     std::shared_ptr<TcpServer> m_server;
 };

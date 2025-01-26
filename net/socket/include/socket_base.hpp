@@ -110,7 +110,9 @@ public:
     ConnectionStatus status() const;
 
     void
-    add_handler(std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)>& handler);
+    add_handler(std::function<
+                void(std::vector<uint8_t>& res, std::vector<uint8_t>& req, const Connection& conn)>
+                    handler);
 
 protected:
     virtual std::optional<std::string> read(std::vector<uint8_t>& data, Connection::SharedPtr conn);
@@ -135,7 +137,9 @@ protected:
     std::string m_ip;
     std::string m_service;
 
-    std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)> m_default_handler;
+    std::function<
+        void(std::vector<uint8_t>& res, std::vector<uint8_t>& req, const Connection& conn)>
+        m_default_handler;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     std::vector<struct ::epoll_event> m_events;

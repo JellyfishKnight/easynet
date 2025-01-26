@@ -147,8 +147,6 @@ public:
 private:
     std::shared_ptr<HttpParser> m_parser;
     std::shared_ptr<TcpClient> m_client;
-
-    bool m_ssl_enabled;
 };
 
 } // namespace net

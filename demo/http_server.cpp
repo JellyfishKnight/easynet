@@ -39,7 +39,7 @@ int main() {
         std::cin >> input;
         // std::cout << "Received input: " << input << std::endl;
         if (input == "exit") {
-            server.stop();
+            server.close();
             break;
         }
     }
