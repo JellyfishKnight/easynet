@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,8 +44,25 @@ public:
 
     void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    // Set server settings by get this server
-    TcpServer& server();
+    std::optional<std::string> listen();
+
+    std::optional<std::string> close();
+
+    std::optional<std::string> start();
+
+    void enable_thread_pool(std::size_t worker_num);
+
+    std::optional<std::string> enable_epoll(std::size_t event_num);
+
+    void set_logger(const utils::LoggerManager::Logger& logger);
+
+    int get_fd() const;
+
+    std::string get_ip() const;
+
+    std::string get_service() const;
+
+    ConnectionStatus status() const;
 
     void add_ssl_context(std::shared_ptr<SSLContext> ctx);
 

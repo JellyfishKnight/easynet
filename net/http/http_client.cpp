@@ -1,5 +1,7 @@
 #include "http_client.hpp"
+#include "ssl.hpp"
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <optional>
 #include <string>
@@ -296,7 +298,7 @@ std::future<HttpResponse> HttpClient::async_connect(
     const std::string& version
 ) {
     return std::async(std::launch::async, [this, path, &headers, &version]() {
-        return connect(path, headers, version);
+        return this->connect(path, headers, version);
     });
 }
 
@@ -330,6 +332,22 @@ std::future<HttpResponse> HttpClient::async_trace(
     return std::async(std::launch::async, [this, path, &headers, &version]() {
         return trace(path, headers, version);
     });
+}
+
+void HttpClient::add_ssl_context(std::shared_ptr<SSLContext> ctx) {
+    assert(
+        m_client->status() == ConnectionStatus::DISCONNECTED
+        && "SSL context can only be added when client is disconnected"
+    );
+    m_client = std::make_shared<SSLClient>(ctx, m_client->get_ip(), m_client->get_service());
+}
+
+std::optional<std::string> HttpClient::connect_server() {
+    return m_client->connect();
+}
+
+std::optional<std::string> HttpClient::close() {
+    return m_client->close();
 }
 
 } // namespace net

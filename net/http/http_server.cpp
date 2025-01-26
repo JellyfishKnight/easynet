@@ -2,6 +2,7 @@
 #include "enum_parser.hpp"
 #include <format>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <unistd.h>
@@ -17,10 +18,6 @@ HttpServer::HttpServer(const std::string& ip, const std::string& service):
         { HttpMethod::HEAD, m_head_handler },
     } {
     m_server = std::make_shared<TcpServer>(ip, service);
-}
-
-TcpServer& HttpServer::server() {
-    return *m_server;
 }
 
 void HttpServer::get(
@@ -86,6 +83,44 @@ void HttpServer::patch(
     m_handlers.at(HttpMethod::PATCH)[path] = handler;
 }
 
+std::optional<std::string> HttpServer::listen() {
+    return m_server->listen();
+}
 
+std::optional<std::string> HttpServer::close() {
+    return m_server->close();
+}
+
+std::optional<std::string> HttpServer::start() {
+    return m_server->start();
+}
+
+void HttpServer::enable_thread_pool(std::size_t worker_num) {
+    m_server->enable_thread_pool(worker_num);
+}
+
+std::optional<std::string> HttpServer::enable_epoll(std::size_t event_num) {
+    return m_server->enable_epoll(event_num);
+}
+
+void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
+    m_server->set_logger(logger);
+}
+
+int HttpServer::get_fd() const {
+    return m_server->get_fd();
+}
+
+std::string HttpServer::get_ip() const {
+    return m_server->get_ip();
+}
+
+std::string HttpServer::get_service() const {
+    return m_server->get_service();
+}
+
+ConnectionStatus HttpServer::status() const {
+    return m_server->status();
+}
 
 } // namespace net

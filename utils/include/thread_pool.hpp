@@ -179,7 +179,7 @@ public:
     template<typename F, typename... Args>
     std::optional<std::future<std::result_of_t<F(Args...)>>>
     submit(const std::string& name, F&& f, Args&&... args) {
-        assert(name.empty() == false);
+        assert(name.empty() == false && "Task name cannot be empty");
 
         using ReturnType = std::result_of_t<F(Args...)>;
         if (m_tasks.size() >= m_max_tasks_num) {

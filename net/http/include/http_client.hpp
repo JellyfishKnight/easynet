@@ -6,6 +6,7 @@
 #include "tcp.hpp"
 #include <future>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace net {
@@ -138,6 +139,10 @@ public:
     std::optional<std::string> read_res(HttpResponse& res);
 
     void add_ssl_context(std::shared_ptr<SSLContext> ctx);
+
+    std::optional<std::string> connect_server();
+
+    std::optional<std::string> close();
 
 private:
     std::shared_ptr<HttpParser> m_parser;

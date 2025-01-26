@@ -379,7 +379,7 @@ TcpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
 }
 
 void TcpServer::handle_connection(Connection::SharedPtr conn) {
-    assert(m_default_handler != nullptr);
+    assert(m_default_handler != nullptr && "No handler set");
     int ctrl = m_epoll_fd ? 0 : 1;
     do {
         std::vector<uint8_t> req(1024), res;

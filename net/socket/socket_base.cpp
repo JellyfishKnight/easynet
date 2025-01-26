@@ -35,6 +35,18 @@ std::string SocketClient::get_error_msg() {
     return std::format("{}", std::system_category().message(errno));
 }
 
+std::string SocketClient::get_ip() const {
+    return m_ip;
+}
+
+std::string SocketClient::get_service() const {
+    return m_service;
+}
+
+ConnectionStatus SocketClient::status() const {
+    return m_status;
+}
+
 SocketType SocketServer::type() const {
     return m_socket_type;
 }
@@ -88,6 +100,18 @@ std::optional<std::string> SocketServer::get_peer_info(
         return std::nullopt;
     }
     return std::format("Get peer info failed: {}", get_error_msg());
+}
+
+std::string SocketServer::get_ip() const {
+    return m_ip;
+}
+
+std::string SocketServer::get_service() const {
+    return m_service;
+}
+
+ConnectionStatus SocketServer::status() const {
+    return m_status;
 }
 
 } // namespace net

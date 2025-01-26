@@ -47,6 +47,12 @@ public:
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
+    std::string get_ip() const;
+
+    std::string get_service() const;
+
+    ConnectionStatus status() const;
+
     virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
 
     virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
@@ -96,6 +102,12 @@ public:
     void set_logger(const utils::LoggerManager::Logger& logger);
 
     SocketType type() const;
+
+    std::string get_ip() const;
+
+    std::string get_service() const;
+
+    ConnectionStatus status() const;
 
     void
     add_handler(std::function<void(std::vector<uint8_t>&, const std::vector<uint8_t>&)>& handler);

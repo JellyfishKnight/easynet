@@ -1,9 +1,8 @@
 #include "http_client.hpp"
 #include "enum_parser.hpp"
-#include "parser.hpp"
 
 int main() {
-    net::HttpClient client("127.0.0.1", "8080");
+    net::HttpClient client("www.baidu.com", "80");
 
     client.connect_server();
     while (true) {

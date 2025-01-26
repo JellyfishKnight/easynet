@@ -67,7 +67,7 @@ public:
     };
 
     void enable_async_logging() {
-        assert(instance != nullptr);
+        assert(instance != nullptr && "LoggerManager instance is not initialized");
         // if thread is already running, return
         if (m_log_thread.joinable()) {
             return;
