@@ -1,5 +1,6 @@
 #include "tcp.hpp"
 #include "socket_base.hpp"
+#include <cassert>
 #include <netdb.h>
 #include <sys/socket.h>
 
@@ -44,9 +45,8 @@ std::optional<std::string> TcpClient::close() {
 }
 
 std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
-    if (m_status != ConnectionStatus::CONNECTED) {
-        return "Client is not connected";
-    }
+    assert(m_status == ConnectionStatus::CONNECTED && "Client is not connected");
+    assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::recv(m_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
@@ -287,11 +287,8 @@ std::optional<std::string> TcpServer::start() {
                 }
                 if (FD_ISSET(m_listen_fd, &readfds)) {
                     addressResolver::address client_addr;
-                    int client_fd = ::accept(
-                        m_listen_fd,
-                        &client_addr.m_addr,
-                        &client_addr.m_addr_len
-                    );
+                    int client_fd =
+                        ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
                     if (client_fd == -1) {
                         if (m_logger_set) {
                             NET_LOG_ERROR(
@@ -304,12 +301,10 @@ std::optional<std::string> TcpServer::start() {
                             << std::format("Failed to accept Connection: {}\n", get_error_msg());
                         continue;
                     }
-                    std::string client_ip = ::inet_ntoa(
-                        ((struct sockaddr_in*)&client_addr.m_addr)->sin_addr
-                    );
-                    std::string client_service = std::to_string(
-                        ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port)
-                    );
+                    std::string client_ip =
+                        ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+                    std::string client_service =
+                        std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
                     auto& conn = m_connections[{ client_ip, client_service }];
                     conn = std::make_shared<Connection>();
                     conn->m_client_fd = client_fd;

@@ -16,7 +16,7 @@ int main() {
         std::cin >> input;
         std::vector<uint8_t> req { input.begin(), input.end() };
         client.write(req);
-        std::vector<uint8_t> res;
+        std::vector<uint8_t> res(1024);
         client.read(res);
         std::string res_str { res.begin(), res.end() };
         std::cout << res_str << std::endl;
