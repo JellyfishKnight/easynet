@@ -26,7 +26,7 @@ int main() {
         // server->enable_epoll(20);
         server->add_handler([](std::vector<uint8_t>& res,
                                std::vector<uint8_t>& req,
-                               const net::Connection::SharedPtr conn) {
+                               net::Connection::ConstSharedPtr conn) {
             std::string str { reinterpret_cast<char*>(req.data()), req.size() };
             std::cout << str << std::endl;
             res = req;

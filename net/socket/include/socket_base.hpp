@@ -120,7 +120,7 @@ public:
     void add_handler(std::function<void(
                          std::vector<uint8_t>& res,
                          std::vector<uint8_t>& req,
-                         const Connection::SharedPtr conn
+                         Connection::ConstSharedPtr conn
                      )> handler);
 
 protected:
@@ -146,7 +146,7 @@ protected:
     std::function<void(
         std::vector<uint8_t>& res,
         std::vector<uint8_t>& req,
-        const Connection::SharedPtr conn
+        Connection::ConstSharedPtr conn
     )>
         m_default_handler;
 

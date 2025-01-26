@@ -1,5 +1,6 @@
 #include "http_client.hpp"
 #include "enum_parser.hpp"
+#include <memory>
 
 int main() {
     net::HttpClient client("127.0.0.1", "8080");

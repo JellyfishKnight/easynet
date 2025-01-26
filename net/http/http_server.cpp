@@ -147,7 +147,7 @@ void HttpServer::set_handler() {
     auto handler = [this](
                        std::vector<uint8_t>& res,
                        std::vector<uint8_t>& req,
-                       const Connection::SharedPtr conn
+                       Connection::ConstSharedPtr conn
                    ) {
         HttpRequest request;
         HttpResponse response;

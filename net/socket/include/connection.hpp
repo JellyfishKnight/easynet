@@ -33,6 +33,8 @@ enum class ConnectionStatus { CONNECTED = 0, LISTENING, DISCONNECTED };
 struct Connection: std::enable_shared_from_this<Connection> {
     using SharedPtr = std::shared_ptr<Connection>;
 
+    using ConstSharedPtr = std::shared_ptr<const Connection>;
+
     Connection() = default;
 
     std::string m_client_ip;
