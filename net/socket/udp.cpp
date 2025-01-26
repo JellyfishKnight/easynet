@@ -1,6 +1,7 @@
 #include "udp.hpp"
 #include "address_resolver.hpp"
 #include "socket_base.hpp"
+#include <cassert>
 #include <cstdint>
 #include <future>
 #include <optional>
@@ -33,6 +34,7 @@ UdpClient::~UdpClient() {
 }
 
 std::optional<std::string> UdpClient::read(std::vector<uint8_t>& data) {
+    assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::recvfrom(
         m_fd,
         data.data(),
@@ -58,6 +60,7 @@ std::optional<std::string> UdpClient::read(std::vector<uint8_t>& data) {
 }
 
 std::optional<std::string> UdpClient::write(const std::vector<uint8_t>& data) {
+    assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::sendto(
         m_fd,
         data.data(),
@@ -151,9 +154,7 @@ std::optional<std::string> UdpServer::close() {
 }
 
 std::optional<std::string> UdpServer::start() {
-    if (m_default_handler == nullptr) {
-        return "No handler set";
-    }
+    assert(m_default_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_epoll_enabled) {
         m_accept_thread = std::thread([this]() {

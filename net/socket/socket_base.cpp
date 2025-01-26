@@ -32,7 +32,7 @@ void SocketClient::set_logger(const utils::LoggerManager::Logger& logger) {
 
 std::string SocketClient::get_error_msg() {
     // read error from system cateogry
-    return std::format("{}", std::system_category().message(errno));
+    return std::system_category().message(errno);
 }
 
 std::string SocketClient::get_ip() const {
@@ -62,14 +62,25 @@ void SocketServer::set_logger(const utils::LoggerManager::Logger& logger) {
 
 std::string SocketServer::get_error_msg() {
     // read error from system cateogry
-    return std::format("{}", std::system_category().message(errno));
+    return std::system_category().message(errno);
 }
 
 void SocketServer::enable_thread_pool(std::size_t worker_num) {
+    assert(worker_num > 0 && "Worker number should be greater than 0");
+    assert(m_thread_pool == nullptr && "Thread pool is already enabled");
+    assert(
+        m_status == ConnectionStatus::DISCONNECTED
+        || m_status == ConnectionStatus::LISTENING && "Server is already connected"
+    );
     m_thread_pool = std::make_shared<utils::ThreadPool>(worker_num);
 }
 
 std::optional<std::string> SocketServer::enable_epoll(std::size_t event_num) {
+    assert(
+        m_status == ConnectionStatus::DISCONNECTED
+        || m_status == ConnectionStatus::LISTENING && "Server is already connected"
+    );
+    assert(event_num > 0 && "Event number should be greater than 0");
     m_epoll_fd = ::epoll_create1(0);
     if (m_epoll_fd == -1) {
         if (m_logger_set) {

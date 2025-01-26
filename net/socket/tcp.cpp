@@ -65,9 +65,8 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
 }
 
 std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data) {
-    if (m_status != ConnectionStatus::CONNECTED) {
-        return "Client is not connected";
-    }
+    assert(m_status == ConnectionStatus::CONNECTED && "Client is not connected");
+    assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::send(m_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
@@ -168,12 +167,8 @@ std::optional<std::string> TcpServer::close() {
 }
 
 std::optional<std::string> TcpServer::start() {
-    if (m_status != ConnectionStatus::LISTENING) {
-        return "Server is not listening";
-    }
-    if (m_default_handler == nullptr) {
-        return "No handler set";
-    }
+    assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
+    assert(m_default_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_epoll_enabled) {
         m_accept_thread = std::thread([this]() {

@@ -30,6 +30,9 @@ std::optional<std::string> HttpClient::read_res(HttpResponse& res) {
 
 std::optional<std::string> HttpClient::write_req(const HttpRequest& req) {
     auto buffer = m_parser->write_req(req);
+    if (buffer.empty()) {
+        return std::nullopt;
+    }
     auto err = m_client->write(buffer);
     if (err.has_value()) {
         return err;

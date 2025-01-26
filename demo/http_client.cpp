@@ -2,7 +2,7 @@
 #include "enum_parser.hpp"
 
 int main() {
-    net::HttpClient client("www.baidu.com", "80");
+    net::HttpClient client("127.0.0.1", "8080");
 
     client.connect_server();
     while (true) {
