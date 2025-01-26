@@ -99,14 +99,11 @@ UdpClient::connect() {
 }
 
 UdpServer::UdpServer(const std::string& ip, const std::string& service) {
-    m_listen_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-    if (m_listen_fd == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
-        }
-        throw std::system_error(errno, std::system_category(), "Failed to create socket");
-    }
-    m_addr_info = m_addr_resolver.resolve(ip, service);
+    struct ::addrinfo hints;
+    ::memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_STREAM;
+    m_addr_info = m_addr_resolver.resolve(ip, service, &hints);
+    m_listen_fd = m_addr_info.create_socket();
     m_ip = ip;
     m_service = service;
     m_logger_set = false;
@@ -171,15 +168,15 @@ std::optional<std::string> UdpServer::start() {
                 }
                 for (int i = 0; i < num_events; ++i) {
                     if (m_events[i].events & EPOLLIN) {
-                        addressResolver::address_info client_addr;
+                        addressResolver::address client_addr;
                         std::vector<uint8_t> buffer(1024);
                         ssize_t num_bytes = ::recvfrom(
                             m_listen_fd,
                             buffer.data(),
                             buffer.size(),
                             0,
-                            client_addr.get_address().m_addr,
-                            &client_addr.get_address().m_len
+                            &client_addr.m_addr,
+                            &client_addr.m_addr_len
                         );
                         if (num_bytes == -1) {
                             if (m_logger_set) {
@@ -210,8 +207,8 @@ std::optional<std::string> UdpServer::start() {
                             res.data(),
                             res.size(),
                             0,
-                            client_addr.get_address().m_addr,
-                            client_addr.get_address().m_len
+                            &client_addr.m_addr,
+                            client_addr.m_addr_len
                         );
                         if (num_bytes == -1) {
                             if (m_logger_set) {
@@ -240,15 +237,15 @@ std::optional<std::string> UdpServer::start() {
         m_accept_thread = std::thread([this]() {
             while (!m_stop) {
                 // receive is handled by main thread, and compute is handled by thread pool
-                addressResolver::address_info client_addr;
+                addressResolver::address client_addr;
                 std::vector<uint8_t> buffer(1024);
                 ssize_t num_bytes = ::recvfrom(
                     m_listen_fd,
                     buffer.data(),
                     buffer.size(),
                     MSG_PEEK,
-                    client_addr.get_address().m_addr,
-                    &client_addr.get_address().m_len
+                    &client_addr.m_addr,
+                    &client_addr.m_addr_len
                 );
                 if (num_bytes == -1) {
                     if (m_logger_set) {
@@ -257,11 +254,12 @@ std::optional<std::string> UdpServer::start() {
                     std::cerr << std::format("Failed to peek from socket: {}\n", get_error_msg());
                     continue;
                 }
+                buffer.resize(num_bytes);
                 // handle func of udp server shall only been exeute once
                 auto handle_func =
                     [this, &buffer, &client_addr]() {
-                        std::vector<uint8_t> res;
-                        m_default_handler(res, buffer, nullptr);
+                        std::vector<uint8_t> res, req { buffer.begin(), buffer.end() };
+                        m_default_handler(res, req, nullptr);
                         if (res.empty()) {
                             return;
                         }
@@ -270,20 +268,8 @@ std::optional<std::string> UdpServer::start() {
                             res.data(),
                             res.size(),
                             0,
-                            client_addr.get_address().m_addr,
-                            client_addr.get_address().m_len
-                        );
-                        m_default_handler(res, buffer, nullptr);
-                        if (res.empty()) {
-                            return;
-                        }
-                        num_bytes = ::sendto(
-                            m_listen_fd,
-                            res.data(),
-                            res.size(),
-                            0,
-                            client_addr.get_address().m_addr,
-                            client_addr.get_address().m_len
+                            &client_addr.m_addr,
+                            client_addr.m_addr_len
                         );
                         if (num_bytes == -1) {
                             if (m_logger_set) {

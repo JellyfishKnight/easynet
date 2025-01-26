@@ -221,7 +221,7 @@ std::optional<std::string> SSLServer::start() {
                         SSL_set_fd(ssl_conn->m_ssl.get(), client_fd);
                     } else {
                         std::string ip, service;
-                        addressResolver::address_info info;
+                        addressResolver::address info;
                         auto err = get_peer_info(events[i].data.fd, ip, service, info);
                         if (err.has_value()) {
                             if (m_logger_set) {
@@ -262,12 +262,9 @@ std::optional<std::string> SSLServer::start() {
                     continue;
                 }
                 if (FD_ISSET(m_listen_fd, &readfds)) {
-                    addressResolver::address_info client_addr;
-                    int client_fd = ::accept(
-                        m_listen_fd,
-                        client_addr.get_address().m_addr,
-                        &client_addr.get_address().m_len
-                    );
+                    addressResolver::address client_addr;
+                    int client_fd =
+                        ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
                     if (client_fd == -1) {
                         if (m_logger_set) {
                             NET_LOG_ERROR(
@@ -280,12 +277,10 @@ std::optional<std::string> SSLServer::start() {
                             << std::format("Failed to accept Connection: {}\n", get_error_msg());
                         continue;
                     }
-                    std::string client_ip = ::inet_ntoa(
-                        ((struct sockaddr_in*)client_addr.get_address().m_addr)->sin_addr
-                    );
-                    std::string client_service = std::to_string(
-                        ntohs(((struct sockaddr_in*)client_addr.get_address().m_addr)->sin_port)
-                    );
+                    std::string client_ip =
+                        ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+                    std::string client_service =
+                        std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
                     auto& conn = m_connections[{ client_ip, client_service }];
                     conn = std::make_shared<SSLConnection>();
                     auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);

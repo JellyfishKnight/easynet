@@ -134,12 +134,8 @@ protected:
 
     std::string get_error_msg();
 
-    std::optional<std::string> get_peer_info(
-        int fd,
-        std::string& ip,
-        std::string& service,
-        addressResolver::address_info& info
-    );
+    std::optional<std::string>
+    get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info);
 
     int m_listen_fd;
     addressResolver m_addr_resolver;

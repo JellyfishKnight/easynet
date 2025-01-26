@@ -1,5 +1,6 @@
 #include "tcp.hpp"
 #include "socket_base.hpp"
+#include <netdb.h>
 #include <sys/socket.h>
 
 namespace net {
@@ -90,14 +91,12 @@ TcpClient::~TcpClient() {
 }
 
 TcpServer::TcpServer(const std::string& ip, const std::string& service) {
-    m_listen_fd = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (m_listen_fd == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
-        }
-        throw std::system_error(errno, std::system_category(), "Failed to create socket");
-    }
+    struct ::addrinfo hints;
+    ::memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_STREAM;
     m_addr_info = m_addr_resolver.resolve(ip, service);
+    m_listen_fd = m_addr_info.create_socket();
+
     m_ip = ip;
     m_service = service;
     m_logger_set = false;
@@ -246,7 +245,7 @@ std::optional<std::string> TcpServer::start() {
                         }
                     } else {
                         std::string ip, service;
-                        addressResolver::address_info info;
+                        addressResolver::address info;
                         auto err = get_peer_info(events[i].data.fd, ip, service, info);
                         if (err.has_value()) {
                             if (m_logger_set) {
@@ -287,11 +286,11 @@ std::optional<std::string> TcpServer::start() {
                     continue;
                 }
                 if (FD_ISSET(m_listen_fd, &readfds)) {
-                    addressResolver::address_info client_addr;
+                    addressResolver::address client_addr;
                     int client_fd = ::accept(
                         m_listen_fd,
-                        client_addr.get_address().m_addr,
-                        &client_addr.get_address().m_len
+                        &client_addr.m_addr,
+                        &client_addr.m_addr_len
                     );
                     if (client_fd == -1) {
                         if (m_logger_set) {
@@ -306,10 +305,10 @@ std::optional<std::string> TcpServer::start() {
                         continue;
                     }
                     std::string client_ip = ::inet_ntoa(
-                        ((struct sockaddr_in*)client_addr.get_address().m_addr)->sin_addr
+                        ((struct sockaddr_in*)&client_addr.m_addr)->sin_addr
                     );
                     std::string client_service = std::to_string(
-                        ntohs(((struct sockaddr_in*)client_addr.get_address().m_addr)->sin_port)
+                        ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port)
                     );
                     auto& conn = m_connections[{ client_ip, client_service }];
                     conn = std::make_shared<Connection>();

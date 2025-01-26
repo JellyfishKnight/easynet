@@ -94,11 +94,11 @@ std::optional<std::string> SocketServer::get_peer_info(
     int fd,
     std::string& ip,
     std::string& service,
-    addressResolver::address_info& info
+    addressResolver::address& info
 ) {
-    if (::getpeername(fd, info.get_address().m_addr, &info.get_address().m_len) == 0) {
-        ip = ::inet_ntoa(((struct sockaddr_in*)info.get_address().m_addr)->sin_addr);
-        service = std::to_string(ntohs(((struct sockaddr_in*)info.get_address().m_addr)->sin_port));
+    if (::getpeername(fd, &info.m_addr, &info.m_addr_len) == 0) {
+        ip = ::inet_ntoa(((struct sockaddr_in*)&info.m_addr)->sin_addr);
+        service = std::to_string(ntohs(((struct sockaddr_in*)&info.m_addr)->sin_port));
         return std::nullopt;
     }
     return std::format("Get peer info failed: {}", get_error_msg());

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 int main() {
@@ -25,7 +26,11 @@ int main() {
         // server->enable_epoll(20);
         server->add_handler([](std::vector<uint8_t>& res,
                                std::vector<uint8_t>& req,
-                               const net::Connection::SharedPtr conn) { res = req; });
+                               const net::Connection::SharedPtr conn) {
+            std::string str { reinterpret_cast<char*>(req.data()), req.size() };
+            std::cout << str << std::endl;
+            res = req;
+        });
     } catch (std::system_error const& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         return 1;
