@@ -391,7 +391,7 @@ void TcpServer::handle_connection(Connection::SharedPtr conn) {
             std::cerr << std::format("Failed to read from socket: {}\n", err.value());
             break;
         }
-        m_default_handler(res, req, *conn);
+        m_default_handler(res, req, conn);
         if (res.empty()) {
             continue;
         }

@@ -33,6 +33,8 @@ enum class ConnectionStatus { CONNECTED = 0, LISTENING, DISCONNECTED };
 struct Connection: std::enable_shared_from_this<Connection> {
     using SharedPtr = std::shared_ptr<Connection>;
 
+    Connection() = default;
+
     std::string m_client_ip;
     std::string m_client_service;
     std::string m_server_ip;
@@ -43,6 +45,8 @@ struct Connection: std::enable_shared_from_this<Connection> {
 
     addressResolver::address_info m_addr;
     ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
+
+    virtual ~Connection() = default;
 };
 
 } // namespace net

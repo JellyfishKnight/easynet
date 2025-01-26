@@ -1,6 +1,8 @@
 #include "socket.hpp"
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <vector>
 
 int main() {
     std::shared_ptr<net::TcpServer> server;
@@ -19,21 +21,18 @@ int main() {
     }
 
     try {
-        // server->enable_thread_pool(10);
-        server->enable_epoll();
-        server->add_handler([server](const std::vector<uint8_t>& req) {
-            std::string req_str { req.begin(), req.end() };
-            std::cout << "Received request: " << req_str << std::endl;
-            return std::vector<uint8_t> { req_str.begin(), req_str.end() };
-        });
+        server->enable_thread_pool(10);
+        // server->enable_epoll(20);
+        server->add_handler([](std::vector<uint8_t>& res,
+                               std::vector<uint8_t>& req,
+                               const net::Connection::SharedPtr conn) { res = req; });
     } catch (std::system_error const& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         return 1;
     }
 
     try {
-        // server->start();
-        server->start_epoll(10);
+        server->start();
     } catch (std::system_error const& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         return 1;
@@ -43,7 +42,7 @@ int main() {
         std::cin >> input;
         // std::cout << "Received input: " << input << std::endl;
         if (input == "exit") {
-            server->stop();
+            server->close();
             break;
         }
     };

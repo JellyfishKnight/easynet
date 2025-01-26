@@ -45,7 +45,7 @@ class SSLClient: public TcpClient {
 public:
     SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
-    ~SSLClient();
+    ~SSLClient() = default;
 
     SSLClient(const SSLClient&) = delete;
     SSLClient(SSLClient&&) = default;
@@ -70,7 +70,7 @@ class SSLServer: public TcpServer {
 public:
     SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
-    ~SSLServer();
+    ~SSLServer() = default;
 
     SSLServer(const SSLServer&) = delete;
     SSLServer(SSLServer&&) = default;

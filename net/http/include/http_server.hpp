@@ -14,6 +14,13 @@
 
 namespace net {
 
+/**
+ * @brief HttpServer class
+ * 
+ * This class is used to create a http server
+ * @note if you need to handle http failure, you can add error handler, and throw HttpResponseCode in your handler if 
+ *       you want to response with error code, and the server will call the error handler you set
+ */
 class HttpServer {
 public:
     HttpServer(const std::string& ip, const std::string& service);

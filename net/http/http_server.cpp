@@ -147,14 +147,14 @@ void HttpServer::set_handler() {
     auto handler = [this](
                        std::vector<uint8_t>& res,
                        std::vector<uint8_t>& req,
-                       const Connection& conn
+                       const Connection::SharedPtr conn
                    ) {
         HttpRequest request;
         HttpResponse response;
-        if (!m_parsers.contains({ conn.m_client_ip, conn.m_client_service })) {
-            m_parsers[{ conn.m_client_ip, conn.m_client_service }] = std::make_shared<HttpParser>();
+        if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
+            m_parsers[{ conn->m_client_ip, conn->m_client_service }] = std::make_shared<HttpParser>();
         }
-        auto& parser = m_parsers.at({ conn.m_client_ip, conn.m_client_service });
+        auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
         parser->read_req(req, request);
         if (!parser->req_read_finished()) {
             res.clear();

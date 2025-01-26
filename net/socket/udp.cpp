@@ -201,7 +201,7 @@ std::optional<std::string> UdpServer::start() {
                             continue;
                         }
                         std::vector<uint8_t> res;
-                        m_default_handler(res, buffer);
+                        m_default_handler(res, buffer, nullptr);
                         if (res.empty()) {
                             continue;
                         }
@@ -261,7 +261,7 @@ std::optional<std::string> UdpServer::start() {
                 auto handle_func =
                     [this, &buffer, &client_addr]() {
                         std::vector<uint8_t> res;
-                        m_default_handler(res, buffer);
+                        m_default_handler(res, buffer, nullptr);
                         if (res.empty()) {
                             return;
                         }
@@ -273,7 +273,7 @@ std::optional<std::string> UdpServer::start() {
                             client_addr.get_address().m_addr,
                             client_addr.get_address().m_len
                         );
-                        m_default_handler(res, buffer);
+                        m_default_handler(res, buffer, nullptr);
                         if (res.empty()) {
                             return;
                         }

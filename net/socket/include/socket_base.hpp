@@ -87,11 +87,11 @@ public:
 
     virtual ~SocketServer() = default;
 
-    virtual std::optional<std::string> listen();
+    virtual std::optional<std::string> listen() = 0;
 
-    virtual std::optional<std::string> close();
+    virtual std::optional<std::string> close() = 0;
 
-    virtual std::optional<std::string> start();
+    virtual std::optional<std::string> start() = 0;
 
     int get_fd() const;
 
@@ -109,18 +109,28 @@ public:
 
     ConnectionStatus status() const;
 
-    void
-    add_handler(std::function<
-                void(std::vector<uint8_t>& res, std::vector<uint8_t>& req, const Connection& conn)>
-                    handler);
+    /**
+     * @brief add a handler to the server
+     * @param handler the handler to be added
+     * @note the handler should take 3 arguments:
+     *      1. a reference to a vector of uint8_t which is the response
+     *      2. a reference to a vector of uint8_t which is the request
+     *      3. a const reference to a Connection object which contains the connection information
+     */
+    void add_handler(std::function<void(
+                         std::vector<uint8_t>& res,
+                         std::vector<uint8_t>& req,
+                         const Connection::SharedPtr conn
+                     )> handler);
 
 protected:
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, Connection::SharedPtr conn);
+    virtual std::optional<std::string>
+    read(std::vector<uint8_t>& data, Connection::SharedPtr conn) = 0;
 
     virtual std::optional<std::string>
-    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
+    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) = 0;
 
-    virtual void handle_connection(Connection::SharedPtr conn);
+    virtual void handle_connection(Connection::SharedPtr conn) = 0;
 
     std::string get_error_msg();
 
@@ -137,8 +147,11 @@ protected:
     std::string m_ip;
     std::string m_service;
 
-    std::function<
-        void(std::vector<uint8_t>& res, std::vector<uint8_t>& req, const Connection& conn)>
+    std::function<void(
+        std::vector<uint8_t>& res,
+        std::vector<uint8_t>& req,
+        const Connection::SharedPtr conn
+    )>
         m_default_handler;
 
     utils::ThreadPool::SharedPtr m_thread_pool;

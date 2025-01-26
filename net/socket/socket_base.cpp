@@ -82,10 +82,11 @@ std::optional<std::string> SocketServer::enable_epoll(std::size_t event_num) {
     return std::nullopt;
 }
 
-void SocketServer::add_handler(
-    std::function<
-        void(std::vector<uint8_t>& res, std::vector<uint8_t>& req, const Connection& conn)> handler
-) {
+void SocketServer::add_handler(std::function<void(
+                                   std::vector<uint8_t>& res,
+                                   std::vector<uint8_t>& req,
+                                   const Connection::SharedPtr conn
+                               )> handler) {
     m_default_handler = handler;
 }
 
