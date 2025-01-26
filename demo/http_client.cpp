@@ -12,7 +12,7 @@ int main() {
             client.close();
             return 0;
         }
-        auto res = client.get("/");
+        auto res = client.get("/" + input);
         std::cout << "Http version: " << res.version << std::endl;
         std::cout << "Status Code: " << static_cast<int>(res.status_code) << std::endl;
         std::cout << "Reason: " << res.reason << std::endl;

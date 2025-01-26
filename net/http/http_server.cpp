@@ -160,6 +160,7 @@ void HttpServer::set_handler() {
             res.clear();
             return;
         }
+        parser->reset_state();
         auto method = request.method;
         auto path = request.url;
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
