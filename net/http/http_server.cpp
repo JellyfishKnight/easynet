@@ -28,63 +28,63 @@ void HttpServer::get(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::GET)[path] = handler;
+    m_handlers.at(HttpMethod::GET).insert_or_assign(path, handler);
 }
 
 void HttpServer::post(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::POST)[path] = handler;
+    m_handlers.at(HttpMethod::POST).insert_or_assign(path, handler);
 }
 
 void HttpServer::put(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::PUT)[path] = handler;
+    m_handlers.at(HttpMethod::PUT).insert_or_assign(path, handler);
 }
 
 void HttpServer::del(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::DELETE)[path] = handler;
+    m_handlers.at(HttpMethod::DELETE).insert_or_assign(path, handler);
 }
 
 void HttpServer::head(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::HEAD)[path] = handler;
+    m_handlers.at(HttpMethod::HEAD).insert_or_assign(path, handler);
 }
 
 void HttpServer::trace(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::TRACE)[path] = handler;
+    m_handlers.at(HttpMethod::TRACE).insert_or_assign(path, handler);
 }
 
 void HttpServer::connect(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::CONNECT)[path] = handler;
+    m_handlers.at(HttpMethod::CONNECT).insert_or_assign(path, handler);
 }
 
 void HttpServer::options(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::OPTIONS)[path] = handler;
+    m_handlers.at(HttpMethod::OPTIONS).insert_or_assign(path, handler);
 }
 
 void HttpServer::patch(
     const std::string path,
     std::function<HttpResponse(const HttpRequest&)> handler
 ) {
-    m_handlers.at(HttpMethod::PATCH)[path] = handler;
+    m_handlers.at(HttpMethod::PATCH).insert_or_assign(path, handler);
 }
 
 std::optional<std::string> HttpServer::listen() {
@@ -152,7 +152,8 @@ void HttpServer::set_handler() {
         HttpRequest request;
         HttpResponse response;
         if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
-            m_parsers[{ conn->m_client_ip, conn->m_client_service }] = std::make_shared<HttpParser>();
+            m_parsers[{ conn->m_client_ip, conn->m_client_service }] =
+                std::make_shared<HttpParser>();
         }
         auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
         parser->read_req(req, request);

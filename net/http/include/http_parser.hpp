@@ -125,91 +125,21 @@ struct http11_header_parser {
     std::string m_body; // 不小心超量读取的正文（如果有的话）
     bool m_header_finished = false;
 
-    void reset_state() {
-        m_header.clear();
-        m_headline.clear();
-        m_header_keys.clear();
-        m_body.clear();
-        m_header_finished = 0;
-    }
+    void reset_state();
 
-    [[nodiscard]] bool header_finished() {
-        return m_header_finished; // 如果正文都结束了，就不再需要更多数据
-    }
+    [[nodiscard]] bool header_finished();
 
-    void _extract_headers() {
-        std::string_view header = m_header;
-        size_t pos = header.find("\r\n", 0, 2);
-        m_headline = std::string(header.substr(0, pos));
-        while (pos != std::string::npos) {
-            // 跳过 "\r\n"
-            pos += 2;
-            // 从当前位置开始找，先找到下一行位置（可能为 npos）
-            size_t next_pos = header.find("\r\n", pos, 2);
-            size_t line_len = std::string::npos;
-            if (next_pos != std::string::npos) {
-                // 如果下一行还不是结束，那么 line_len
-                // 设为本行开始到下一行之间的距离
-                line_len = next_pos - pos;
-            }
-            // 就能切下本行
-            std::string_view line = header.substr(pos, line_len);
-            size_t colon = line.find(": ", 0, 2);
-            if (colon != std::string::npos) {
-                // 每一行都是 "键: 值"
-                std::string key = std::string(line.substr(0, colon));
-                std::string_view value = line.substr(colon + 2);
-                // 键统一转成小写，实现大小写不敏感的判断
-                for (char& c: key) {
-                    if ('A' <= c && c <= 'Z') {
-                        c += 'a' - 'A';
-                    }
-                }
-                // 古代 C++ 过时的写法：m_header_keys[key] = value;
-                // 现代 C++17 的高效写法：
-                m_header_keys.insert_or_assign(std::move(key), value);
-            }
-            pos = next_pos;
-        }
-    }
+    void _extract_headers();
 
-    void push_chunk(std::string_view chunk) {
-        assert(!m_header_finished);
-        size_t old_size = m_header.size();
-        m_header.append(chunk);
-        std::string_view header = m_header;
-        // 如果还在解析头部的话，尝试判断头部是否结束
-        if (old_size < 4) {
-            old_size = 4;
-        }
-        old_size -= 4;
-        size_t header_len = header.find("\r\n\r\n", old_size, 4);
-        if (header_len != std::string::npos) {
-            // 头部已经结束
-            m_header_finished = true;
-            // 把不小心多读取的正文留下
-            m_body = header.substr(header_len + 4);
-            m_header.resize(header_len);
-            // 开始分析头部，尝试提取 Content-length 字段
-            _extract_headers();
-        }
-    }
+    void push_chunk(std::string_view chunk);
 
-    std::string& headline() {
-        return m_headline;
-    }
+    std::string& headline();
 
-    std::unordered_map<std::string, std::string>& headers() {
-        return m_header_keys;
-    }
+    std::unordered_map<std::string, std::string>& headers();
 
-    std::string& headers_raw() {
-        return m_header;
-    }
+    std::string& headers_raw();
 
-    std::string& extra_body() {
-        return m_body;
-    }
+    std::string& extra_body();
 };
 
 template<class HeaderParser = http11_header_parser>
@@ -361,32 +291,15 @@ struct http_response_parser: _http_base_parser<HeaderParser> {
 struct http11_header_writer {
     std::string m_buffer;
 
-    void reset_state() {
-        m_buffer.clear();
-    }
+    void reset_state();
 
-    std::string& buffer() {
-        return m_buffer;
-    }
+    std::string& buffer();
 
-    void begin_header(std::string_view first, std::string_view second, std::string_view third) {
-        m_buffer.append(first);
-        m_buffer.append(" ");
-        m_buffer.append(second);
-        m_buffer.append(" ");
-        m_buffer.append(third);
-    }
+    void begin_header(std::string_view first, std::string_view second, std::string_view third);
 
-    void write_header(std::string_view key, std::string_view value) {
-        m_buffer.append("\r\n");
-        m_buffer.append(key);
-        m_buffer.append(": ");
-        m_buffer.append(value);
-    }
+    void write_header(std::string_view key, std::string_view value);
 
-    void end_header() {
-        m_buffer.append("\r\n\r\n");
-    }
+    void end_header();
 };
 
 template<class HeaderWriter = http11_header_writer>

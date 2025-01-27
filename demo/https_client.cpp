@@ -2,7 +2,7 @@
 #include "ssl.hpp"
 
 int main() {
-    net::HttpClient client("127.0.0.1", "8080");
+    net::HttpClient client("www.baidu.com", "443");
 
     auto ctx = net::SSLContext::create();
     ctx->set_certificates(

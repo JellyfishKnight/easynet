@@ -236,7 +236,10 @@ std::optional<std::string> TcpServer::start() {
                             std::cerr << std::format("Failed to get peer info: {}\n", err.value());
                             continue;
                         } else {
-                            m_connections[{ conn->m_client_ip, conn->m_client_service }] = conn;
+                            m_connections.insert_or_assign(
+                                { conn->m_client_ip, conn->m_client_service },
+                                conn
+                            );
                         }
                     } else {
                         std::string ip, service;
@@ -300,8 +303,7 @@ std::optional<std::string> TcpServer::start() {
                         ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
                     std::string client_service =
                         std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
-                    auto& conn = m_connections[{ client_ip, client_service }];
-                    conn = std::make_shared<Connection>();
+                    auto conn = std::make_shared<Connection>();
                     conn->m_client_fd = client_fd;
                     conn->m_server_fd = m_listen_fd;
                     conn->m_status = ConnectionStatus::CONNECTED;
@@ -310,6 +312,7 @@ std::optional<std::string> TcpServer::start() {
                     conn->m_client_ip = client_ip;
                     conn->m_client_service = client_service;
                     conn->m_addr = client_addr;
+                    m_connections.insert_or_assign({ client_ip, client_service }, conn);
                     if (m_thread_pool) {
                         m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
                     } else {

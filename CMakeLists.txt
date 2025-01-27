@@ -38,6 +38,7 @@ aux_source_directory(./utils utils_src)
 aux_source_directory(./net/socket net_socket_src)
 aux_source_directory(./net/http net_http_src)
 aux_source_directory(./net/common net_common_src)
+aux_source_directory(./net/websocket net_websocket_src)
 
 
 add_library(utils STATIC ${utils_src})
@@ -57,6 +58,11 @@ add_library(net_http STATIC ${net_http_src})
 add_library(net::http ALIAS net_http)
 target_include_directories(net_http PUBLIC ./net/http/include ${OPENSSL_INCLUDE_DIR})
 target_link_libraries(net_http PUBLIC net::utils net::socket OpenSSL::SSL OpenSSL::Crypto)
+
+add_library(net_websocket STATIC ${net_websocket_src})
+add_library(net::websocket ALIAS net_websocket)
+target_include_directories(net_websocket PUBLIC ./net/websocket/include)
+target_link_libraries(net_websocket PUBLIC net::utils net::socket)
 
 add_executable(TcpServerTest ./demo/tcp_server.cpp)
 target_link_libraries(TcpServerTest PUBLIC net::utils net::socket)
