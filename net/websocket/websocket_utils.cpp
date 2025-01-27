@@ -1,4 +1,5 @@
 #include "websocket_utils.hpp"
+#include <cstdint>
 
 namespace net {
 
@@ -42,6 +43,57 @@ const std::string& WebSocketFrame::payload() const {
     return m_payload;
 }
 
+bool WebSocketFrame::rsv1() const {
+    return m_rsv1;
+}
+
+bool WebSocketFrame::rsv2() const {
+    return m_rsv2;
+}
+
+bool WebSocketFrame::rsv3() const {
+    return m_rsv3;
+}
+
+bool WebSocketFrame::masked() const {
+    return m_mask;
+}
+
+uint32_t WebSocketFrame::mask() const {
+    return m_mask_key;
+}
+
+uint64_t WebSocketFrame::payload_length() const {
+    if (m_payload_length_1 < 126) {
+        return m_payload_length_1;
+    } else if (m_payload_length_1 == 126) {
+        return m_payload_length_2;
+    } else {
+        return m_payload_length_3;
+    }
+}
+
+WebSocketFrame& WebSocketFrame::set_rsv1(bool rsv1) {
+    m_rsv1 = rsv1;
+    return *this;
+}
+
+WebSocketFrame& WebSocketFrame::set_rsv2(bool rsv2) {
+    m_rsv2 = rsv2;
+    return *this;
+}
+
+WebSocketFrame& WebSocketFrame::set_rsv3(bool rsv3) {
+    m_rsv3 = rsv3;
+    return *this;
+}
+
+WebSocketFrame& WebSocketFrame::set_mask(uint32_t mask) {
+    m_mask_key = mask;
+    m_mask = true;
+    return *this;
+}
+
 WebSocketFrame& WebSocketFrame::set_opcode(WebSocketOpcode opcode) {
     m_opcode = opcode;
     return *this;
@@ -54,11 +106,37 @@ WebSocketFrame& WebSocketFrame::set_fin(bool fin) {
 
 WebSocketFrame& WebSocketFrame::set_payload(const std::string& payload) {
     m_payload = payload;
+    if (m_payload.size() < 126) {
+        m_payload_length_1 = m_payload.size();
+        m_payload_length_2 = 0;
+        m_payload_length_3 = 0;
+    } else if (m_payload.size() < 65536) {
+        m_payload_length_1 = 126;
+        m_payload_length_2 = m_payload.size();
+        m_payload_length_3 = 0;
+    } else {
+        m_payload_length_1 = 127;
+        m_payload_length_2 = 0;
+        m_payload_length_3 = m_payload.size();
+    }
     return *this;
 }
 
 WebSocketFrame& WebSocketFrame::append_payload(const std::string& payload) {
     m_payload += payload;
+    if (m_payload.size() < 126) {
+        m_payload_length_1 = m_payload.size();
+        m_payload_length_2 = 0;
+        m_payload_length_3 = 0;
+    } else if (m_payload.size() < 65536) {
+        m_payload_length_1 = 126;
+        m_payload_length_2 = m_payload.size();
+        m_payload_length_3 = 0;
+    } else {
+        m_payload_length_1 = 127;
+        m_payload_length_2 = 0;
+        m_payload_length_3 = m_payload.size();
+    }
     return *this;
 }
 
@@ -69,8 +147,7 @@ void WebSocketFrame::clear() {
 }
 
 bool WebSocketFrame::is_control_frame() const {
-    return m_opcode == WebSocketOpcode::CLOSE
-        || m_opcode == WebSocketOpcode::PING
+    return m_opcode == WebSocketOpcode::CLOSE || m_opcode == WebSocketOpcode::PING
         || m_opcode == WebSocketOpcode::PONG;
 }
 
