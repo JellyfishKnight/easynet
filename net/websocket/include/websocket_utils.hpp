@@ -1,10 +1,14 @@
 #pragma once
 
+#include <cstdint>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <optional>
+#include <queue>
 #include <string>
+#include <vector>
 
 namespace net {
 
@@ -39,52 +43,72 @@ enum class WebSocketCloseCode {
     TLS_HANDSHAKE = 1015
 };
 
-class WebSocketFrame {
+struct WebSocketFrame {
 public:
-    WebSocketFrame(WebSocketOpcode opcode, const std::string& payload, bool fin = true);
-    WebSocketFrame(
-        WebSocketOpcode opcode,
-        const unsigned char* payload,
-        size_t length,
-        bool fin = true
-    );
-    WebSocketFrame(WebSocketOpcode opcode, bool fin = true);
-    WebSocketFrame(const WebSocketFrame& other);
-    WebSocketFrame(WebSocketFrame&& other);
-    ~WebSocketFrame();
+    WebSocketFrame() = default;
 
-    WebSocketFrame& operator=(const WebSocketFrame& other);
-    WebSocketFrame& operator=(WebSocketFrame&& other);
+    WebSocketFrame(WebSocketOpcode opcode, const std::string& payload, bool fin);
+
+    ~WebSocketFrame() = default;
 
     WebSocketOpcode opcode() const;
     bool fin() const;
     const std::string& payload() const;
-    const unsigned char* payloadData() const;
-    size_t payloadLength() const;
 
-    void set_opcode(WebSocketOpcode opcode);
-    void set_fin(bool fin);
-    void set_payload(const std::string& payload);
+    WebSocketFrame& set_opcode(WebSocketOpcode opcode);
+    WebSocketFrame& set_fin(bool fin);
+    WebSocketFrame& set_payload(const std::string& payload);
 
-    void append_payload(const std::string& payload);
+    WebSocketFrame& append_payload(const std::string& payload);
 
     void clear();
 
     bool is_control_frame() const;
+
+private:
+    WebSocketOpcode m_opcode;
+    bool m_fin;
+    std::string m_payload;
 };
 
 struct websocket_parser {
     std::string m_buffer;
+    std::queue<WebSocketFrame> m_frames;
 
     void push_chunk(const std::string& chunk);
 
     void reset_state();
 
+    std::string& buffer_raw();
 
+    std::optional<WebSocketFrame> read_frame();
 };
 
-struct websocket_writer {};
+struct websocket_writer {
+    std::string m_buffer;
 
-class WebSocketParser {};
+    void reset_state();
+
+    std::string& buffer();
+
+    std::string write_frame(const WebSocketFrame& frame);
+};
+
+class WebSocketParser {
+private:
+    websocket_parser m_parser;
+    websocket_writer m_writer;
+
+public:
+    WebSocketParser() = default;
+
+    std::vector<uint8_t> write_frame(const WebSocketFrame& frame);
+
+    std::optional<WebSocketFrame> read_frame(const std::vector<uint8_t>& data);
+
+    void reset_state();
+
+    bool has_finished_frame();
+};
 
 } // namespace net

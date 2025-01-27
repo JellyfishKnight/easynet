@@ -358,6 +358,7 @@ public:
     void read_res(std::vector<uint8_t>& res, HttpResponse& out_res);
 
     bool req_read_finished();
+
     bool res_read_finished();
 
     void reset_state();

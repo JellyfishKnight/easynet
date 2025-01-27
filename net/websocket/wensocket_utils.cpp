@@ -24,4 +24,54 @@ std::string websocket_accept_key(const std::string& client_key) {
     return base64_encode(hash, SHA_DIGEST_LENGTH);
 }
 
+WebSocketFrame::WebSocketFrame(WebSocketOpcode opcode, const std::string& payload, bool fin) {
+    m_opcode = opcode;
+    m_payload = payload;
+    m_fin = fin;
+}
+
+WebSocketOpcode WebSocketFrame::opcode() const {
+    return m_opcode;
+}
+
+bool WebSocketFrame::fin() const {
+    return m_fin;
+}
+
+const std::string& WebSocketFrame::payload() const {
+    return m_payload;
+}
+
+WebSocketFrame& WebSocketFrame::set_opcode(WebSocketOpcode opcode) {
+    m_opcode = opcode;
+    return *this;
+}
+
+WebSocketFrame& WebSocketFrame::set_fin(bool fin) {
+    m_fin = fin;
+    return *this;
+}
+
+WebSocketFrame& WebSocketFrame::set_payload(const std::string& payload) {
+    m_payload = payload;
+    return *this;
+}
+
+WebSocketFrame& WebSocketFrame::append_payload(const std::string& payload) {
+    m_payload += payload;
+    return *this;
+}
+
+void WebSocketFrame::clear() {
+    m_opcode = WebSocketOpcode::CONTINUATION;
+    m_fin = false;
+    m_payload.clear();
+}
+
+bool WebSocketFrame::is_control_frame() const {
+    return m_opcode == WebSocketOpcode::CLOSE
+        || m_opcode == WebSocketOpcode::PING
+        || m_opcode == WebSocketOpcode::PONG;
+}
+
 } // namespace net
