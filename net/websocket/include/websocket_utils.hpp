@@ -94,6 +94,7 @@ private:
 struct websocket_parser {
     std::string m_buffer;
     std::queue<WebSocketFrame> m_frames;
+    bool m_finished_frame = false;
 
     void push_chunk(const std::string& chunk);
 
@@ -102,6 +103,8 @@ struct websocket_parser {
     std::string& buffer_raw();
 
     std::optional<WebSocketFrame> read_frame();
+
+    [[nodiscard]] bool has_finished_frame() const;
 };
 
 struct websocket_writer {
@@ -111,7 +114,7 @@ struct websocket_writer {
 
     std::string& buffer();
 
-    std::string write_frame(const WebSocketFrame& frame);
+    void write_frame(const WebSocketFrame& frame);
 };
 
 class WebSocketParser {

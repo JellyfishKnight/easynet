@@ -1,5 +1,7 @@
 #include "websocket_utils.hpp"
 #include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace net {
 
@@ -149,6 +151,60 @@ void WebSocketFrame::clear() {
 bool WebSocketFrame::is_control_frame() const {
     return m_opcode == WebSocketOpcode::CLOSE || m_opcode == WebSocketOpcode::PING
         || m_opcode == WebSocketOpcode::PONG;
+}
+
+std::string& websocket_parser::buffer_raw() {
+    return m_buffer;
+}
+
+void websocket_parser::reset_state() {
+    m_buffer.clear();
+    m_frames = std::queue<WebSocketFrame>();
+    m_finished_frame = false;
+}
+
+bool websocket_parser::has_finished_frame() const {
+    return m_finished_frame;
+}
+
+std::optional<WebSocketFrame> websocket_parser::read_frame() {
+    if (m_frames.empty()) {
+        return std::nullopt;
+    }
+    WebSocketFrame frame = m_frames.front();
+    m_frames.pop();
+    return frame;
+}
+
+void websocket_parser::push_chunk(const std::string& chunk) {
+    /// TODO: Implement this
+}
+
+std::string& websocket_writer::buffer() {
+    return m_buffer;
+}
+
+void websocket_writer::reset_state() {
+    m_buffer.clear();
+}
+
+void websocket_writer::write_frame(const WebSocketFrame& frame) {
+    /// TODO: Implement this
+}
+
+std::vector<uint8_t> WebSocketParser::write_frame(const WebSocketFrame& frame) {
+    m_writer.reset_state();
+    m_writer.write_frame(frame);
+    return std::vector<uint8_t>(m_writer.buffer().begin(), m_writer.buffer().end());
+}
+
+std::optional<WebSocketFrame> WebSocketParser::read_frame(const std::vector<uint8_t>& data) {
+    std::string chunk(data.begin(), data.end());
+    m_parser.push_chunk(chunk);
+    if (m_parser.has_finished_frame()) {
+        return m_parser.read_frame();
+    }
+    return std::nullopt;
 }
 
 } // namespace net
