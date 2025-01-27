@@ -68,6 +68,8 @@ add_executable(HttpClientTest ./demo/http_client.cpp)
 target_link_libraries(HttpClientTest PUBLIC net::utils net::socket net::http)
 add_executable(HttpsServerTest ./demo/https_server.cpp)
 target_link_libraries(HttpsServerTest PUBLIC net::utils net::socket net::http)
+add_executable(HttpsClientTest ./demo/https_client.cpp)
+target_link_libraries(HttpsClientTest PUBLIC net::utils net::socket net::http)
 
 # install headers
 
