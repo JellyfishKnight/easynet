@@ -3,6 +3,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <thread>
 namespace net {
 
@@ -39,20 +40,21 @@ public:
 
     void start() {
         assert(m_timeout_set && "Timeout not set");
-        m_counter_thread = std::thread([this]() {
-            m_status = TimerStatus::RUNNING;
-            auto time_has_passed = std::chrono::nanoseconds(0);
-            auto start_time = std::chrono::high_resolution_clock::now();
-            while (time_has_passed < m_timeout) {
-                if (m_status == TimerStatus::PAUSED) {
-                    break;
-                }
-                auto end_time = std::chrono::high_resolution_clock::now();
-                time_has_passed = end_time - start_time;
+        m_status = TimerStatus::RUNNING;
+        auto time_has_passed = std::chrono::nanoseconds(0);
+        auto start_time = std::chrono::high_resolution_clock::now();
+        while (time_has_passed < m_timeout) {
+            if (m_status == TimerStatus::PAUSED) {
+                break;
             }
-            m_timeout_flag = true;
-            m_status = TimerStatus::STOPPED;
-        });
+            auto end_time = std::chrono::high_resolution_clock::now();
+            time_has_passed = end_time - start_time;
+        }
+        m_timeout_flag = true;
+        m_status = TimerStatus::STOPPED;
+        if (m_timeout_action) {
+            m_timeout_action();
+        }
     }
 
     TimerStatus status() const {
@@ -63,14 +65,17 @@ public:
         return m_timeout_flag;
     }
 
+    void on_time_out(std::function<void()> action) {
+        m_timeout_action = action;
+    }
+
 private:
     std::chrono::nanoseconds m_interval;
     std::chrono::nanoseconds m_timeout;
 
     bool m_timeout_flag = true;
     bool m_timeout_set = false;
-
-    std::thread m_counter_thread;
+    std::function<void()> m_timeout_action;
 
     TimerStatus m_status = TimerStatus::STOPPED;
 };
