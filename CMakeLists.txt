@@ -62,7 +62,7 @@ target_link_libraries(net_http PUBLIC net::utils net::socket OpenSSL::SSL OpenSS
 add_library(net_websocket STATIC ${net_websocket_src})
 add_library(net::websocket ALIAS net_websocket)
 target_include_directories(net_websocket PUBLIC ./net/websocket/include)
-target_link_libraries(net_websocket PUBLIC net::utils net::socket)
+target_link_libraries(net_websocket PUBLIC net::utils net::socket net::http)
 
 add_executable(TcpServerTest ./demo/tcp_server.cpp)
 target_link_libraries(TcpServerTest PUBLIC net::utils net::socket)
