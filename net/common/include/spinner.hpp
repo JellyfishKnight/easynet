@@ -21,9 +21,9 @@ public:
     void wait() override;
 
 private:
-    std::mutex mtx;
-    std::condition_variable cv;
-    bool running = true;
+    std::mutex m_mtx;
+    std::condition_variable m_cv;
+    bool m_running = true;
 };
 
 class LoopSpinner: public Spinner {
@@ -32,17 +32,14 @@ public:
 
     void wait() override;
 
-    // void set_timer(Timer& timer);
+    void set_timer(Timer&& timer);
 
-    // template<typename Period>
-    // void set_timeout(std::chrono::duration<int64_t, Period> timeout) {
-        
-    // }
-
-    void action(std::function<void()> action);
+    void on_interval(std::function<void()> action);
 
 private:
-    bool running = true;
+    std::mutex m_mtx;
+    bool m_running = true;
+    Timer m_timer;
 };
 
 } // namespace net

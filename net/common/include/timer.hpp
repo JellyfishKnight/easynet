@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <thread>
 namespace net {
 
@@ -38,7 +39,7 @@ public:
         std::this_thread::sleep_for(m_interval);
     }
 
-    void start() {
+    void start_timing() {
         assert(m_timeout_set && "Timeout not set");
         m_status = TimerStatus::RUNNING;
         auto time_has_passed = std::chrono::nanoseconds(0);
@@ -57,6 +58,24 @@ public:
         }
     }
 
+    void start_interval() {
+        m_status = TimerStatus::RUNNING;
+        while (m_status == TimerStatus::RUNNING) {
+            sleep();
+            if (m_interval_action) {
+                m_interval_action();
+            }
+        }
+    }
+
+    void async_start_timing() {
+        auto unused_future = std::async(std::launch::async, [this]() { start_timing(); });
+    }
+
+    void async_start_interval() {
+        auto unused_future = std::async(std::launch::async, [this]() { start_interval(); });
+    }
+
     TimerStatus status() const {
         return m_status;
     }
@@ -69,6 +88,22 @@ public:
         m_timeout_action = action;
     }
 
+    void on_time_interval(std::function<void()> action) {
+        m_interval_action = action;
+    }
+
+    void pause() {
+        m_status = TimerStatus::PAUSED;
+    }
+
+    void resume() {
+        m_status = TimerStatus::RUNNING;
+    }
+
+    void stop() {
+        m_status = TimerStatus::STOPPED;
+    }
+
 private:
     std::chrono::nanoseconds m_interval;
     std::chrono::nanoseconds m_timeout;
@@ -76,6 +111,7 @@ private:
     bool m_timeout_flag = true;
     bool m_timeout_set = false;
     std::function<void()> m_timeout_action;
+    std::function<void()> m_interval_action;
 
     TimerStatus m_status = TimerStatus::STOPPED;
 };
