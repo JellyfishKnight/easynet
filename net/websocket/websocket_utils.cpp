@@ -184,8 +184,8 @@ void websocket_parser::push_chunk(const std::string& chunk) {
         if (m_buffer.size() < 2) {
             return;
         }
-        uint8_t byte1 = m_buffer[offset];
-        uint8_t byte2 = m_buffer[offset + 1];
+        uint8_t byte1 = m_buffer[0];
+        uint8_t byte2 = m_buffer[1];
         WebSocketFrame frame;
         frame.set_fin(byte1 & 0x80)
             .set_rsv1(byte1 & 0x40)
