@@ -1,4 +1,5 @@
 #include "websocket_utils.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -178,6 +179,54 @@ std::optional<WebSocketFrame> websocket_parser::read_frame() {
 
 void websocket_parser::push_chunk(const std::string& chunk) {
     /// TODO: Implement this
+    if (!m_finished_frame) {
+        m_buffer.append(chunk);
+        if (m_buffer.size() < 2) {
+            return;
+        }
+        uint8_t byte1 = m_buffer[offset];
+        uint8_t byte2 = m_buffer[offset + 1];
+        WebSocketFrame frame;
+        frame.set_fin(byte1 & 0x80)
+            .set_rsv1(byte1 & 0x40)
+            .set_rsv2(byte1 & 0x20)
+            .set_rsv3(byte1 & 0x10)
+            .set_opcode(static_cast<WebSocketOpcode>(byte1 & 0x0F))
+            .set_mask(byte2 & 0x80);
+        uint8_t payload_length = byte2 & 0x7F;
+        uint64_t length = 0;
+        uint8_t head_size = 2;
+        if (payload_length == 126) {
+            if (m_buffer.size() < 4) {
+                return;
+            }
+            length = (m_buffer[2] << 8) | m_buffer[3];
+            head_size = 4;
+        } else {
+            if (m_buffer.size() < 10) {
+                return;
+            }
+            for (int i = 2; i < 10; ++i) {
+                length = (length << 8) | m_buffer[i];
+            }
+            head_size = 10;
+        }
+        if (frame.masked()) {
+            if (m_buffer.size() < 14) {
+                return;
+            }
+            frame.set_mask(
+                (m_buffer[10] << 24) | (m_buffer[11] << 16) | (m_buffer[12] << 8) | m_buffer[13]
+            );
+        }
+        frame.set_payload(m_buffer.substr(head_size, length));
+        m_buffer = m_buffer.substr(head_size + length);
+        m_frames.push(frame);
+        m_finished_frame = true;
+        if (m_buffer.empty()) {
+            m_finished_frame = false;
+        }
+    }
 }
 
 std::string& websocket_writer::buffer() {
@@ -189,7 +238,41 @@ void websocket_writer::reset_state() {
 }
 
 void websocket_writer::write_frame(const WebSocketFrame& frame) {
-    /// TODO: Implement this
+    std::size_t head_size = 0;
+    m_buffer.resize(1024);
+    m_buffer[0] |= frame.fin() << 8;
+    m_buffer[0] |= frame.rsv1() << 7;
+    m_buffer[0] |= frame.rsv2() << 6;
+    m_buffer[0] |= frame.rsv3() << 5;
+    m_buffer[0] |= static_cast<uint8_t>(frame.opcode());
+    m_buffer[1] |= frame.masked() << 7;
+    m_buffer[1] |= frame.payload_length() < 126 ? frame.payload_length() : 126;
+    if (frame.payload_length() == 126) {
+        m_buffer[2] = frame.payload_length() >> 8;
+        m_buffer[3] = frame.payload_length();
+        head_size = 4;
+    } else if (frame.payload_length() == 127) {
+        m_buffer[2] = frame.payload_length() >> 56;
+        m_buffer[3] = frame.payload_length() >> 48;
+        m_buffer[4] = frame.payload_length() >> 40;
+        m_buffer[5] = frame.payload_length() >> 32;
+        m_buffer[6] = frame.payload_length() >> 24;
+        m_buffer[7] = frame.payload_length() >> 16;
+        m_buffer[8] = frame.payload_length() >> 8;
+        m_buffer[9] = frame.payload_length();
+        head_size = 10;
+    } else {
+        head_size = 2;
+    }
+    if (frame.masked()) {
+        m_buffer[head_size] = frame.mask() >> 24;
+        m_buffer[head_size + 1] = frame.mask() >> 16;
+        m_buffer[head_size + 2] = frame.mask() >> 8;
+        m_buffer[head_size + 3] = frame.mask();
+        head_size += 4;
+    }
+    m_buffer.resize(head_size);
+    m_buffer.append(frame.payload());
 }
 
 std::vector<uint8_t> WebSocketParser::write_frame(const WebSocketFrame& frame) {

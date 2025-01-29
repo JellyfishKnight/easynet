@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
@@ -76,12 +77,11 @@ public:
     bool is_control_frame() const;
 
 private:
-    WebSocketOpcode m_opcode;
     bool m_fin;
     bool m_rsv1;
     bool m_rsv2;
     bool m_rsv3;
-
+    WebSocketOpcode m_opcode;
     uint8_t m_payload_length_1;
     uint16_t m_payload_length_2;
     uint64_t m_payload_length_3;
