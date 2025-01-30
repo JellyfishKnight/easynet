@@ -63,13 +63,13 @@ target_link_libraries(TcpServerTest PUBLIC net::utils net::socket)
 add_executable(TcpClientTest ./demo/tcp_client.cpp)
 target_link_libraries(TcpClientTest PUBLIC net::utils net::socket)
 add_executable(HttpServerTest ./demo/http_server.cpp)
-target_link_libraries(HttpServerTest PUBLIC net::utils net::socket net::http)
+target_link_libraries(HttpServerTest PUBLIC net::utils net::socket net::application)
 add_executable(HttpClientTest ./demo/http_client.cpp)
-target_link_libraries(HttpClientTest PUBLIC net::utils net::socket net::http)
+target_link_libraries(HttpClientTest PUBLIC net::utils net::socket net::application)
 add_executable(HttpsServerTest ./demo/https_server.cpp)
-target_link_libraries(HttpsServerTest PUBLIC net::utils net::socket net::http)
+target_link_libraries(HttpsServerTest PUBLIC net::utils net::socket net::application)
 add_executable(HttpsClientTest ./demo/https_client.cpp)
-target_link_libraries(HttpsClientTest PUBLIC net::utils net::socket net::http)
+target_link_libraries(HttpsClientTest PUBLIC net::utils net::socket net::application)
 
 # install headers
 

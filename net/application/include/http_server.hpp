@@ -33,6 +33,8 @@ public:
 
     HttpServer& operator=(HttpServer&&) = delete;
 
+    virtual ~HttpServer();
+
     void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
     void post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
@@ -51,11 +53,11 @@ public:
 
     void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    std::optional<std::string> listen();
+    virtual std::optional<std::string> listen();
 
     std::optional<std::string> close();
 
-    std::optional<std::string> start();
+    virtual std::optional<std::string> start();
 
     int get_fd() const;
 
@@ -70,11 +72,9 @@ public:
         std::function<HttpResponse(const HttpRequest&)> handler
     );
 
-    ~HttpServer();
-
     [[nodiscard]] std::shared_ptr<TcpServer> convert2tcp();
 
-private:
+protected:
     void set_handler();
 
     using MethodHandlers =

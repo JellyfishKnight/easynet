@@ -1,62 +1,42 @@
 #include "websocket.hpp"
+#include "http_client.hpp"
 #include "http_parser.hpp"
 #include "websocket_utils.hpp"
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace net {
 
-WebSocketClient::WebSocketClient(std::shared_ptr<TcpClient> client) {
-    m_client = std::move(client);
+WebSocketClient::WebSocketClient(std::shared_ptr<TcpClient> client): HttpClient(client) {
     m_parser = std::make_shared<WebSocketParser>();
 }
 
-std::optional<std::string> WebSocketClient::connect_server(std::string path) {
-    assert(m_client && "Http client is not initialized");
-    if (m_client->status() != ConnectionStatus::CONNECTED) {
-        auto err = m_client->connect();
-        if (err.has_value()) {
-            return err;
-        }
-    }
-    auto parser = HttpParser();
-
-    m_client->write(parser.write_req(HttpRequest()
-                                         .set_method(HttpMethod::GET)
-                                         .set_url(path)
-                                         .set_header("Connection", "Upgrade")
-                                         .set_header("Upgrade", "websocket")
-                                         .set_header("Sec-WebSocket-Key", generate_websocket_key()))
-    );
-    HttpResponse res;
-    err = m_http_client->read_res(res);
-    if (err.has_value()) {
-        return err;
-    }
-    if (res.status_code != HttpResponseCode::SWITCHING_PROTOCOLS) {
+std::optional<std::string> WebSocketClient::upgrade(const HttpRequest& upgrade_req) {
+    auto res = HttpClient::get(upgrade_req.url(), upgrade_req.headers());
+    if (res.status_code() != HttpResponseCode::SWITCHING_PROTOCOLS) {
         return "Failed to upgrade to websocket";
+    } else {
+        m_websocket_status = WebSocketStatus::CONNECTED;
+        return std::nullopt;
     }
-    // upgrade successful
-    m_tcp_client = m_http_client->convert2tcp();
-    m_client.reset();
-    return std::nullopt;
 }
 
 std::optional<std::string> WebSocketClient::close() {
-    return m_client->close();
+    return HttpClient::close();
 }
 
-std::optional<std::string> WebSocketClient::read(std::vector<uint8_t>& data) {
+std::optional<std::string> WebSocketClient::read(WebSocketFrame& data) {
     std::vector<uint8_t> buffer(1024);
     auto err = m_client->read(buffer);
     if (err.has_value()) {
         return err;
     }
-    auto frame = m_parser->read_frame(data);
+    auto frame = m_parser->read_frame(buffer);
     if (frame.has_value()) {
-        data = std::vector<uint8_t>(frame.value().payload().begin(), frame.value().payload().end());
+        data = std::move(frame.value());
         return std::nullopt;
     } else {
         return "Failed to read frame";
@@ -74,30 +54,6 @@ WebSocketClient::~WebSocketClient() {
         }
         m_client.reset();
     }
-}
-
-int WebSocketClient::get_fd() const {
-    return m_http_client ? m_http_client->get_fd() : m_tcp_client->get_fd();
-}
-
-SocketType WebSocketClient::type() const {
-    return m_http_client ? m_http_client->type() : m_tcp_client->type();
-}
-
-void WebSocketClient::set_logger(const utils::LoggerManager::Logger& logger) {
-    return m_http_client ? m_http_client->set_logger(logger) : m_tcp_client->set_logger(logger);
-}
-
-std::string WebSocketClient::get_ip() const {
-    return m_http_client ? m_http_client->get_ip() : m_tcp_client->get_ip();
-}
-
-std::string WebSocketClient::get_service() const {
-    return m_http_client ? m_http_client->get_service() : m_tcp_client->get_service();
-}
-
-ConnectionStatus WebSocketClient::status() const {
-    return m_http_client ? m_http_client->status() : m_tcp_client->status();
 }
 
 WebSocketServer::WebSocketServer(const std::string& ip, const std::string& service) {

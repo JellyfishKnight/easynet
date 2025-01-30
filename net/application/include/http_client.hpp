@@ -24,7 +24,7 @@ public:
 
     HttpClient& operator=(HttpClient&&) = default;
 
-    ~HttpClient();
+    virtual ~HttpClient();
 
     HttpResponse
     get(const std::string& path,
@@ -155,7 +155,7 @@ public:
 
     ConnectionStatus status() const;
 
-private:
+protected:
     std::shared_ptr<HttpParser> m_parser;
     std::shared_ptr<TcpClient> m_client;
 };

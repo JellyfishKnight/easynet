@@ -1,9 +1,14 @@
 #pragma once
 
 #include "connection.hpp"
+#include "http_client.hpp"
+#include "http_parser.hpp"
+#include "http_server.hpp"
 #include "tcp.hpp"
 #include "websocket_utils.hpp"
+#include <functional>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 
 namespace net {
@@ -13,38 +18,27 @@ enum class WebSocketStatus {
     DISCONNECTED,
 };
 
-class WebSocketClient {
+class WebSocketClient: public HttpClient {
 public:
     WebSocketClient(std::shared_ptr<TcpClient> client);
 
-    std::optional<std::string> connect_server(std::string path = "/");
-
     std::optional<std::string> close();
 
-    std::optional<std::string> read(const WebSocketFrame& data);
+    std::optional<std::string> read(WebSocketFrame& data);
 
     std::optional<std::string> write(const WebSocketFrame& data);
 
-    int get_fd() const;
-
-    SocketType type() const;
-
-    std::string get_ip() const;
-
-    std::string get_service() const;
-
-    ConnectionStatus status() const;
+    std::optional<std::string> upgrade(const HttpRequest& upgrade_req);
 
     ~WebSocketClient();
 
 private:
-    std::shared_ptr<TcpClient> m_client;
     std::shared_ptr<WebSocketParser> m_parser;
 
-    WebSocketStatus m_status;
+    WebSocketStatus m_websocket_status = WebSocketStatus::DISCONNECTED;
 };
 
-class WebSocketServer {
+class WebSocketServer: public HttpServer {
 public:
     WebSocketServer(std::shared_ptr<TcpServer> client);
 
@@ -74,12 +68,16 @@ public:
 
     ConnectionStatus status() const;
 
+    void add_handler(
+        std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::SharedPtr conn)>
+            handler
+    );
+
 private:
-    std::shared_ptr<TcpServer> m_server;
-
     std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_parsers;
-
-    WebSocketStatus m_status;
+    std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::SharedPtr conn)>
+        m_handler;
+    WebSocketStatus m_websocket_status = WebSocketStatus::DISCONNECTED;
 };
 
 } // namespace net
