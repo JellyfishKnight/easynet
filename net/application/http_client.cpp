@@ -17,7 +17,7 @@ HttpClient::HttpClient(std::shared_ptr<TcpClient> client) {
     m_client = std::move(client);
 }
 
-std::optional<std::string> HttpClient::read_res(HttpResponse& res) {
+std::optional<std::string> HttpClient::read_http(HttpResponse& res) {
     std::vector<uint8_t> buffer(1024);
     while (!m_parser->res_read_finished()) {
         buffer.resize(1024);
@@ -31,7 +31,7 @@ std::optional<std::string> HttpClient::read_res(HttpResponse& res) {
     return std::nullopt;
 }
 
-std::optional<std::string> HttpClient::write_req(const HttpRequest& req) {
+std::optional<std::string> HttpClient::write_http(const HttpRequest& req) {
     auto buffer = m_parser->write_req(req);
     if (buffer.empty()) {
         return std::nullopt;
@@ -50,12 +50,12 @@ HttpResponse HttpClient::get(
 ) {
     HttpRequest req;
     req.set_method(HttpMethod::GET).set_url(path).set_headers(headers).set_version(version);
-    auto err = write_req(req);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -79,13 +79,17 @@ HttpResponse HttpClient::post(
     const std::string& version
 ) {
     HttpRequest req;
-    req.set_method(HttpMethod::POST).set_url(path).set_headers(headers).set_version(version).set_body(body);
-    auto err = write_req(req);
+    req.set_method(HttpMethod::POST)
+        .set_url(path)
+        .set_headers(headers)
+        .set_version(version)
+        .set_body(body);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -110,13 +114,17 @@ HttpResponse HttpClient::put(
     const std::string& version
 ) {
     HttpRequest req;
-    req.set_method(HttpMethod::PUT).set_url(path).set_headers(headers).set_version(version).set_body(body);
-    auto err = write_req(req);
+    req.set_method(HttpMethod::PUT)
+        .set_url(path)
+        .set_headers(headers)
+        .set_version(version)
+        .set_body(body);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -141,12 +149,12 @@ HttpResponse HttpClient::del(
 ) {
     HttpRequest req;
     req.set_method(HttpMethod::DELETE).set_url(path).set_headers(headers).set_version(version);
-    auto err = write_req(req);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -170,13 +178,17 @@ HttpResponse HttpClient::patch(
     const std::string& version
 ) {
     HttpRequest req;
-    req.set_method(HttpMethod::PATCH).set_url(path).set_headers(headers).set_version(version).set_body(body);
-    auto err = write_req(req);
+    req.set_method(HttpMethod::PATCH)
+        .set_url(path)
+        .set_headers(headers)
+        .set_version(version)
+        .set_body(body);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -201,12 +213,12 @@ HttpResponse HttpClient::head(
 ) {
     HttpRequest req;
     req.set_method(HttpMethod::HEAD).set_url(path).set_headers(headers).set_version(version);
-    auto err = write_req(req);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -230,12 +242,12 @@ HttpResponse HttpClient::options(
 ) {
     HttpRequest req;
     req.set_method(HttpMethod::OPTIONS).set_url(path).set_headers(headers).set_version(version);
-    auto err = write_req(req);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -259,12 +271,12 @@ HttpResponse HttpClient::connect(
 ) {
     HttpRequest req;
     req.set_method(HttpMethod::CONNECT).set_url(path).set_headers(headers).set_version(version);
-    auto err = write_req(req);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
@@ -288,12 +300,12 @@ HttpResponse HttpClient::trace(
 ) {
     HttpRequest req;
     req.set_method(HttpMethod::TRACE).set_url(path).set_headers(headers).set_version(version);
-    auto err = write_req(req);
+    auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }
     HttpResponse res;
-    err = read_res(res);
+    err = read_http(res);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
     }

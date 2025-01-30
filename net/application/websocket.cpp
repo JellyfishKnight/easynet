@@ -1,4 +1,5 @@
 #include "websocket.hpp"
+#include "connection.hpp"
 #include "http_client.hpp"
 #include "http_parser.hpp"
 #include "websocket_utils.hpp"
@@ -28,7 +29,7 @@ std::optional<std::string> WebSocketClient::close() {
     return HttpClient::close();
 }
 
-std::optional<std::string> WebSocketClient::read(WebSocketFrame& data) {
+std::optional<std::string> WebSocketClient::read_ws(WebSocketFrame& data) {
     std::vector<uint8_t> buffer(1024);
     auto err = m_client->read(buffer);
     if (err.has_value()) {
@@ -43,7 +44,7 @@ std::optional<std::string> WebSocketClient::read(WebSocketFrame& data) {
     }
 }
 
-std::optional<std::string> WebSocketClient::write(const WebSocketFrame& data) {
+std::optional<std::string> WebSocketClient::write_ws(const WebSocketFrame& data) {
     return m_client->write(m_parser->write_frame(data));
 }
 
@@ -55,6 +56,232 @@ WebSocketClient::~WebSocketClient() {
         m_client.reset();
     }
 }
+
+HttpResponse WebSocketClient::get(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::get(path, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_get(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_get(path, headers, version);
+}
+
+HttpResponse WebSocketClient::post(
+    const std::string& path,
+    const std::string& body,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::post(path, body, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_post(
+    const std::string& path,
+    const std::string& body,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_post(path, body, headers, version);
+}
+
+HttpResponse WebSocketClient::put(
+    const std::string& path,
+    const std::string& body,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::put(path, body, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_put(
+    const std::string& path,
+    const std::string& body,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_put(path, body, headers, version);
+}
+
+HttpResponse WebSocketClient::del(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::del(path, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_del(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_del(path, headers, version);
+}
+
+HttpResponse WebSocketClient::patch(
+    const std::string& path,
+    const std::string& body,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::patch(path, body, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_patch(
+    const std::string& path,
+    const std::string& body,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_patch(path, body, headers, version);
+}
+
+HttpResponse WebSocketClient::head(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::head(path, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_head(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_head(path, headers, version);
+}
+
+HttpResponse WebSocketClient::options(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::options(path, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_options(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_options(path, headers, version);
+}
+
+HttpResponse WebSocketClient::connect(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& header,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::connect(path, header, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_connect(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_connect(path, headers, version);
+}
+
+HttpResponse WebSocketClient::trace(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::trace(path, headers, version);
+}
+
+std::future<HttpResponse> WebSocketClient::async_trace(
+    const std::string& path,
+    const std::unordered_map<std::string, std::string>& headers,
+    const std::string& version
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::async_trace(path, headers, version);
+}
+
+std::optional<std::string> WebSocketClient::write_http(const HttpRequest& req) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::write_http(req);
+}
+
+std::optional<std::string> WebSocketClient::read_http(HttpResponse& res) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    return HttpClient::read_http(res);
+}
+
+/*************************WebSocket Server************************ */
+/*************************WebSocket Server************************ */
+/*************************WebSocket Server************************ */
+/*************************WebSocket Server************************ */
+/*************************WebSocket Server************************ */
+/*************************WebSocket Server************************ */
+/*************************WebSocket Server************************ */
 
 WebSocketServer::WebSocketServer(const std::string& ip, const std::string& service) {
     m_server = std::make_shared<HttpServer>(ip, service);

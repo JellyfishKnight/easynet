@@ -26,120 +26,120 @@ public:
 
     virtual ~HttpClient();
 
-    HttpResponse
+    virtual HttpResponse
     get(const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1);
 
-    std::future<HttpResponse> async_get(
+    virtual std::future<HttpResponse> async_get(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse post(
-        const std::string& path,
-        const std::string& body,
-        const std::unordered_map<std::string, std::string>& headers = {},
-        const std::string& version = HTTP_VERSION_1_1
-    );
-
-    std::future<HttpResponse> async_post(
+    virtual HttpResponse post(
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse
+    virtual std::future<HttpResponse> async_post(
+        const std::string& path,
+        const std::string& body,
+        const std::unordered_map<std::string, std::string>& headers = {},
+        const std::string& version = HTTP_VERSION_1_1
+    );
+
+    virtual HttpResponse
     put(const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1);
 
-    std::future<HttpResponse> async_put(
+    virtual std::future<HttpResponse> async_put(
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse
+    virtual HttpResponse
     del(const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1);
 
-    std::future<HttpResponse> async_del(
+    virtual std::future<HttpResponse> async_del(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse patch(
-        const std::string& path,
-        const std::string& body,
-        const std::unordered_map<std::string, std::string>& headers = {},
-        const std::string& version = HTTP_VERSION_1_1
-    );
-
-    std::future<HttpResponse> async_patch(
+    virtual HttpResponse patch(
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse head(
+    virtual std::future<HttpResponse> async_patch(
+        const std::string& path,
+        const std::string& body,
+        const std::unordered_map<std::string, std::string>& headers = {},
+        const std::string& version = HTTP_VERSION_1_1
+    );
+
+    virtual HttpResponse head(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    std::future<HttpResponse> async_head(
+    virtual std::future<HttpResponse> async_head(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse options(
+    virtual HttpResponse options(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    std::future<HttpResponse> async_options(
+    virtual std::future<HttpResponse> async_options(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse connect(
+    virtual HttpResponse connect(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& header = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    std::future<HttpResponse> async_connect(
+    virtual std::future<HttpResponse> async_connect(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    HttpResponse trace(
+    virtual HttpResponse trace(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    std::future<HttpResponse> async_trace(
+    virtual std::future<HttpResponse> async_trace(
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    std::optional<std::string> write_req(const HttpRequest& req);
+    virtual std::optional<std::string> write_http(const HttpRequest& req);
 
-    std::optional<std::string> read_res(HttpResponse& res);
+    virtual std::optional<std::string> read_http(HttpResponse& res);
 
     std::optional<std::string> connect_server();
 
