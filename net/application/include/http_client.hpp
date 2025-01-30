@@ -2,6 +2,7 @@
 
 #include "connection.hpp"
 #include "http_parser.hpp"
+#include "socket_base.hpp"
 #include "ssl.hpp"
 #include "tcp.hpp"
 #include <future>
@@ -13,7 +14,7 @@ namespace net {
 
 class HttpClient {
 public:
-    HttpClient(const std::string& ip, const std::string& service);
+    HttpClient(std::shared_ptr<TcpClient> client);
 
     HttpClient(const HttpClient&) = delete;
 
@@ -140,19 +141,13 @@ public:
 
     std::optional<std::string> read_res(HttpResponse& res);
 
-    void add_ssl_context(std::shared_ptr<SSLContext> ctx);
-
     std::optional<std::string> connect_server();
 
     std::optional<std::string> close();
 
-    std::shared_ptr<TcpClient> convert2tcp();
-
     int get_fd() const;
 
     SocketType type() const;
-
-    void set_logger(const utils::LoggerManager::Logger& logger);
 
     std::string get_ip() const;
 

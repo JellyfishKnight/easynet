@@ -1,17 +1,16 @@
 #pragma once
 
-#include "http.hpp"
-#include "http_client.hpp"
-#include "http_server.hpp"
+#include "connection.hpp"
 #include "tcp.hpp"
 #include "websocket_utils.hpp"
 #include <memory>
+#include <unordered_map>
 
 namespace net {
 
 class WebSocketClient {
 public:
-    WebSocketClient(const std::string& ip, const std::string& service);
+    WebSocketClient(std::shared_ptr<TcpClient> client);
 
     std::optional<std::string> connect_server();
 
@@ -21,13 +20,9 @@ public:
 
     std::optional<std::string> write(const WebSocketFrame& data);
 
-    void add_ssl_context(std::shared_ptr<SSLContext> ctx);
-
     int get_fd() const;
 
     SocketType type() const;
-
-    void set_logger(const utils::LoggerManager::Logger& logger);
 
     std::string get_ip() const;
 
@@ -38,15 +33,13 @@ public:
     ~WebSocketClient();
 
 private:
-    std::shared_ptr<HttpClient> m_http_client;
-    std::shared_ptr<TcpClient> m_tcp_client;
+    std::shared_ptr<TcpClient> m_client;
     std::shared_ptr<WebSocketParser> m_parser;
-    std::shared_ptr<websocket_writer> m_writer;
 };
 
 class WebSocketServer {
 public:
-    WebSocketServer(const std::string& ip, const std::string& service);
+    WebSocketServer(std::shared_ptr<TcpServer> client);
 
     std::optional<std::string> listen();
 
@@ -74,12 +67,10 @@ public:
 
     ConnectionStatus status() const;
 
-    void add_ssl_context(std::shared_ptr<SSLContext> ctx);
-
 private:
-    std::shared_ptr<HttpServer> m_server;
-    std::shared_ptr<WebSocketParser> m_parser;
-    std::shared_ptr<websocket_writer> m_writer;
+    std::shared_ptr<TcpServer> m_server;
+
+    std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_parsers;
 };
 
 } // namespace net

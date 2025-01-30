@@ -1,5 +1,6 @@
 #include "http_client.hpp"
 #include "ssl.hpp"
+#include "tcp.hpp"
 #include <algorithm>
 #include <cassert>
 #include <memory>
@@ -10,9 +11,9 @@
 
 namespace net {
 
-HttpClient::HttpClient(const std::string& ip, const std::string& service) {
+HttpClient::HttpClient(std::shared_ptr<TcpClient> client) {
     m_parser = std::make_shared<HttpParser>();
-    m_client = std::make_shared<TcpClient>(ip, service);
+    m_client = std::move(client);
 }
 
 std::optional<std::string> HttpClient::read_res(HttpResponse& res) {
@@ -338,24 +339,12 @@ std::future<HttpResponse> HttpClient::async_trace(
     });
 }
 
-void HttpClient::add_ssl_context(std::shared_ptr<SSLContext> ctx) {
-    assert(
-        m_client->status() == ConnectionStatus::DISCONNECTED
-        && "SSL context can only be added when client is disconnected"
-    );
-    m_client = std::make_shared<SSLClient>(ctx, m_client->get_ip(), m_client->get_service());
-}
-
 std::optional<std::string> HttpClient::connect_server() {
     return m_client->connect();
 }
 
 std::optional<std::string> HttpClient::close() {
     return m_client->close();
-}
-
-std::shared_ptr<TcpClient> HttpClient::convert2tcp() {
-    return std::move(m_client);
 }
 
 HttpClient::~HttpClient() {
@@ -375,10 +364,6 @@ int HttpClient::get_fd() const {
 
 SocketType HttpClient::type() const {
     return m_client->type();
-}
-
-void HttpClient::set_logger(const utils::LoggerManager::Logger& logger) {
-    m_client->set_logger(logger);
 }
 
 std::string HttpClient::get_ip() const {

@@ -23,7 +23,7 @@ namespace net {
  */
 class HttpServer {
 public:
-    HttpServer(const std::string& ip, const std::string& service);
+    HttpServer(std::shared_ptr<TcpServer> server);
 
     HttpServer(const HttpServer&) = delete;
 
@@ -57,12 +57,6 @@ public:
 
     std::optional<std::string> start();
 
-    void enable_thread_pool(std::size_t worker_num);
-
-    std::optional<std::string> enable_epoll(std::size_t event_num);
-
-    void set_logger(const utils::LoggerManager::Logger& logger);
-
     int get_fd() const;
 
     std::string get_ip() const;
@@ -71,18 +65,14 @@ public:
 
     ConnectionStatus status() const;
 
-    /**
-     * @brief Add an SSL context to the server
-     * @note This function should be called before calling connect_server, and once called this function, 
-    *        the settings of server will be reset 
-     *       (like thread pool, epoll, etc.)
-     */
-    void add_ssl_context(std::shared_ptr<SSLContext> ctx);
-
     void add_error_handler(
         HttpResponseCode err_code,
         std::function<HttpResponse(const HttpRequest&)> handler
     );
+
+    ~HttpServer();
+
+    [[nodiscard]] std::shared_ptr<TcpServer> convert2tcp();
 
 private:
     void set_handler();

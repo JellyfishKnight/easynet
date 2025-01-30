@@ -12,15 +12,15 @@
 
 namespace net {
 
-HttpServer::HttpServer(const std::string& ip, const std::string& service):
+HttpServer::HttpServer(std::shared_ptr<TcpServer> server):
     m_handlers {
         { HttpMethod::GET, m_get_handlers },        { HttpMethod::POST, m_post_handlers },
         { HttpMethod::PUT, m_put_handlers },        { HttpMethod::TRACE, m_trace_handler },
         { HttpMethod::DELETE, m_delete_handlers },  { HttpMethod::OPTIONS, m_options_handler },
         { HttpMethod::CONNECT, m_connect_handler }, { HttpMethod::PATCH, m_patch_handler },
         { HttpMethod::HEAD, m_head_handler },
-    } {
-    m_server = std::make_shared<TcpServer>(ip, service);
+    },
+    m_server(std::move(server)) {
     set_handler();
 }
 
@@ -99,18 +99,6 @@ std::optional<std::string> HttpServer::start() {
     return m_server->start();
 }
 
-void HttpServer::enable_thread_pool(std::size_t worker_num) {
-    m_server->enable_thread_pool(worker_num);
-}
-
-std::optional<std::string> HttpServer::enable_epoll(std::size_t event_num) {
-    return m_server->enable_epoll(event_num);
-}
-
-void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
-    m_server->set_logger(logger);
-}
-
 int HttpServer::get_fd() const {
     return m_server->get_fd();
 }
@@ -125,15 +113,6 @@ std::string HttpServer::get_service() const {
 
 ConnectionStatus HttpServer::status() const {
     return m_server->status();
-}
-
-void HttpServer::add_ssl_context(std::shared_ptr<SSLContext> ctx) {
-    assert(
-        m_server->status() == ConnectionStatus::DISCONNECTED
-        && "SSL context can only be added when server is disconnected"
-    );
-    m_server = std::make_shared<SSLServer>(ctx, m_server->get_ip(), m_server->get_service());
-    set_handler();
 }
 
 void HttpServer::add_error_handler(
@@ -212,6 +191,30 @@ void HttpServer::set_handler() {
         res = parser->write_res(response);
     };
     m_server->add_handler(std::move(handler));
+}
+
+HttpServer::~HttpServer() {
+    if (m_server) {
+        if (m_server->status() == ConnectionStatus::CONNECTED) {
+            m_server->close();
+        }
+        m_server.reset();
+    }
+    m_parsers.clear();
+    m_error_handlers.clear();
+    m_delete_handlers.clear();
+    m_get_handlers.clear();
+    m_post_handlers.clear();
+    m_put_handlers.clear();
+    m_trace_handler.clear();
+    m_connect_handler.clear();
+    m_options_handler.clear();
+    m_patch_handler.clear();
+    m_head_handler.clear();
+}
+
+std::shared_ptr<TcpServer> HttpServer::convert2tcp() {
+    return std::move(m_server);
 }
 
 } // namespace net
