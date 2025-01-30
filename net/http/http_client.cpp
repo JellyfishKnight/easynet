@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace net {
 
@@ -351,6 +352,45 @@ std::optional<std::string> HttpClient::connect_server() {
 
 std::optional<std::string> HttpClient::close() {
     return m_client->close();
+}
+
+std::shared_ptr<TcpClient> HttpClient::convert2tcp() {
+    return std::move(m_client);
+}
+
+HttpClient::~HttpClient() {
+    m_parser.reset();
+    if (m_client == nullptr) {
+        return;
+    }
+    if (m_client->status() == ConnectionStatus::CONNECTED) {
+        m_client->close();
+    }
+    m_client.reset();
+}
+
+int HttpClient::get_fd() const {
+    return m_client->get_fd();
+}
+
+SocketType HttpClient::type() const {
+    return m_client->type();
+}
+
+void HttpClient::set_logger(const utils::LoggerManager::Logger& logger) {
+    m_client->set_logger(logger);
+}
+
+std::string HttpClient::get_ip() const {
+    return m_client->get_ip();
+}
+
+std::string HttpClient::get_service() const {
+    return m_client->get_service();
+}
+
+ConnectionStatus HttpClient::status() const {
+    return m_client->status();
 }
 
 } // namespace net

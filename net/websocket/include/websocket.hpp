@@ -3,7 +3,9 @@
 #include "http.hpp"
 #include "http_client.hpp"
 #include "http_server.hpp"
+#include "tcp.hpp"
 #include "websocket_utils.hpp"
+#include <memory>
 
 namespace net {
 
@@ -17,14 +19,27 @@ public:
 
     std::optional<std::string> read(std::vector<uint8_t>& data);
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data);
+    std::optional<std::string> write(const WebSocketFrame& data);
 
     void add_ssl_context(std::shared_ptr<SSLContext> ctx);
+
+    int get_fd() const;
+
+    SocketType type() const;
+
+    void set_logger(const utils::LoggerManager::Logger& logger);
+
+    std::string get_ip() const;
+
+    std::string get_service() const;
+
+    ConnectionStatus status() const;
 
     ~WebSocketClient();
 
 private:
-    std::shared_ptr<HttpClient> m_client;
+    std::shared_ptr<HttpClient> m_http_client;
+    std::shared_ptr<TcpClient> m_tcp_client;
     std::shared_ptr<WebSocketParser> m_parser;
     std::shared_ptr<websocket_writer> m_writer;
 };

@@ -1,7 +1,9 @@
 #include "websocket_utils.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <random>
 #include <vector>
 
 namespace net {
@@ -20,12 +22,25 @@ std::string base64_encode(const std::string& input) {
     return result;
 }
 
-std::string websocket_accept_key(const std::string& client_key) {
+std::string generate_websocket_accept_key(const std::string& client_key) {
     static const std::string magicString = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     std::string concat = client_key + magicString;
     unsigned char hash[SHA_DIGEST_LENGTH];
     SHA1(reinterpret_cast<const unsigned char*>(concat.c_str()), concat.size(), hash);
     return base64_encode(hash, SHA_DIGEST_LENGTH);
+}
+
+std::string generate_websocket_key() {
+    std::array<unsigned char, 16> key_data;
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_int_distribution<unsigned int> dist(0, 255);
+
+    for (auto& byte: key_data) {
+        byte = static_cast<unsigned char>(dist(generator));
+    }
+
+    return base64_encode(key_data.data(), key_data.size());
 }
 
 WebSocketFrame::WebSocketFrame(WebSocketOpcode opcode, const std::string& payload, bool fin) {

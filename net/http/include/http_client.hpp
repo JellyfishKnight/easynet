@@ -23,6 +23,8 @@ public:
 
     HttpClient& operator=(HttpClient&&) = default;
 
+    ~HttpClient();
+
     HttpResponse
     get(const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
@@ -143,6 +145,20 @@ public:
     std::optional<std::string> connect_server();
 
     std::optional<std::string> close();
+
+    std::shared_ptr<TcpClient> convert2tcp();
+
+    int get_fd() const;
+
+    SocketType type() const;
+
+    void set_logger(const utils::LoggerManager::Logger& logger);
+
+    std::string get_ip() const;
+
+    std::string get_service() const;
+
+    ConnectionStatus status() const;
 
 private:
     std::shared_ptr<HttpParser> m_parser;
