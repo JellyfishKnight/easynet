@@ -100,19 +100,51 @@ enum class HttpResponseCode {
 #define HTTP_VERSION_2_0 "HTTP/2.0"
 
 struct HttpResponse {
-    std::string version;
-    HttpResponseCode status_code;
-    std::string reason;
-    std::unordered_map<std::string, std::string> headers;
-    std::string body;
+public:
+    HttpResponse& set_version(const std::string& version);
+    HttpResponse& set_status_code(HttpResponseCode status_code);
+    HttpResponse& set_reason(const std::string& reason);
+    HttpResponse& set_header(const std::string& key, const std::string& value);
+    HttpResponse& set_headers(const std::unordered_map<std::string, std::string>& headers);
+    HttpResponse& set_body(const std::string& body);
+
+    [[nodiscard]] const std::string& version() const;
+    [[nodiscard]] HttpResponseCode status_code() const;
+    [[nodiscard]] const std::string& reason() const;
+    [[nodiscard]] const std::string& header(const std::string& key) const;
+    [[nodiscard]] const std::unordered_map<std::string, std::string>& headers() const;
+    [[nodiscard]] const std::string& body() const;
+
+private:
+    std::string m_version;
+    HttpResponseCode m_status_code;
+    std::string m_reason;
+    std::unordered_map<std::string, std::string> m_headers;
+    std::string m_body;
 };
 
 struct HttpRequest {
-    HttpMethod method;
-    std::string url;
-    std::string version;
-    std::unordered_map<std::string, std::string> headers;
-    std::string body;
+public:
+    HttpRequest& set_version(const std::string& version);
+    HttpRequest& set_url(const std::string& url);
+    HttpRequest& set_header(const std::string& key, const std::string& value);
+    HttpRequest& set_headers(const std::unordered_map<std::string, std::string>& headers);
+    HttpRequest& set_body(const std::string& body);
+    HttpRequest& set_method(HttpMethod method);
+
+    [[nodiscard]] HttpMethod method() const;
+    [[nodiscard]] const std::string& url() const;
+    [[nodiscard]] const std::string& version() const;
+    [[nodiscard]] const std::string& header(const std::string& key) const;
+    [[nodiscard]] const std::unordered_map<std::string, std::string>& headers() const;
+    [[nodiscard]] const std::string& body() const;
+
+private:
+    HttpMethod m_method;
+    std::string m_url;
+    std::string m_version;
+    std::unordered_map<std::string, std::string> m_headers;
+    std::string m_body;
 };
 
 struct http11_header_parser {

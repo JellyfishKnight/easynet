@@ -8,15 +8,20 @@
 
 namespace net {
 
+enum class WebSocketStatus {
+    CONNECTED,
+    DISCONNECTED,
+};
+
 class WebSocketClient {
 public:
     WebSocketClient(std::shared_ptr<TcpClient> client);
 
-    std::optional<std::string> connect_server();
+    std::optional<std::string> connect_server(std::string path = "/");
 
     std::optional<std::string> close();
 
-    std::optional<std::string> read(std::vector<uint8_t>& data);
+    std::optional<std::string> read(const WebSocketFrame& data);
 
     std::optional<std::string> write(const WebSocketFrame& data);
 
@@ -35,6 +40,8 @@ public:
 private:
     std::shared_ptr<TcpClient> m_client;
     std::shared_ptr<WebSocketParser> m_parser;
+
+    WebSocketStatus m_status;
 };
 
 class WebSocketServer {
@@ -71,6 +78,8 @@ private:
     std::shared_ptr<TcpServer> m_server;
 
     std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_parsers;
+
+    WebSocketStatus m_status;
 };
 
 } // namespace net

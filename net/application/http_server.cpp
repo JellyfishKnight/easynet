@@ -7,6 +7,7 @@
 #include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <unistd.h>
 
@@ -141,8 +142,8 @@ void HttpServer::set_handler() {
             return;
         }
         parser->reset_state();
-        auto method = request.method;
-        auto path = request.url;
+        auto method = request.method();
+        auto path = request.url();
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
             handler;
         try {
@@ -153,10 +154,10 @@ void HttpServer::set_handler() {
                 res = parser->write_res(response);
                 return;
             } else {
-                response.version = HTTP_VERSION_1_1;
-                response.status_code = HttpResponseCode::BAD_REQUEST;
-                response.reason = utils::dump_enum(HttpResponseCode::BAD_REQUEST);
-                response.headers["Content-Length"] = "0";
+                response.set_version(HTTP_VERSION_1_1)
+                    .set_status_code(HttpResponseCode::BAD_REQUEST)
+                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
+                    .set_header("Content-Length", "0");
             }
             res = parser->write_res(response);
             return;
@@ -167,10 +168,10 @@ void HttpServer::set_handler() {
                 res = parser->write_res(response);
                 return;
             } else {
-                response.version = HTTP_VERSION_1_1;
-                response.status_code = HttpResponseCode::NOT_FOUND;
-                response.reason = utils::dump_enum(HttpResponseCode::NOT_FOUND);
-                response.headers["Content-Length"] = "0";
+                response.set_version(HTTP_VERSION_1_1)
+                    .set_status_code(HttpResponseCode::NOT_FOUND)
+                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                    .set_header("Content-Length", "0");
             }
             res = parser->write_res(response);
             return;
@@ -181,10 +182,10 @@ void HttpServer::set_handler() {
                 if (m_error_handlers.find(e) != m_error_handlers.end()) {
                     response = m_error_handlers.at(e)(request);
                 } else {
-                    response.version = HTTP_VERSION_1_1;
-                    response.status_code = e;
-                    response.reason = utils::dump_enum(e);
-                    response.headers["Content-Length"] = "0";
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(e)
+                        .set_reason(std::string(utils::dump_enum(e)))
+                        .set_header("Content-Length", "0");
                 }
             }
         }

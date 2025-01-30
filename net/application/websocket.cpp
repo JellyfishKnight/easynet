@@ -9,28 +9,27 @@
 namespace net {
 
 WebSocketClient::WebSocketClient(std::shared_ptr<TcpClient> client) {
-    m_http_client = std::make_shared<HttpClient>(ip, service);
+    m_client = std::move(client);
     m_parser = std::make_shared<WebSocketParser>();
-    m_writer = std::make_shared<websocket_writer>();
 }
 
-std::optional<std::string> WebSocketClient::connect_server() {
+std::optional<std::string> WebSocketClient::connect_server(std::string path) {
     assert(m_client && "Http client is not initialized");
-    // upgrade to websocket
-    auto err = m_http_client->connect_server();
-    if (err.has_value()) {
-        return err;
+    if (m_client->status() != ConnectionStatus::CONNECTED) {
+        auto err = m_client->connect();
+        if (err.has_value()) {
+            return err;
+        }
     }
-    m_http_client->write_req(HttpRequest {
-        .method = HttpMethod::GET,
-        .url = "/",
-        .headers = {
-            { "Connection", "Upgrade" },
-            { "Upgrade", "websocket" },
-            { "Sec-WebSocket-Version", "13" },
-            { "Sec-WebSocket-Key", generate_websocket_key()},
-        },
-    });
+    auto parser = HttpParser();
+
+    m_client->write(parser.write_req(HttpRequest()
+                                         .set_method(HttpMethod::GET)
+                                         .set_url(path)
+                                         .set_header("Connection", "Upgrade")
+                                         .set_header("Upgrade", "websocket")
+                                         .set_header("Sec-WebSocket-Key", generate_websocket_key()))
+    );
     HttpResponse res;
     err = m_http_client->read_res(res);
     if (err.has_value()) {

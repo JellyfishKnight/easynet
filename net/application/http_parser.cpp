@@ -1,6 +1,125 @@
 #include "http_parser.hpp"
+#include "enum_parser.hpp"
+#include <cassert>
 
 namespace net {
+
+HttpResponse& HttpResponse::set_version(const std::string& version) {
+    m_version = version;
+    return *this;
+}
+
+HttpResponse& HttpResponse::set_status_code(HttpResponseCode status_code) {
+    m_status_code = status_code;
+    return *this;
+}
+
+HttpResponse& HttpResponse::set_reason(const std::string& reason) {
+    m_reason = std::move(reason);
+    return *this;
+}
+
+HttpResponse& HttpResponse::set_header(const std::string& key, const std::string& value) {
+    m_headers.insert_or_assign(key, value);
+    return *this;
+}
+
+HttpResponse& HttpResponse::set_headers(const std::unordered_map<std::string, std::string>& headers
+) {
+    m_headers = headers;
+    return *this;
+}
+
+HttpResponse& HttpResponse::set_body(const std::string& body) {
+    m_body = body;
+    return *this;
+}
+
+[[nodiscard]] const std::string& HttpResponse::version() const {
+    return m_version;
+}
+
+[[nodiscard]] HttpResponseCode HttpResponse::status_code() const {
+    return m_status_code;
+}
+
+[[nodiscard]] const std::string& HttpResponse::reason() const {
+    return m_reason;
+}
+
+[[nodiscard]] const std::string& HttpResponse::header(const std::string& key) const {
+    auto it = m_headers.find(key);
+    if (it == m_headers.end()) {
+        return std::move(std::string());
+    }
+    return it->second;
+}
+
+[[nodiscard]] const std::unordered_map<std::string, std::string>& HttpResponse::headers() const {
+    return m_headers;
+}
+
+[[nodiscard]] const std::string& HttpResponse::body() const {
+    return m_body;
+}
+
+HttpRequest& HttpRequest::set_version(const std::string& version) {
+    m_version = version;
+    return *this;
+}
+
+HttpRequest& HttpRequest::set_url(const std::string& url) {
+    m_url = url;
+    return *this;
+}
+
+HttpRequest& HttpRequest::set_header(const std::string& key, const std::string& value) {
+    m_headers.insert_or_assign(key, value);
+    return *this;
+}
+
+HttpRequest& HttpRequest::set_headers(const std::unordered_map<std::string, std::string>& headers) {
+    m_headers = headers;
+    return *this;
+}
+
+HttpRequest& HttpRequest::set_body(const std::string& body) {
+    m_body = body;
+    return *this;
+}
+
+HttpRequest& HttpRequest::set_method(HttpMethod method) {
+    m_method = method;
+    return *this;
+}
+
+[[nodiscard]] HttpMethod HttpRequest::method() const {
+    return m_method;
+}
+
+[[nodiscard]] const std::string& HttpRequest::url() const {
+    return m_url;
+}
+
+[[nodiscard]] const std::string& HttpRequest::version() const {
+    return m_version;
+}
+
+[[nodiscard]] const std::string& HttpRequest::header(const std::string& key) const {
+    auto it = m_headers.find(key);
+    if (it == m_headers.end()) {
+        return std::move(std::string());
+    }
+    return it->second;
+}
+
+[[nodiscard]] const std::unordered_map<std::string, std::string>& HttpRequest::headers() const {
+    return m_headers;
+}
+
+[[nodiscard]] const std::string& HttpRequest::body() const {
+    return m_body;
+}
 
 void http11_header_parser::reset_state() {
     m_header.clear();
@@ -121,48 +240,48 @@ void http11_header_writer::end_header() {
 
 std::vector<uint8_t> HttpParser::write_req(const HttpRequest& req) {
     m_req_writer.reset_state();
-    m_req_writer.begin_header(utils::dump_enum(req.method), req.url);
-    for (auto& [key, value]: req.headers) {
+    m_req_writer.begin_header(utils::dump_enum(req.method()), req.url());
+    for (auto& [key, value]: req.headers()) {
         m_req_writer.write_header(key, value);
     }
     m_req_writer.end_header();
-    m_req_writer.write_body(req.body);
+    m_req_writer.write_body(req.body());
     return std::vector<uint8_t>(m_req_writer.buffer().begin(), m_req_writer.buffer().end());
 }
 
 std::vector<uint8_t> HttpParser::write_res(const HttpResponse& res) {
     m_res_writer.reset_state();
-    m_res_writer.begin_header(static_cast<int>(res.status_code));
-    for (auto& [key, value]: res.headers) {
+    m_res_writer.begin_header(static_cast<int>(res.status_code()));
+    for (auto& [key, value]: res.headers()) {
         m_res_writer.write_header(key, value);
     }
-    if (!res.body.empty() && !res.headers.contains("Content-Length")) {
-        m_res_writer.write_header("Content-Length", std::to_string(res.body.size()));
+    if (!res.body().empty() && !res.headers().contains("Content-Length")) {
+        m_res_writer.write_header("Content-Length", std::to_string(res.body().size()));
     }
     m_res_writer.end_header();
-    m_res_writer.write_body(res.body);
+    m_res_writer.write_body(res.body());
     return std::vector<uint8_t>(m_res_writer.buffer().begin(), m_res_writer.buffer().end());
 }
 
 void HttpParser::read_req(std::vector<uint8_t>& req, HttpRequest& out_req) {
     m_req_parser.push_chunk(std::string_view(reinterpret_cast<char*>(req.data()), req.size()));
     if (m_req_parser.request_finished()) {
-        out_req.method = m_req_parser.method();
-        out_req.url = m_req_parser.url();
-        out_req.version = m_req_parser.version();
-        out_req.headers = m_req_parser.headers();
-        out_req.body = std::move(m_req_parser.body());
+        out_req.set_method(m_req_parser.method());
+        out_req.set_url(m_req_parser.url());
+        out_req.set_version(m_req_parser.version());
+        out_req.set_headers(m_req_parser.headers());
+        out_req.set_body(m_req_parser.body());
     }
 }
 
 void HttpParser::read_res(std::vector<uint8_t>& res, HttpResponse& out_res) {
     m_res_parser.push_chunk(std::string_view(reinterpret_cast<char*>(res.data()), res.size()));
     if (m_res_parser.request_finished()) {
-        out_res.version = m_res_parser.version();
-        out_res.status_code = static_cast<HttpResponseCode>(m_res_parser.status());
-        out_res.reason = utils::dump_enum(out_res.status_code);
-        out_res.headers = m_res_parser.headers();
-        out_res.body = std::move(m_res_parser.body());
+        out_res.set_version(m_res_parser.version());
+        out_res.set_status_code(static_cast<HttpResponseCode>(m_res_parser.status()));
+        out_res.set_reason(std::string(utils::dump_enum(out_res.status_code())));
+        out_res.set_headers(m_res_parser.headers());
+        out_res.set_body(m_res_parser.body());
     }
 }
 

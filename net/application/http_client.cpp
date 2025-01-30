@@ -1,4 +1,5 @@
 #include "http_client.hpp"
+#include "http_parser.hpp"
 #include "ssl.hpp"
 #include "tcp.hpp"
 #include <algorithm>
@@ -48,10 +49,7 @@ HttpResponse HttpClient::get(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::GET;
-    req.url = path;
-    req.headers = headers;
-    req.version = version;
+    req.set_method(HttpMethod::GET).set_url(path).set_headers(headers).set_version(version);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -81,11 +79,7 @@ HttpResponse HttpClient::post(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::POST;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
-    req.body = body;
+    req.set_method(HttpMethod::POST).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -116,11 +110,7 @@ HttpResponse HttpClient::put(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::PUT;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
-    req.body = body;
+    req.set_method(HttpMethod::PUT).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -150,10 +140,7 @@ HttpResponse HttpClient::del(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::DELETE;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
+    req.set_method(HttpMethod::DELETE).set_url(path).set_headers(headers).set_version(version);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -183,11 +170,7 @@ HttpResponse HttpClient::patch(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::PATCH;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
-    req.body = body;
+    req.set_method(HttpMethod::PATCH).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -217,10 +200,7 @@ HttpResponse HttpClient::head(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::HEAD;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
+    req.set_method(HttpMethod::HEAD).set_url(path).set_headers(headers).set_version(version);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -249,10 +229,7 @@ HttpResponse HttpClient::options(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::OPTIONS;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
+    req.set_method(HttpMethod::OPTIONS).set_url(path).set_headers(headers).set_version(version);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -281,10 +258,7 @@ HttpResponse HttpClient::connect(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::CONNECT;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
+    req.set_method(HttpMethod::CONNECT).set_url(path).set_headers(headers).set_version(version);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -313,10 +287,7 @@ HttpResponse HttpClient::trace(
     const std::string& version
 ) {
     HttpRequest req;
-    req.method = HttpMethod::TRACE;
-    req.headers = headers;
-    req.version = version;
-    req.url = path;
+    req.set_method(HttpMethod::TRACE).set_url(path).set_headers(headers).set_version(version);
     auto err = write_req(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
