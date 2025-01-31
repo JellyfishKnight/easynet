@@ -15,29 +15,29 @@ std::string readFileToString(const std::string& filePath) {
 }
 
 int main() {
-    net::HttpServer server("127.0.0.1", "8080");
-
     net::SSLContext::SharedPtr ctx = net::SSLContext::create();
     ctx->set_certificates(
         "/home/jk/Projects/net/keys/certificate.crt",
         "/home/jk/Projects/net/keys/private.key"
     );
 
-    server.add_ssl_context(ctx);
+    net::SSLServer server(ctx, "127.0.0.1", "8080");
 
-    server.listen();
+    net::HttpServer http_server(server.get_shared());
+
+    http_server.listen();
 
     auto content = readFileToString("/home/jk/Projects/net/index/index.html");
 
-    server.enable_thread_pool(96);
-    server.get("/", [&content](const net::HttpRequest& req) {
+    http_server.enable_thread_pool(96);
+    http_server.get("/", [&content](const net::HttpRequest& req) {
         net::HttpResponse res;
-        res.version = HTTP_VERSION_1_1;
-        res.status_code = net::HttpResponseCode::OK;
-        res.reason = "OK";
-        res.body = content;
-        res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = std::to_string(res.body.size());
+        res.set_version(HTTP_VERSION_1_1)
+            .set_status_code(net::HttpResponseCode::OK)
+            .set_reason("OK")
+            .set_header("Content-Type", "text/html")
+            .set_header("Content-Length", std::to_string(content.size()))
+            .set_body(content);
         return res;
     });
 

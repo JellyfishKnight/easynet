@@ -65,7 +65,6 @@ public:
     std::shared_ptr<SSLClient> get_shared();
 
 protected:
-    std::shared_ptr<TcpClient> m_client;
     std::shared_ptr<SSL> m_ssl;
     std::shared_ptr<SSLContext> m_ctx;
 };

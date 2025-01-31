@@ -4,17 +4,17 @@
 #include <memory>
 
 int main() {
-    net::TcpClient tcp_client("www.baidu.com", "443");
-
-    net::HttpClient client(tcp_client);
-
     auto ctx = net::SSLContext::create();
     ctx->set_certificates(
         "/home/jk/Projects/net/keys/certificate.crt",
         "/home/jk/Projects/net/keys/private.key"
     );
 
-    client.add_ssl_context(ctx);
+    net::SSLClient ssl_client(ctx, "www.baidu.com", "443");
+
+    net::HttpClient client(ssl_client.get_shared());
+
+    // client.add_ssl_context(ctx);
 
     client.connect_server();
 

@@ -1,4 +1,5 @@
 #include "http_server.hpp"
+#include "tcp.hpp"
 #include <fstream>
 
 std::string readFileToString(const std::string& filePath) {
@@ -14,7 +15,8 @@ std::string readFileToString(const std::string& filePath) {
 }
 
 int main() {
-    net::HttpServer server("127.0.0.1", "8080");
+    net::TcpServer tcp_server("127.0.0.1", "8080");
+    net::HttpServer server(tcp_server.get_shared());
 
     server.listen();
 
@@ -23,12 +25,12 @@ int main() {
     server.enable_thread_pool(96);
     server.get("/", [&content](const net::HttpRequest& req) {
         net::HttpResponse res;
-        res.version = HTTP_VERSION_1_1;
-        res.status_code = net::HttpResponseCode::OK;
-        res.reason = "OK";
-        res.body = content;
-        res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = std::to_string(res.body.size());
+        res.set_version(HTTP_VERSION_1_1)
+            .set_status_code(net::HttpResponseCode::OK)
+            .set_reason("OK")
+            .set_header("Content-Type", "text/html")
+            .set_header("Content-Length", std::to_string(content.size()))
+            .set_body(content);
         return res;
     });
 
