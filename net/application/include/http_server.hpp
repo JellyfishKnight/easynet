@@ -35,29 +35,43 @@ public:
 
     virtual ~HttpServer();
 
-    void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual std::optional<std::string> listen();
+    std::optional<std::string> listen();
 
     std::optional<std::string> close();
 
-    virtual std::optional<std::string> start();
+    std::optional<std::string> start();
+
+    void enable_thread_pool(std::size_t worker_num);
+
+    std::optional<std::string> enable_epoll(std::size_t event_num);
+
+    void set_logger(const utils::LoggerManager::Logger& logger);
 
     int get_fd() const;
 
@@ -67,7 +81,7 @@ public:
 
     ConnectionStatus status() const;
 
-    void add_error_handler(
+    virtual void add_error_handler(
         HttpResponseCode err_code,
         std::function<HttpResponse(const HttpRequest&)> handler
     );
@@ -75,7 +89,7 @@ public:
     [[nodiscard]] std::shared_ptr<TcpServer> convert2tcp();
 
 protected:
-    void set_handler();
+    virtual void set_handler();
 
     using MethodHandlers =
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;

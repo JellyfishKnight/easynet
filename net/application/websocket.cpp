@@ -2,6 +2,7 @@
 #include "connection.hpp"
 #include "http_client.hpp"
 #include "http_parser.hpp"
+#include "http_server.hpp"
 #include "websocket_utils.hpp"
 #include <cassert>
 #include <cstdint>
@@ -283,56 +284,176 @@ std::optional<std::string> WebSocketClient::read_http(HttpResponse& res) {
 /*************************WebSocket Server************************ */
 /*************************WebSocket Server************************ */
 
-WebSocketServer::WebSocketServer(const std::string& ip, const std::string& service) {
-    m_server = std::make_shared<HttpServer>(ip, service);
-    m_writer = std::make_shared<websocket_writer>();
+WebSocketServer::WebSocketServer(std::shared_ptr<TcpServer> server): HttpServer(server) {}
+
+void WebSocketServer::get(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::get(path, handler);
 }
 
-std::optional<std::string> WebSocketServer::listen() {
-    m_server->get("/", [this](const HttpRequest& req) {
-        if (req.headers.at("Connection") == "Upgrade" && req.headers.at("Upgrade") == "websocket") {
-            return HttpResponse {
-                .status_code = HttpResponseCode::SWITCHING_PROTOCOLS,
-                .headers = {
-                    { "Connection", "Upgrade" },
-                    { "Upgrade", "websocket" },
-                    { "Sec-WebSocket-Accept", generate_websocket_accept_key(req.headers.at("Sec-WebSocket-Key")) },
-                },
-            };
+void WebSocketServer::post(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::post(path, handler);
+}
+
+void WebSocketServer::put(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::put(path, handler);
+}
+
+void WebSocketServer::del(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::del(path, handler);
+}
+
+void WebSocketServer::head(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::head(path, handler);
+}
+
+void WebSocketServer::trace(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::trace(path, handler);
+}
+
+void WebSocketServer::connect(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::connect(path, handler);
+}
+
+void WebSocketServer::options(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::options(path, handler);
+}
+
+void WebSocketServer::patch(
+    const std::string path,
+    std::function<HttpResponse(const HttpRequest&)> handler
+) {
+    assert(
+        m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!"
+    );
+    HttpServer::patch(path, handler);
+}
+
+std::optional<std::string> WebSocketServer::accept_ws_connection() {}
+
+std::optional<std::string> WebSocketServer::upgrade() {}
+
+void WebSocketServer::set_handler() {
+    auto handler = [this](
+                       std::vector<uint8_t>& res,
+                       std::vector<uint8_t>& req,
+                       Connection::ConstSharedPtr conn
+                   ) {
+        HttpRequest request;
+        HttpResponse response;
+        if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
+            m_parsers[{ conn->m_client_ip, conn->m_client_service }] =
+                std::make_shared<HttpParser>();
         }
-        return HttpResponse {
-            .status_code = HttpResponseCode::BAD_REQUEST,
-        };
-    });
-    return m_server->listen();
+        auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
+        parser->read_req(req, request);
+        if (!parser->req_read_finished()) {
+            res.clear();
+            return;
+        }
+        parser->reset_state();
+        auto method = request.method();
+        auto path = request.url();
+        std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
+            handler;
+        try {
+            handler = m_handlers.at(method).find(path);
+        } catch (const std::out_of_range& e) {
+            if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
+                response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
+                res = parser->write_res(response);
+                return;
+            } else {
+                response.set_version(HTTP_VERSION_1_1)
+                    .set_status_code(HttpResponseCode::BAD_REQUEST)
+                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
+                    .set_header("Content-Length", "0");
+            }
+            res = parser->write_res(response);
+            return;
+        }
+        if (handler == m_handlers.at(method).end()) {
+            if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
+                res = parser->write_res(response);
+                return;
+            } else {
+                response.set_version(HTTP_VERSION_1_1)
+                    .set_status_code(HttpResponseCode::NOT_FOUND)
+                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                    .set_header("Content-Length", "0");
+            }
+            res = parser->write_res(response);
+            return;
+        } else {
+            try {
+                response = handler->second(request);
+            } catch (const HttpResponseCode& e) {
+                if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(e)(request);
+                } else {
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(e)
+                        .set_reason(std::string(utils::dump_enum(e)))
+                        .set_header("Content-Length", "0");
+                }
+            }
+        }
+        res = parser->write_res(response);
+    };
+    m_server->add_handler(std::move(handler));
 }
-
-std::optional<std::string> WebSocketServer::start() {}
-
-std::optional<std::string> WebSocketServer::close() {}
-
-std::optional<std::string>
-WebSocketServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {}
-
-std::optional<std::string>
-WebSocketServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {}
 
 WebSocketServer::~WebSocketServer() {}
 
-void WebSocketServer::enable_thread_pool(std::size_t worker_num) {}
-
-std::optional<std::string> WebSocketServer::enable_epoll(std::size_t event_num) {}
-
-void WebSocketServer::set_logger(const utils::LoggerManager::Logger& logger) {}
-
-int WebSocketServer::get_fd() const {}
-
-std::string WebSocketServer::get_ip() const {}
-
-std::string WebSocketServer::get_service() const {}
-
-ConnectionStatus WebSocketServer::status() const {}
-
-void WebSocketServer::add_ssl_context(std::shared_ptr<SSLContext> ctx) {}
-
+WebSocketStatus WebSocketServer::ws_status() const {
+    return m_websocket_status;
+}
 } // namespace net

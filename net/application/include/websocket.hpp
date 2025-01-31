@@ -15,6 +15,7 @@ namespace net {
 
 enum class WebSocketStatus {
     CONNECTED,
+    CONNECTING,
     DISCONNECTED,
 };
 
@@ -157,41 +158,47 @@ class WebSocketServer: public HttpServer {
 public:
     WebSocketServer(std::shared_ptr<TcpServer> client);
 
-    std::optional<std::string> listen();
-
-    std::optional<std::string> start();
-
-    std::optional<std::string> close();
-
-    std::optional<std::string> read(std::vector<uint8_t>& data, Connection::SharedPtr conn);
-
-    std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
-
     ~WebSocketServer();
 
-    void enable_thread_pool(std::size_t worker_num);
+    std::optional<std::string> upgrade();
 
-    std::optional<std::string> enable_epoll(std::size_t event_num);
+    WebSocketStatus ws_status() const;
 
-    void set_logger(const utils::LoggerManager::Logger& logger);
+    void
+    get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    int get_fd() const;
+    void
+    post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    std::string get_ip() const;
+    void
+    put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    std::string get_service() const;
+    void
+    del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    ConnectionStatus status() const;
+    void
+    head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void add_handler(
-        std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::SharedPtr conn)>
-            handler
-    );
+    void
+    trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+
+    void connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler)
+        override;
+
+    void options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler)
+        override;
+
+    void
+    patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
 private:
+    std::optional<std::string> accept_ws_connection();
+
+    void set_handler() override;
+
     std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_parsers;
     std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::SharedPtr conn)>
-        m_handler;
+        m_ws_handler;
     WebSocketStatus m_websocket_status = WebSocketStatus::DISCONNECTED;
 };
 

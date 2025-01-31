@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <unistd.h>
+#include <utility>
 
 namespace net {
 
@@ -123,6 +124,18 @@ void HttpServer::add_error_handler(
     m_error_handlers[err_code] = handler;
 }
 
+void HttpServer::enable_thread_pool(std::size_t worker_num) {
+    m_server->enable_thread_pool(worker_num);
+}
+
+std::optional<std::string> HttpServer::enable_epoll(std::size_t event_num) {
+    return m_server->enable_epoll(event_num);
+}
+
+void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
+    m_server->set_logger(logger);
+}
+
 void HttpServer::set_handler() {
     auto handler = [this](
                        std::vector<uint8_t>& res,
@@ -215,6 +228,7 @@ HttpServer::~HttpServer() {
 }
 
 std::shared_ptr<TcpServer> HttpServer::convert2tcp() {
+    auto server = std::move(m_server);
     return std::move(m_server);
 }
 
