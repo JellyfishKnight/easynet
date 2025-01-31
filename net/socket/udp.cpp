@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <future>
+#include <memory>
 #include <optional>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -99,6 +100,10 @@ std::optional<std::string> UdpClient::close() {
 )]] std::optional<std::string>
 UdpClient::connect() {
     return std::nullopt;
+}
+
+std::shared_ptr<UdpClient> UdpClient::get_shared() {
+    return std::static_pointer_cast<UdpClient>(SocketClient::get_shared());
 }
 
 UdpServer::UdpServer(const std::string& ip, const std::string& service) {
@@ -301,6 +306,10 @@ std::optional<std::string> UdpServer::start() {
         });
     }
     return std::nullopt;
+}
+
+std::shared_ptr<UdpServer> UdpServer::get_shared() {
+    return std::static_pointer_cast<UdpServer>(SocketServer::get_shared());
 }
 
 } // namespace net

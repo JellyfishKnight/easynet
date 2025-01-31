@@ -361,4 +361,8 @@ ConnectionStatus HttpClient::status() const {
     return m_client->status();
 }
 
+std::shared_ptr<HttpClient> HttpClient::get_shared() {
+    return shared_from_this();
+}
+
 } // namespace net

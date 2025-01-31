@@ -92,6 +92,10 @@ std::optional<std::string> SSLClient::close() {
     return TcpClient::close();
 }
 
+std::shared_ptr<SSLClient> SSLClient::get_shared() {
+    return std::static_pointer_cast<SSLClient>(TcpClient::get_shared());
+}
+
 SSLServer::SSLServer(
     std::shared_ptr<SSLContext> ctx,
     const std::string& ip,
@@ -333,6 +337,10 @@ void SSLServer::handle_connection(Connection::SharedPtr conn) {
         return;
     }
     TcpServer::handle_connection(conn);
+}
+
+std::shared_ptr<SSLServer> SSLServer::get_shared() {
+    return std::static_pointer_cast<SSLServer>(TcpServer::get_shared());
 }
 
 } // namespace net

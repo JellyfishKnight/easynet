@@ -62,6 +62,8 @@ public:
 
     std::optional<std::string> close() override;
 
+    std::shared_ptr<SSLClient> get_shared();
+
 protected:
     std::shared_ptr<TcpClient> m_client;
     std::shared_ptr<SSL> m_ssl;
@@ -84,6 +86,8 @@ public:
     std::optional<std::string> listen() override;
 
     std::optional<std::string> start() override;
+
+    std::shared_ptr<SSLServer> get_shared();
 
 protected:
     std::optional<std::string>

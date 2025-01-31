@@ -1,8 +1,12 @@
 #include "http_client.hpp"
 #include "ssl.hpp"
+#include "tcp.hpp"
+#include <memory>
 
 int main() {
-    net::HttpClient client("www.baidu.com", "443");
+    net::TcpClient tcp_client("www.baidu.com", "443");
+
+    net::HttpClient client(tcp_client);
 
     auto ctx = net::SSLContext::create();
     ctx->set_certificates(
@@ -25,14 +29,14 @@ int main() {
             input.clear();
         }
         auto res = client.get("/" + input);
-        std::cout << "Http version: " << res.version << std::endl;
-        std::cout << "Status Code: " << static_cast<int>(res.status_code) << std::endl;
-        std::cout << "Reason: " << res.reason << std::endl;
+        std::cout << "Http version: " << res.version() << std::endl;
+        std::cout << "Status Code: " << static_cast<int>(res.status_code()) << std::endl;
+        std::cout << "Reason: " << res.reason() << std::endl;
         std::cout << "Headers: " << std::endl;
-        for (auto& [key, value]: res.headers) {
+        for (auto& [key, value]: res.headers()) {
             std::cout << key << ": " << value << std::endl;
         }
-        std::cout << "Body: " << res.body << std::endl;
+        std::cout << "Body: " << res.body() << std::endl;
     }
 
     return 0;

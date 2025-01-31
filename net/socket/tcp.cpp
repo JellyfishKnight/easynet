@@ -1,6 +1,7 @@
 #include "tcp.hpp"
 #include "socket_base.hpp"
 #include <cassert>
+#include <memory>
 #include <netdb.h>
 #include <sys/socket.h>
 
@@ -81,6 +82,10 @@ std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data) {
         return "Connection reset by peer while writing";
     }
     return std::nullopt;
+}
+
+std::shared_ptr<TcpClient> TcpClient::get_shared() {
+    return std::static_pointer_cast<TcpClient>(SocketClient::get_shared());
 }
 
 TcpClient::~TcpClient() {
@@ -396,6 +401,10 @@ void TcpServer::handle_connection(Connection::SharedPtr conn) {
             break;
         }
     } while (ctrl);
+}
+
+std::shared_ptr<TcpServer> TcpServer::get_shared() {
+    return std::static_pointer_cast<TcpServer>(SocketServer::get_shared());
 }
 
 } // namespace net

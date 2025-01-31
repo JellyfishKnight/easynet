@@ -47,6 +47,10 @@ ConnectionStatus SocketClient::status() const {
     return m_status;
 }
 
+std::shared_ptr<SocketClient> SocketClient::get_shared() {
+    return shared_from_this();
+}
+
 SocketType SocketServer::type() const {
     return m_socket_type;
 }
@@ -125,6 +129,10 @@ std::string SocketServer::get_service() const {
 
 ConnectionStatus SocketServer::status() const {
     return m_status;
+}
+
+std::shared_ptr<SocketServer> SocketServer::get_shared() {
+    return shared_from_this();
 }
 
 } // namespace net

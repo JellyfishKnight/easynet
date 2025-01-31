@@ -28,6 +28,8 @@ public:
     [[deprecated("Udp doesn't need connection, this function will cause no effect"
     )]] std::optional<std::string>
     connect() override;
+
+    std::shared_ptr<UdpClient> get_shared();
 };
 
 class UdpServer: public SocketServer {
@@ -51,6 +53,8 @@ public:
     std::optional<std::string> close() override;
 
     std::optional<std::string> start() override;
+
+    std::shared_ptr<UdpServer> get_shared();
 
 protected:
     [[deprecated("Udp doesn't need connection, this function will cause no effect"

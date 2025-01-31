@@ -21,7 +21,7 @@ namespace net {
  * @note if you need to handle http failure, you can add error handler, and throw HttpResponseCode in your handler if 
  *       you want to response with error code, and the server will call the error handler you set
  */
-class HttpServer {
+class HttpServer: public std::enable_shared_from_this<HttpServer> {
 public:
     HttpServer(std::shared_ptr<TcpServer> server);
 
@@ -35,7 +35,8 @@ public:
 
     virtual ~HttpServer();
 
-    virtual void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void
+    get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
     virtual void
     post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
@@ -80,6 +81,8 @@ public:
     std::string get_service() const;
 
     ConnectionStatus status() const;
+
+    std::shared_ptr<HttpServer> get_shared();
 
     virtual void add_error_handler(
         HttpResponseCode err_code,

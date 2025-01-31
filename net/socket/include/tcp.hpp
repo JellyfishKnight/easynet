@@ -24,6 +24,8 @@ public:
     std::optional<std::string> read(std::vector<uint8_t>& data) override;
 
     std::optional<std::string> write(const std::vector<uint8_t>& data) override;
+
+    std::shared_ptr<TcpClient> get_shared();
 };
 
 class TcpServer: public SocketServer {
@@ -45,6 +47,8 @@ public:
     std::optional<std::string> close() override;
 
     std::optional<std::string> start() override;
+
+    std::shared_ptr<TcpServer> get_shared();
 
 protected:
     std::optional<std::string>

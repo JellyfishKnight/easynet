@@ -147,6 +147,8 @@ public:
 
     virtual std::optional<std::string> read_http(HttpResponse& res) override;
 
+    std::shared_ptr<WebSocketClient> get_shared();
+
     ~WebSocketClient();
 
 private:
@@ -196,6 +198,8 @@ public:
     );
 
     void allowed_path(const std::string& path);
+
+    std::shared_ptr<WebSocketServer> get_shared();
 
 private:
     std::optional<std::string>

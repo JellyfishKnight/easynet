@@ -41,6 +41,8 @@ public:
 
     virtual std::optional<std::string> close() = 0;
 
+    std::shared_ptr<SocketClient> get_shared();
+
     int get_fd() const;
 
     SocketType type() const;
@@ -93,6 +95,8 @@ public:
 
     virtual std::optional<std::string> start() = 0;
 
+    std::shared_ptr<SocketServer> get_shared();
+
     int get_fd() const;
 
     void enable_thread_pool(std::size_t worker_num);
@@ -143,11 +147,8 @@ protected:
     std::string m_ip;
     std::string m_service;
 
-    std::function<void(
-        std::vector<uint8_t>& res,
-        std::vector<uint8_t>& req,
-        Connection::ConstSharedPtr conn
-    )>
+    std::function<
+        void(std::vector<uint8_t>& res, std::vector<uint8_t>& req, Connection::ConstSharedPtr conn)>
         m_default_handler;
 
     utils::ThreadPool::SharedPtr m_thread_pool;

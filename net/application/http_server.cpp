@@ -232,4 +232,8 @@ std::shared_ptr<TcpServer> HttpServer::convert2tcp() {
     return std::move(m_server);
 }
 
+std::shared_ptr<HttpServer> HttpServer::get_shared() {
+    return shared_from_this();
+}
+
 } // namespace net
