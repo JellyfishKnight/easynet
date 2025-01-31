@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace net {
 
@@ -191,13 +192,23 @@ public:
     void
     patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
+    void add_websocket_handler(
+        std::function<
+            void(WebSocketFrame& res, WebSocketFrame& req, Connection::ConstSharedPtr conn)> handler
+    );
+
+    void allowed_path(const std::string& path);
+
 private:
     std::optional<std::string> accept_ws_connection();
 
     void set_handler() override;
 
-    std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_parsers;
-    std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::SharedPtr conn)>
+    std::unordered_set<ConnectionKey> m_ws_connections_flag;
+    std::unordered_set<std::string> m_allowed_paths;
+    std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_ws_parsers;
+
+    std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::ConstSharedPtr conn)>
         m_ws_handler;
     WebSocketStatus m_websocket_status = WebSocketStatus::DISCONNECTED;
 };

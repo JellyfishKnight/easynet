@@ -381,11 +381,11 @@ std::optional<std::string> WebSocketServer::accept_ws_connection() {}
 std::optional<std::string> WebSocketServer::upgrade() {}
 
 void WebSocketServer::set_handler() {
-    auto handler = [this](
-                       std::vector<uint8_t>& res,
-                       std::vector<uint8_t>& req,
-                       Connection::ConstSharedPtr conn
-                   ) {
+    auto http_handler = [this](
+                            std::vector<uint8_t>& res,
+                            std::vector<uint8_t>& req,
+                            Connection::ConstSharedPtr conn
+                        ) {
         HttpRequest request;
         HttpResponse response;
         if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
@@ -403,6 +403,11 @@ void WebSocketServer::set_handler() {
         auto path = request.url();
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
             handler;
+
+        if (method == HttpMethod::GET && m_allowed_paths.contains(path)) {
+            ///TODO: complete check for websocket upgrade
+        }
+
         try {
             handler = m_handlers.at(method).find(path);
         } catch (const std::out_of_range& e) {
@@ -448,6 +453,36 @@ void WebSocketServer::set_handler() {
         }
         res = parser->write_res(response);
     };
+
+    auto ws_handler = [this](
+                          std::vector<uint8_t>& res,
+                          std::vector<uint8_t>& req,
+                          Connection::ConstSharedPtr conn
+                      ) {
+        WebSocketFrame frame;
+        auto& parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
+        auto result = parser->read_frame(req);
+        if (!result.has_value()) {
+            res.clear();
+            return;
+        }
+        frame = std::move(result.value());
+        m_ws_handler(frame, frame, conn);
+        res = parser->write_frame(frame);
+    };
+
+    auto handler = [this, http_handler, ws_handler](
+                       std::vector<uint8_t>& res,
+                       std::vector<uint8_t>& req,
+                       Connection::ConstSharedPtr conn
+                   ) {
+        // parse request
+        if (m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })) {
+            ws_handler(res, req, conn);
+        } else {
+            http_handler(res, req, conn);
+        }
+    };
     m_server->add_handler(std::move(handler));
 }
 
@@ -456,4 +491,16 @@ WebSocketServer::~WebSocketServer() {}
 WebSocketStatus WebSocketServer::ws_status() const {
     return m_websocket_status;
 }
+
+void WebSocketServer::add_websocket_handler(
+    std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::ConstSharedPtr conn)>
+        handler
+) {
+    m_ws_handler = std::move(handler);
+}
+
+void WebSocketServer::allowed_path(const std::string& path) {
+    m_allowed_paths.insert(path);
+}
+
 } // namespace net
