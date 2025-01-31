@@ -376,9 +376,25 @@ void WebSocketServer::patch(
     HttpServer::patch(path, handler);
 }
 
-std::optional<std::string> WebSocketServer::accept_ws_connection() {}
-
-std::optional<std::string> WebSocketServer::upgrade() {}
+std::optional<std::string>
+WebSocketServer::accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res) {
+    if (req.headers().find("Sec-WebSocket-Key") == req.headers().end()) {
+        return "Invalid websocket request";
+    }
+    auto key = req.headers().at("Sec-WebSocket-Key");
+    auto accept_key = net::generate_websocket_accept_key(key);
+    HttpResponse response;
+    response.set_version(HTTP_VERSION_1_1)
+        .set_status_code(HttpResponseCode::SWITCHING_PROTOCOLS)
+        .set_reason(std::string(utils::dump_enum(HttpResponseCode::SWITCHING_PROTOCOLS)))
+        .set_header("Upgrade", "websocket")
+        .set_header("Connection", "Upgrade")
+        .set_header("Sec-WebSocket-Accept", accept_key)
+        .set_header("Sec-WebSocket-Version", "13");
+    HttpParser parser;
+    res = parser.write_res(response);
+    return std::nullopt;
+}
 
 void WebSocketServer::set_handler() {
     auto http_handler = [this](
@@ -404,10 +420,38 @@ void WebSocketServer::set_handler() {
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
             handler;
 
-        if (method == HttpMethod::GET && m_allowed_paths.contains(path)) {
-            ///TODO: complete check for websocket upgrade
+        // check if the request is a websocket upgrade request
+        if (request.headers().find("Upgrade") != request.headers().end()
+            && m_allowed_paths.contains(path))
+        {
+            // check if request is correct
+            if (request.headers().at("Upgrade") == "websocket"
+                && request.headers().at("Connection") == "Upgrade")
+            {
+                if (!m_ws_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
+                    m_ws_parsers[{ conn->m_client_ip, conn->m_client_service }] =
+                        std::make_shared<WebSocketParser>();
+                }
+                m_ws_connections_flag.insert({ conn->m_client_ip, conn->m_client_service });
+                auto err = accept_ws_connection(request, res);
+                if (err.has_value()) {
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(HttpResponseCode::BAD_REQUEST)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
+                        .set_header("Content-Length", "0");
+                    res = parser->write_res(response);
+                }
+            } else {
+                response.set_version(HTTP_VERSION_1_1)
+                    .set_status_code(HttpResponseCode::BAD_REQUEST)
+                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
+                    .set_header("Content-Length", "0");
+                res = parser->write_res(response);
+            }
+            return;
         }
 
+        // handle normal http request
         try {
             handler = m_handlers.at(method).find(path);
         } catch (const std::out_of_range& e) {

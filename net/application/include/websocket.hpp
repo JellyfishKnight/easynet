@@ -161,8 +161,6 @@ public:
 
     ~WebSocketServer();
 
-    std::optional<std::string> upgrade();
-
     WebSocketStatus ws_status() const;
 
     void
@@ -200,7 +198,8 @@ public:
     void allowed_path(const std::string& path);
 
 private:
-    std::optional<std::string> accept_ws_connection();
+    std::optional<std::string>
+    accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res);
 
     void set_handler() override;
 
