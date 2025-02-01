@@ -70,6 +70,10 @@ add_executable(HttpsServerTest ./demo/https_server.cpp)
 target_link_libraries(HttpsServerTest PUBLIC net::utils net::socket net::application)
 add_executable(HttpsClientTest ./demo/https_client.cpp)
 target_link_libraries(HttpsClientTest PUBLIC net::utils net::socket net::application)
+add_executable(WebSocketServerTest ./demo/websocket_server.cpp)
+target_link_libraries(WebSocketServerTest PUBLIC net::utils net::socket net::application)
+add_executable(WebSocketClientTest ./demo/websocket_client.cpp)
+target_link_libraries(WebSocketClientTest PUBLIC net::utils net::socket net::application)
 
 # install headers
 
