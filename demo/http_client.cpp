@@ -15,6 +15,9 @@ int main() {
             client.close();
             return 0;
         }
+        if (input == "s") {
+            input.clear();
+        }
         auto res = client.get("/" + input);
         std::cout << "Http version: " << res.version() << std::endl;
         std::cout << "Status Code: " << static_cast<int>(res.status_code()) << std::endl;

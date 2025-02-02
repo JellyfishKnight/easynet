@@ -11,7 +11,7 @@ int main() {
     );
 
     net::SSLClient::SharedPtr ssl_client =
-        std::make_shared<net::SSLClient>(ctx, "www.baidu.com", "443");
+        std::make_shared<net::SSLClient>(ctx, "127.0.0.1", "8080");
 
     net::HttpClient client(ssl_client);
 

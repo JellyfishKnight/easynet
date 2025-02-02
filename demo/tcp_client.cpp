@@ -9,7 +9,11 @@
 int main() {
     net::TcpClient client("127.0.0.1", "8080");
 
-    client.connect();
+    auto err = client.connect();
+    if (err.has_value()) {
+        std::cerr << "Failed to connect to server: " << err.value() << std::endl;
+        return 1;
+    }
 
     while (true) {
         std::string input;

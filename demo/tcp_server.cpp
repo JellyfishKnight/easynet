@@ -30,16 +30,13 @@ int main() {
                 auto err = server->read(req, conn);
                 if (err.has_value()) {
                     std::cerr << "Failed to read from socket: " << err.value() << std::endl;
-                    continue;
-                }
-                if (req.empty()) {
-                    continue;
+                    break;
                 }
                 std::vector<uint8_t> res { req.begin(), req.end() };
                 auto err_write = server->write(res, conn);
                 if (err_write.has_value()) {
                     std::cerr << "Failed to write to socket: " << err_write.value() << std::endl;
-                    continue;
+                    break;
                 }
             }
         });
