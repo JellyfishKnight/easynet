@@ -65,6 +65,13 @@ public:
 
     std::shared_ptr<UdpServer> get_shared();
 
+    /**
+     * @brief read message from client
+     * @param data the buffer to store the message
+     * @param conn the connection object representing the client
+     * @return std::optional<std::string> error message if any
+     * @note if the 2nd param is null, it's broadcasting to every client saved on this server
+     */
     std::optional<std::string> read(std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
     std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);

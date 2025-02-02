@@ -259,10 +259,14 @@ std::optional<std::string> TcpServer::start() {
                         }
                         auto& conn = m_connections.at({ ip, service });
                         if (m_thread_pool) {
-                            m_thread_pool->submit([this, conn]() { handle_connection(conn); });
+                            m_thread_pool->submit([this, conn]() {
+                                handle_connection(conn);
+                                m_connections.erase({ conn->m_client_ip, conn->m_client_service });
+                            });
                         } else {
                             auto unused_future = std::async(std::launch::async, [this, conn]() {
                                 handle_connection(conn);
+                                m_connections.erase({ conn->m_client_ip, conn->m_client_service });
                             });
                         }
                     }
@@ -319,10 +323,14 @@ std::optional<std::string> TcpServer::start() {
                     conn->m_addr = client_addr;
                     m_connections.insert_or_assign({ client_ip, client_service }, conn);
                     if (m_thread_pool) {
-                        m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
+                        m_thread_pool->submit([this, &conn]() {
+                            handle_connection(conn);
+                            m_connections.erase({ conn->m_client_ip, conn->m_client_service });
+                        });
                     } else {
                         auto unused_future = std::async(std::launch::async, [this, &conn]() {
                             handle_connection(conn);
+                            m_connections.erase({ conn->m_client_ip, conn->m_client_service });
                         });
                     }
                 }

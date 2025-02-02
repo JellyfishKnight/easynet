@@ -2,6 +2,7 @@
 #include "address_resolver.hpp"
 #include "connection.hpp"
 #include "socket_base.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <future>
@@ -9,6 +10,7 @@
 #include <optional>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <utility>
 #include <vector>
 
 namespace net {
@@ -122,6 +124,15 @@ UdpServer::UdpServer(const std::string& ip, const std::string& service) {
     m_stop = true;
     m_status = ConnectionStatus::DISCONNECTED;
     m_socket_type = SocketType::UDP;
+    // bind
+    if (::bind(m_listen_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len)
+        == -1)
+    {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to bind socket: {}", get_error_msg());
+        }
+        throw std::system_error(errno, std::system_category(), "Failed to bind socket");
+    }
 }
 
 UdpServer::~UdpServer() {
@@ -259,23 +270,32 @@ UdpServer::start() {
                             { conn->m_client_ip, conn->m_client_service },
                             conn
                         );
-                        std::vector<uint8_t> res;
-                        m_message_handler(res, buffer, conn);
-                        if (res.empty()) {
-                            continue;
-                        }
-                        err = this->write(res, conn);
-                        if (err.has_value()) {
-                            if (m_logger_set) {
-                                NET_LOG_ERROR(
-                                    m_logger,
-                                    "Failed to write to socket: {}",
-                                    err.value()
-                                );
+
+                        auto task = [b = std::move(buffer), conn, this]() {
+                            std::vector<uint8_t> res, req = b;
+                            m_message_handler(res, req, conn);
+                            if (res.empty()) {
+                                return;
                             }
-                            std::cerr
-                                << std::format("Failed to write to socket: {}\n", err.value());
-                            continue;
+                            auto err = this->write(res, conn);
+                            if (err.has_value()) {
+                                if (m_logger_set) {
+                                    NET_LOG_ERROR(
+                                        m_logger,
+                                        "Failed to write to socket: {}",
+                                        err.value()
+                                    );
+                                }
+                                std::cerr
+                                    << std::format("Failed to write to socket: {}\n", err.value());
+                                m_connections.erase({ conn->m_client_ip, conn->m_client_service });
+                            }
+                        };
+
+                        if (m_thread_pool) {
+                            this->m_thread_pool->submit(task);
+                        } else {
+                            auto unused_future = std::async(std::launch::async, task);
                         }
                     }
                 }
@@ -287,7 +307,7 @@ UdpServer::start() {
                 // receive is handled by main thread, and compute is handled by thread pool
                 Connection::SharedPtr conn = std::make_shared<Connection>();
                 std::vector<uint8_t> buffer(1024);
-                auto err = read(buffer, conn);
+                auto err = this->read(buffer, conn);
                 if (err.has_value()) {
                     if (m_logger_set) {
                         NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", err.value());
@@ -303,12 +323,13 @@ UdpServer::start() {
                     if (res.empty()) {
                         return;
                     }
-                    auto err = write(res, conn);
+                    auto err = this->write(res, conn);
                     if (err.has_value()) {
                         if (m_logger_set) {
                             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", err.value());
                         }
                         std::cerr << std::format("Failed to write to socket: {}\n", err.value());
+                        m_connections.erase({ conn->m_client_ip, conn->m_client_service });
                     }
                 };
                 if (m_thread_pool) {

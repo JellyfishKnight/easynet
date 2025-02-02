@@ -241,10 +241,14 @@ std::optional<std::string> SSLServer::start() {
                         }
                         auto& conn = m_connections.at({ ip, service });
                         if (m_thread_pool) {
-                            m_thread_pool->submit([this, conn]() { handle_connection(conn); });
+                            m_thread_pool->submit([this, conn]() {
+                                handle_connection(conn);
+                                m_connections.erase({ conn->m_client_ip, conn->m_client_service });
+                            });
                         } else {
                             auto unused_future = std::async(std::launch::async, [this, conn]() {
                                 handle_connection(conn);
+                                m_connections.erase({ conn->m_client_ip, conn->m_client_service });
                             });
                         }
                     }
@@ -314,10 +318,14 @@ std::optional<std::string> SSLServer::start() {
                     }
                     SSL_set_fd(ssl_conn->m_ssl.get(), client_fd);
                     if (m_thread_pool) {
-                        m_thread_pool->submit([this, &conn]() { handle_connection(conn); });
+                        m_thread_pool->submit([this, &conn]() {
+                            handle_connection(conn);
+                            m_connections.erase({ conn->m_client_ip, conn->m_client_service });
+                        });
                     } else {
                         auto unused_future = std::async(std::launch::async, [this, &conn]() {
                             handle_connection(conn);
+                            m_connections.erase({ conn->m_client_ip, conn->m_client_service });
                         });
                     }
                 }
