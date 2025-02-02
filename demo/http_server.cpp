@@ -1,6 +1,7 @@
 #include "http_server.hpp"
 #include "tcp.hpp"
 #include <fstream>
+#include <memory>
 
 std::string readFileToString(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::in);
@@ -15,8 +16,8 @@ std::string readFileToString(const std::string& filePath) {
 }
 
 int main() {
-    net::TcpServer tcp_server("127.0.0.1", "8080");
-    net::HttpServer server(tcp_server.get_shared());
+    net::TcpServer::SharedPtr tcp_server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
+    net::HttpServer server(tcp_server);
 
     server.listen();
 

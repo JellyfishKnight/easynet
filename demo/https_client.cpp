@@ -10,9 +10,10 @@ int main() {
         "/home/jk/Projects/net/keys/private.key"
     );
 
-    net::SSLClient ssl_client(ctx, "www.baidu.com", "443");
+    net::SSLClient::SharedPtr ssl_client =
+        std::make_shared<net::SSLClient>(ctx, "www.baidu.com", "443");
 
-    net::HttpClient client(ssl_client.get_shared());
+    net::HttpClient client(ssl_client);
 
     // client.add_ssl_context(ctx);
 
@@ -37,7 +38,7 @@ int main() {
             std::cout << key << ": " << value << std::endl;
         }
         std::cout << "Body: " << res.body() << std::endl;
-    } 
+    }
 
     return 0;
 }

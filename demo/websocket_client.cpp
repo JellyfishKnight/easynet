@@ -2,12 +2,13 @@
 #include "tcp.hpp"
 #include "websocket.hpp"
 #include "websocket_utils.hpp"
+#include <memory>
 #include <thread>
 
 int main() {
-    net::TcpClient socket_client("127.0.0.1", "8080");
+    net::TcpClient::SharedPtr socket_client = std::make_shared<net::TcpClient>("127.0.0.1", "8080");
 
-    net::WebSocketClient client(socket_client.get_shared());
+    net::WebSocketClient client(socket_client);
 
     client.connect_server();
 
@@ -30,7 +31,8 @@ int main() {
         .set_header("Connection", "Upgrade")
         .set_header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
         .set_header("Sec-WebSocket-Version", "13")
-        .set_header("Sec-WebSocket-Protocol", "chat");
+        .set_header("Sec-WebSocket-Protocol", "chat")
+        .set_header("Content-Length", "0");
 
     auto err = client.upgrade(update_req);
     if (err.has_value()) {

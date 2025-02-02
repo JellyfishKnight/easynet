@@ -1,6 +1,7 @@
 #include "http_server.hpp"
 #include "ssl.hpp"
 #include <fstream>
+#include <memory>
 
 std::string readFileToString(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::in);
@@ -21,9 +22,9 @@ int main() {
         "/home/jk/Projects/net/keys/private.key"
     );
 
-    net::SSLServer server(ctx, "127.0.0.1", "8080");
+    net::SSLServer::SharedPtr server = std::make_shared<net::SSLServer>(ctx, "127.0.0.1", "8080");
 
-    net::HttpServer http_server(server.get_shared());
+    net::HttpServer http_server(server);
 
     http_server.listen();
 
@@ -41,14 +42,14 @@ int main() {
         return res;
     });
 
-    server.start();
+    http_server.start();
 
     while (true) {
         std::string input;
         std::cin >> input;
         // std::cout << "Received input: " << input << std::endl;
         if (input == "exit") {
-            server.close();
+            http_server.close();
             break;
         }
     }

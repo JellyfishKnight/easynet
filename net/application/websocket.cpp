@@ -1,5 +1,6 @@
 #include "websocket.hpp"
 #include "connection.hpp"
+#include "enum_parser.hpp"
 #include "http_client.hpp"
 #include "http_parser.hpp"
 #include "http_server.hpp"
@@ -288,7 +289,9 @@ std::shared_ptr<WebSocketClient> WebSocketClient::get_shared() {
 /*************************WebSocket Server************************ */
 /*************************WebSocket Server************************ */
 
-WebSocketServer::WebSocketServer(std::shared_ptr<TcpServer> server): HttpServer(server) {}
+WebSocketServer::WebSocketServer(std::shared_ptr<TcpServer> server): HttpServer(server) {
+    set_handler();
+}
 
 void WebSocketServer::get(
     const std::string path,
@@ -382,10 +385,10 @@ void WebSocketServer::patch(
 
 std::optional<std::string>
 WebSocketServer::accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res) {
-    if (req.headers().find("Sec-WebSocket-Key") == req.headers().end()) {
+    if (req.headers().find("sec-websocket-key") == req.headers().end()) {
         return "Invalid websocket request";
     }
-    auto key = req.headers().at("Sec-WebSocket-Key");
+    auto key = req.headers().at("sec-websocket-key");
     auto accept_key = net::generate_websocket_accept_key(key);
     HttpResponse response;
     response.set_version(HTTP_VERSION_1_1)
@@ -424,13 +427,17 @@ void WebSocketServer::set_handler() {
         std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
             handler;
 
+        for (auto allowed: m_allowed_paths) {
+            std::cout << "allowed " + allowed << std::endl;
+        }
+
         // check if the request is a websocket upgrade request
-        if (request.headers().find("Upgrade") != request.headers().end()
+        if (request.headers().find("upgrade") != request.headers().end()
             && m_allowed_paths.contains(path))
         {
             // check if request is correct
-            if (request.headers().at("Upgrade") == "websocket"
-                && request.headers().at("Connection") == "Upgrade")
+            if (request.headers().at("upgrade") == "websocket"
+                && request.headers().at("connection") == "Upgrade")
             {
                 if (!m_ws_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
                     m_ws_parsers[{ conn->m_client_ip, conn->m_client_service }] =
