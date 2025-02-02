@@ -94,10 +94,10 @@ public:
     std::shared_ptr<SSLServer> get_shared();
 
     std::optional<std::string>
-    read(std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
+    read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 
     std::optional<std::string>
-    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
+    write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 
 protected:
     void handle_connection(Connection::SharedPtr conn) override;

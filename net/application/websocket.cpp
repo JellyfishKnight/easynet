@@ -562,9 +562,9 @@ std::shared_ptr<WebSocketServer> WebSocketServer::get_shared() {
     return std::static_pointer_cast<WebSocketServer>(HttpServer::get_shared());
 }
 
-void WebSocketServer::write_websocket_frame(
+std::optional<std::string> WebSocketServer::write_websocket_frame(
     const WebSocketFrame& frame,
-    Connection::SharedPtr conn
+    Connection::ConstSharedPtr conn
 ) {
     std::vector<uint8_t> data;
     if (conn == nullptr) {
@@ -575,14 +575,26 @@ void WebSocketServer::write_websocket_frame(
                 auto parser =
                     m_ws_parsers.at({ connection->m_client_ip, connection->m_client_service });
                 data = parser->write_frame(frame);
-                m_server->write(data, conn);
+
+                auto err = m_server->write(data, conn);
+                if (err.has_value()) {
+                    return err;
+                }
             }
         }
-        return;
+        return std::nullopt;
     }
     auto parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
     data = parser->write_frame(frame);
-    m_server->write(data, conn);
+    return m_server->write(data, conn);
+}
+
+std::optional<std::string>
+read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn) {
+    if (conn == nullptr) {
+        
+    }
+
 }
 
 } // namespace net

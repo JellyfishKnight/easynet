@@ -333,7 +333,8 @@ std::optional<std::string> TcpServer::start() {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+std::optional<std::string>
+TcpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     if (m_status != ConnectionStatus::CONNECTED || conn->m_status != ConnectionStatus::CONNECTED) {
         return "Server is not connected";
     }
@@ -355,7 +356,7 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connectio
 }
 
 std::optional<std::string>
-TcpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+TcpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     if (m_status != ConnectionStatus::CONNECTED) {
         return "Server is not connected";
     }

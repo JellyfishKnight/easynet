@@ -132,10 +132,10 @@ public:
                      )> handler);
 
     virtual std::optional<std::string>
-    read(std::vector<uint8_t>& data, Connection::SharedPtr conn) = 0;
+    read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) = 0;
 
     virtual std::optional<std::string>
-    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) = 0;
+    write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) = 0;
 
     std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> get_connections() const;
 

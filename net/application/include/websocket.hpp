@@ -206,7 +206,11 @@ public:
 
     std::shared_ptr<WebSocketServer> get_shared();
 
-    void write_websocket_frame(const WebSocketFrame& frame, Connection::SharedPtr conn = nullptr);
+    std::optional<std::string>
+    write_websocket_frame(const WebSocketFrame& frame, Connection::ConstSharedPtr conn = nullptr);
+
+    std::optional<std::string>
+    read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn = nullptr);
 
 private:
     std::optional<std::string>

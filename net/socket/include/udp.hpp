@@ -63,11 +63,11 @@ public:
 protected:
     [[deprecated("Udp doesn't need connection, this function will cause no effect"
     )]] std::optional<std::string>
-    read(std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
+    read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 
     [[deprecated("Udp doesn't need connection, this function will cause no effect"
     )]] std::optional<std::string>
-    write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
+    write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 };
 
 }; // namespace net

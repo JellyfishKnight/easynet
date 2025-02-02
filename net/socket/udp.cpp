@@ -137,13 +137,13 @@ UdpServer::listen() {
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect"
 )]] std::optional<std::string>
-UdpServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+UdpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     return std::nullopt;
 }
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect"
 )]] std::optional<std::string>
-UdpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+UdpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     return std::nullopt;
 }
 

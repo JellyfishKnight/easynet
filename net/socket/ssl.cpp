@@ -112,7 +112,8 @@ std::optional<std::string> SSLServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+std::optional<std::string>
+SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);
     int num_bytes = SSL_read(ssl_conn->m_ssl.get(), data.data(), data.size());
     if (num_bytes <= 0) {
@@ -123,7 +124,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, Connectio
 }
 
 std::optional<std::string>
-SSLServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+SSLServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);
     if (SSL_write(ssl_conn->m_ssl.get(), data.data(), data.size()) <= 0) {
         return "Failed to write data";
