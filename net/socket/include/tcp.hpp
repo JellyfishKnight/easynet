@@ -1,10 +1,13 @@
 #pragma once
 
+#include "defines.hpp"
 #include "socket_base.hpp"
 namespace net {
 
 class TcpClient: public SocketClient {
 public:
+    NET_DECLARE_PTRS(TcpClient)
+
     TcpClient(const std::string& ip, const std::string& service);
 
     TcpClient(const TcpClient&) = delete;
@@ -30,6 +33,8 @@ public:
 
 class TcpServer: public SocketServer {
 public:
+    NET_DECLARE_PTRS(TcpServer)
+
     TcpServer(const std::string& ip, const std::string& service);
 
     TcpServer(const TcpServer&) = delete;

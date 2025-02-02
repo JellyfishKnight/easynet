@@ -23,6 +23,8 @@ namespace net {
  */
 class HttpServer: public std::enable_shared_from_this<HttpServer> {
 public:
+    NET_DECLARE_PTRS(HttpServer)
+
     HttpServer(std::shared_ptr<TcpServer> server);
 
     HttpServer(const HttpServer&) = delete;

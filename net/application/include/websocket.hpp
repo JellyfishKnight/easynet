@@ -1,6 +1,7 @@
 #pragma once
 
 #include "connection.hpp"
+#include "defines.hpp"
 #include "http_client.hpp"
 #include "http_parser.hpp"
 #include "http_server.hpp"
@@ -22,6 +23,8 @@ enum class WebSocketStatus {
 
 class WebSocketClient: public HttpClient {
 public:
+    NET_DECLARE_PTRS(WebSocketClient)
+
     WebSocketClient(std::shared_ptr<TcpClient> client);
 
     std::optional<std::string> close();
@@ -159,6 +162,8 @@ private:
 
 class WebSocketServer: public HttpServer {
 public:
+    NET_DECLARE_PTRS(WebSocketServer)
+
     WebSocketServer(std::shared_ptr<TcpServer> client);
 
     ~WebSocketServer();

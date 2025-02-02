@@ -25,6 +25,8 @@ enum class SocketType : uint8_t {
 
 class SocketClient: std::enable_shared_from_this<SocketClient> {
 public:
+    NET_DECLARE_PTRS(SocketClient)
+
     SocketClient() = default;
 
     SocketClient(const SocketClient&) = delete;
@@ -77,6 +79,8 @@ protected:
 
 class SocketServer: std::enable_shared_from_this<SocketServer> {
 public:
+    NET_DECLARE_PTRS(SocketServer)
+
     SocketServer() = default;
 
     SocketServer(const SocketServer&) = delete;

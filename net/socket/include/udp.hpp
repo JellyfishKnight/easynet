@@ -7,6 +7,8 @@ namespace net {
 
 class UdpClient: public SocketClient {
 public:
+    NET_DECLARE_PTRS(UdpClient)
+
     UdpClient(const std::string& ip, const std::string& service);
 
     UdpClient(const UdpClient&) = delete;
@@ -34,6 +36,8 @@ public:
 
 class UdpServer: public SocketServer {
 public:
+    NET_DECLARE_PTRS(UdpServer)
+
     UdpServer(const std::string& ip, const std::string& service);
 
     UdpServer(const UdpServer&) = delete;

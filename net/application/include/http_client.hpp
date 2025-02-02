@@ -14,6 +14,8 @@ namespace net {
 
 class HttpClient: public std::enable_shared_from_this<HttpClient> {
 public:
+    NET_DECLARE_PTRS(HttpClient)
+
     HttpClient(std::shared_ptr<TcpClient> client);
 
     HttpClient(const HttpClient&) = delete;

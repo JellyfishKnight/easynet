@@ -1,6 +1,7 @@
 #pragma once
 
 #include "address_resolver.hpp"
+#include "defines.hpp"
 #include <cstdint>
 #include <memory>
 #include <sys/epoll.h>
@@ -31,9 +32,7 @@ namespace net {
 enum class ConnectionStatus { CONNECTED = 0, LISTENING, DISCONNECTED };
 
 struct Connection: std::enable_shared_from_this<Connection> {
-    using SharedPtr = std::shared_ptr<Connection>;
-
-    using ConstSharedPtr = std::shared_ptr<const Connection>;
+    NET_DECLARE_PTRS(Connection)
 
     Connection() = default;
 

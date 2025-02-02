@@ -1,5 +1,6 @@
 #pragma once
 
+#include "defines.hpp"
 #include "tcp.hpp"
 #include <cstdint>
 #include <memory>
@@ -20,7 +21,7 @@ struct SSLConnection: public Connection {
 
 class SSLContext: std::enable_shared_from_this<SSLContext> {
 public:
-    using SharedPtr = std::shared_ptr<SSLContext>;
+    NET_DECLARE_PTRS(SSLContext)
 
     SSLContext();
 
@@ -45,6 +46,8 @@ private:
 
 class SSLClient: public TcpClient {
 public:
+    NET_DECLARE_PTRS(SSLClient)
+
     SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
     ~SSLClient() = default;
@@ -71,6 +74,8 @@ protected:
 
 class SSLServer: public TcpServer {
 public:
+    NET_DECLARE_PTRS(SSLServer)
+
     SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
     ~SSLServer() = default;

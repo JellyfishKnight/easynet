@@ -27,7 +27,7 @@ std::string generate_websocket_accept_key(const std::string& client_key) {
     std::string concat = client_key + magicString;
     unsigned char hash[SHA_DIGEST_LENGTH];
     SHA1(reinterpret_cast<const unsigned char*>(concat.c_str()), concat.size(), hash);
-    return base64_encode(hash, SHA_DIGEST_LENGTH);
+    return base64_encode(std::string(reinterpret_cast<char*>(hash), SHA_DIGEST_LENGTH));
 }
 
 std::string generate_websocket_key() {
@@ -40,7 +40,7 @@ std::string generate_websocket_key() {
         byte = static_cast<unsigned char>(dist(generator));
     }
 
-    return base64_encode(key_data.data(), key_data.size());
+    return base64_encode(std::string(key_data.begin(), key_data.end()));
 }
 
 WebSocketFrame::WebSocketFrame(WebSocketOpcode opcode, const std::string& payload, bool fin) {

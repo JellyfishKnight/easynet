@@ -37,7 +37,7 @@ int main() {
             std::cout << key << ": " << value << std::endl;
         }
         std::cout << "Body: " << res.body() << std::endl;
-    }
+    } 
 
     return 0;
 }

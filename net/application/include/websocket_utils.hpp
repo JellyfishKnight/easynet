@@ -14,11 +14,11 @@
 
 namespace net {
 
-std::string base64_encode(const unsigned char* input, size_t length);
+extern std::string base64_encode(const std::string& input);
 
-std::string generate_websocket_accept_key(const std::string& client_key);
+extern std::string generate_websocket_accept_key(const std::string& client_key);
 
-std::string generate_websocket_key();
+extern std::string generate_websocket_key();
 
 enum class WebSocketOpcode : uint8_t {
     CONTINUATION = 0x0,
