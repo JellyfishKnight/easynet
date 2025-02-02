@@ -1,4 +1,5 @@
 #include "ssl.hpp"
+#include "connection.hpp"
 #include "socket_base.hpp"
 #include "tcp.hpp"
 #include <algorithm>
@@ -114,7 +115,8 @@ std::optional<std::string> SSLServer::listen() {
 
 std::optional<std::string>
 SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);
+    auto ssl_conn =
+        std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
     int num_bytes = SSL_read(ssl_conn->m_ssl.get(), data.data(), data.size());
     if (num_bytes <= 0) {
         return "Failed to read data";
@@ -125,7 +127,8 @@ SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
 
 std::optional<std::string>
 SSLServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);
+    auto ssl_conn =
+        std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
     if (SSL_write(ssl_conn->m_ssl.get(), data.data(), data.size()) <= 0) {
         return "Failed to write data";
     }
