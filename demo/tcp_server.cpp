@@ -24,12 +24,24 @@ int main() {
     try {
         server->enable_thread_pool(10);
         // server->enable_epoll(20);
-        server->add_handler([](std::vector<uint8_t>& res,
-                               std::vector<uint8_t>& req,
-                               net::Connection::ConstSharedPtr conn) {
-            std::string str { reinterpret_cast<char*>(req.data()), req.size() };
-            std::cout << str << std::endl;
-            res = req;
+        server->add_handler([server](net::Connection::ConstSharedPtr conn) {
+            while (server->status() == net::ConnectionStatus::CONNECTED) {
+                std::vector<uint8_t> req;
+                auto err = server->read(req, conn);
+                if (err.has_value()) {
+                    std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+                    continue;
+                }
+                if (req.empty()) {
+                    continue;
+                }
+                std::vector<uint8_t> res { req.begin(), req.end() };
+                auto err_write = server->write(res, conn);
+                if (err_write.has_value()) {
+                    std::cerr << "Failed to write to socket: " << err_write.value() << std::endl;
+                    continue;
+                }
+            }
         });
     } catch (std::system_error const& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;

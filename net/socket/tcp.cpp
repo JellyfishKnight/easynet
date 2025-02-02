@@ -378,30 +378,7 @@ TcpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr co
 
 void TcpServer::handle_connection(Connection::SharedPtr conn) {
     assert(m_default_handler != nullptr && "No handler set");
-    int ctrl = m_epoll_fd ? 0 : 1;
-    do {
-        std::vector<uint8_t> req(1024), res;
-        auto err = this->read(req, conn);
-        if (err.has_value()) {
-            if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", err.value());
-            }
-            std::cerr << std::format("Failed to read from socket: {}\n", err.value());
-            break;
-        }
-        m_default_handler(res, req, conn);
-        if (res.empty()) {
-            continue;
-        }
-        err = this->write(res, conn);
-        if (err.has_value()) {
-            if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", err.value());
-            }
-            std::cerr << std::format("Failed to write to socket: {}\n", err.value());
-            break;
-        }
-    } while (ctrl);
+    m_default_handler( conn);
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {

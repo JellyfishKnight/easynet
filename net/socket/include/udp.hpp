@@ -34,6 +34,12 @@ public:
     std::shared_ptr<UdpClient> get_shared();
 };
 
+/**
+ * @brief UdpServer class
+ * @note Connection in udp server is representing a client which has sent a message to the server,
+ *       the server will send the message back to the client, you can also construct a connection 
+ *       object with the client's ip and service to send message to the client you want
+ */
 class UdpServer: public SocketServer {
 public:
     NET_DECLARE_PTRS(UdpServer)
@@ -60,14 +66,14 @@ public:
 
     std::shared_ptr<UdpServer> get_shared();
 
-protected:
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
+    std::optional<std::string>
     read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
+    std::optional<std::string>
     write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+
+protected:
+    void handle_connection(Connection::SharedPtr conn) override;
 };
 
 }; // namespace net

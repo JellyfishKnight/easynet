@@ -584,17 +584,54 @@ std::optional<std::string> WebSocketServer::write_websocket_frame(
         }
         return std::nullopt;
     }
+    assert(
+        m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })
+        && "Connection is not a websocket connection"
+    );
     auto parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
     data = parser->write_frame(frame);
     return m_server->write(data, conn);
 }
 
 std::optional<std::string>
-read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn) {
+WebSocketServer::read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn) {
     if (conn == nullptr) {
-        
+        for (auto& [key, connection]: m_server->get_connections()) {
+            if (m_ws_connections_flag.contains({ connection->m_client_ip,
+                                                 connection->m_client_service }))
+            {
+                auto parser =
+                    m_ws_parsers.at({ connection->m_client_ip, connection->m_client_service });
+                std::vector<uint8_t> data;
+                auto err = m_server->read(data, conn);
+                if (err.has_value()) {
+                    return err;
+                }
+                auto result = parser->read_frame(data);
+                if (!result.has_value()) {
+                    return "Failed to read frame";
+                }
+                frame = std::move(result.value());
+                return std::nullopt;
+            }
+        }
     }
-
+    assert(
+        m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })
+        && "Connection is not a websocket connection"
+    );
+    auto parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
+    std::vector<uint8_t> data;
+    auto err = m_server->read(data, conn);
+    if (err.has_value()) {
+        return err;
+    }
+    auto result = parser->read_frame(data);
+    if (!result.has_value()) {
+        return "Failed to read frame";
+    }
+    frame = std::move(result.value());
+    return std::nullopt;
 }
 
 } // namespace net

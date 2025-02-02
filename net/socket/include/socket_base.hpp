@@ -120,16 +120,10 @@ public:
     /**
      * @brief add a handler to the server
      * @param handler the handler to be added
-     * @note the handler should take 3 arguments:
-     *      1. a reference to a vector of uint8_t which is the response
-     *      2. a reference to a vector of uint8_t which is the request
-     *      3. a const reference to a Connection object which contains the connection information
+     * @note the handler should take 1 arguments:
+     *      1. a const reference to a Connection object which contains the connection information
      */
-    void add_handler(std::function<void(
-                         std::vector<uint8_t>& res,
-                         std::vector<uint8_t>& req,
-                         Connection::ConstSharedPtr conn
-                     )> handler);
+    void add_handler(std::function<void(Connection::ConstSharedPtr conn)> handler);
 
     virtual std::optional<std::string>
     read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) = 0;
@@ -153,9 +147,7 @@ protected:
     std::string m_ip;
     std::string m_service;
 
-    std::function<
-        void(std::vector<uint8_t>& res, std::vector<uint8_t>& req, Connection::ConstSharedPtr conn)>
-        m_default_handler;
+    std::function<void(Connection::ConstSharedPtr conn)> m_default_handler;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     std::vector<struct ::epoll_event> m_events;
