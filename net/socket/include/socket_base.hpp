@@ -131,13 +131,15 @@ public:
                          Connection::ConstSharedPtr conn
                      )> handler);
 
-protected:
     virtual std::optional<std::string>
     read(std::vector<uint8_t>& data, Connection::SharedPtr conn) = 0;
 
     virtual std::optional<std::string>
     write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) = 0;
 
+    std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> get_connections() const;
+
+protected:
     virtual void handle_connection(Connection::SharedPtr conn) = 0;
 
     std::string get_error_msg();

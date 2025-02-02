@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <system_error>
 #include <unistd.h>
+#include <unordered_map>
 
 namespace net {
 
@@ -133,6 +134,15 @@ ConnectionStatus SocketServer::status() const {
 
 std::shared_ptr<SocketServer> SocketServer::get_shared() {
     return shared_from_this();
+}
+
+std::unordered_map<ConnectionKey, Connection::ConstSharedPtr>
+SocketServer::get_connections() const {
+    std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> connections;
+    for (const auto& [key, conn]: m_connections) {
+        connections[key] = conn;
+    }
+    return connections;
 }
 
 } // namespace net

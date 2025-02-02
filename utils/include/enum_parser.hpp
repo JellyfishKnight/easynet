@@ -42,7 +42,7 @@ constexpr std::string_view _enum_value_name() {
 
 #if __clang__
     #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wenum-constexpr-conversion"
+// #pragma clang diagnostic ignored "-Wenum-constexpr-conversion"
 #endif
 template<class E, size_t I0, size_t I1>
 constexpr size_t _enum_range_impl() {

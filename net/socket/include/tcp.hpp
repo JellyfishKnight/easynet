@@ -55,13 +55,13 @@ public:
 
     std::shared_ptr<TcpServer> get_shared();
 
-protected:
     std::optional<std::string>
     read(std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
 
     std::optional<std::string>
     write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) override;
 
+protected:
     void handle_connection(Connection::SharedPtr conn) override;
 };
 
