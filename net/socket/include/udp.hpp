@@ -69,7 +69,15 @@ public:
 
     std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
+    void on_message(
+        std::function<
+            void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> handler
+    );
+
 protected:
+    [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
+    on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) override;
+
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
     handle_connection(Connection::SharedPtr conn) override;
 
@@ -88,6 +96,9 @@ protected:
     [[deprecated("Udp doesn't need connection, this function will cause no effect"
     )]] std::optional<std::string>
     write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+
+    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)>
+        m_message_handler;
 };
 
 }; // namespace net

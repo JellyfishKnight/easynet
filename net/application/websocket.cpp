@@ -524,7 +524,7 @@ void WebSocketServer::set_handler() {
             }
         }
     };
-    m_server->add_handler(std::move(handler));
+    m_server->on_accept(std::move(handler));
 }
 
 WebSocketServer::~WebSocketServer() {}

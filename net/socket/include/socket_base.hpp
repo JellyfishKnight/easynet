@@ -118,12 +118,12 @@ public:
     ConnectionStatus status() const;
 
     /**
-     * @brief add a handler to the server
+     * @brief add a handler to the server to handle the connection
      * @param handler the handler to be added
      * @note the handler should take 1 arguments:
      *      1. a const reference to a Connection object which contains the connection information
      */
-    void add_handler(std::function<void(Connection::ConstSharedPtr conn)> handler);
+    virtual void on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler);
 
     virtual std::optional<std::string>
     read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) = 0;

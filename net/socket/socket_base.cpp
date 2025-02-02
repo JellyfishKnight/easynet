@@ -98,7 +98,7 @@ std::optional<std::string> SocketServer::enable_epoll(std::size_t event_num) {
     return std::nullopt;
 }
 
-void SocketServer::add_handler(std::function<void(Connection::ConstSharedPtr conn)> handler) {
+void SocketServer::on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) {
     m_default_handler = handler;
 }
 

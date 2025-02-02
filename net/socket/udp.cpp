@@ -240,79 +240,41 @@ UdpServer::start() {
                 }
                 for (int i = 0; i < num_events; ++i) {
                     if (m_events[i].events & EPOLLIN) {
-                        addressResolver::address client_addr;
-                        std::vector<uint8_t> buffer(1024);
-                        ssize_t num_bytes = ::recvfrom(
-                            m_listen_fd,
-                            buffer.data(),
-                            buffer.size(),
-                            0,
-                            &client_addr.m_addr,
-                            &client_addr.m_addr_len
-                        );
-
                         Connection::SharedPtr conn = std::make_shared<Connection>();
-                        conn->m_addr.m_addr = client_addr.m_addr;
-                        conn->m_addr.m_addr_len = client_addr.m_addr_len;
-                        conn->m_client_fd = m_listen_fd;
-                        conn->m_status = ConnectionStatus::CONNECTED;
-                        conn->m_server_ip = m_ip;
-                        conn->m_server_service = m_service;
-                        conn->m_client_ip =
-                            ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
-                        conn->m_client_service = std::to_string(
-                            ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port)
-                        );
-
-                        if (num_bytes == -1) {
+                        std::vector<uint8_t> buffer(1024);
+                        auto err = this->read(buffer, conn);
+                        if (err.has_value()) {
                             if (m_logger_set) {
                                 NET_LOG_ERROR(
                                     m_logger,
                                     "Failed to read from socket: {}",
-                                    get_error_msg()
+                                    err.value()
                                 );
                             }
                             std::cerr
-                                << std::format("Failed to read from socket: {}\n", get_error_msg());
+                                << std::format("Failed to read from socket: {}\n", err.value());
                             continue;
                         }
-                        if (num_bytes == 0) {
-                            if (m_logger_set) {
-                                NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
-                            }
-                            std::cerr << "Connection reset by peer while reading\n";
-                            continue;
-                        }
+                        m_connections.insert_or_assign(
+                            { conn->m_client_ip, conn->m_client_service },
+                            conn
+                        );
                         std::vector<uint8_t> res;
-                        m_default_handler(res, buffer, nullptr);
+                        m_message_handler(res, buffer, conn);
                         if (res.empty()) {
                             continue;
                         }
-                        num_bytes = ::sendto(
-                            m_listen_fd,
-                            res.data(),
-                            res.size(),
-                            0,
-                            &client_addr.m_addr,
-                            client_addr.m_addr_len
-                        );
-                        if (num_bytes == -1) {
+                        err = this->write(res, conn);
+                        if (err.has_value()) {
                             if (m_logger_set) {
                                 NET_LOG_ERROR(
                                     m_logger,
                                     "Failed to write to socket: {}",
-                                    get_error_msg()
+                                    err.value()
                                 );
                             }
                             std::cerr
-                                << std::format("Failed to write to socket: {}\n", get_error_msg());
-                            continue;
-                        }
-                        if (num_bytes == 0) {
-                            if (m_logger_set) {
-                                NET_LOG_WARN(m_logger, "Connection reset by peer while writing");
-                            }
-                            std::cerr << "Connection reset by peer while writing\n";
+                                << std::format("Failed to write to socket: {}\n", err.value());
                             continue;
                         }
                     }
@@ -323,60 +285,32 @@ UdpServer::start() {
         m_accept_thread = std::thread([this]() {
             while (!m_stop) {
                 // receive is handled by main thread, and compute is handled by thread pool
-                addressResolver::address client_addr;
+                Connection::SharedPtr conn = std::make_shared<Connection>();
                 std::vector<uint8_t> buffer(1024);
-                ssize_t num_bytes = ::recvfrom(
-                    m_listen_fd,
-                    buffer.data(),
-                    buffer.size(),
-                    MSG_PEEK,
-                    &client_addr.m_addr,
-                    &client_addr.m_addr_len
-                );
-                if (num_bytes == -1) {
+                auto err = read(buffer, conn);
+                if (err.has_value()) {
                     if (m_logger_set) {
-                        NET_LOG_ERROR(m_logger, "Failed to peek from socket: {}", get_error_msg());
+                        NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", err.value());
                     }
-                    std::cerr << std::format("Failed to peek from socket: {}\n", get_error_msg());
+                    std::cerr << std::format("Failed to read from socket: {}\n", err.value());
                     continue;
                 }
-                buffer.resize(num_bytes);
+                m_connections.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, conn);
                 // handle func of udp server shall only been exeute once
-                auto handle_func =
-                    [this, &buffer, &client_addr]() {
-                        std::vector<uint8_t> res, req { buffer.begin(), buffer.end() };
-                        m_default_handler(res, req, nullptr);
-                        if (res.empty()) {
-                            return;
+                auto handle_func = [this, buffer_capture = std::move(buffer), conn]() {
+                    std::vector<uint8_t> res, req = buffer_capture;
+                    m_message_handler(res, req, conn);
+                    if (res.empty()) {
+                        return;
+                    }
+                    auto err = write(res, conn);
+                    if (err.has_value()) {
+                        if (m_logger_set) {
+                            NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", err.value());
                         }
-                        ssize_t num_bytes = ::sendto(
-                            m_listen_fd,
-                            res.data(),
-                            res.size(),
-                            0,
-                            &client_addr.m_addr,
-                            client_addr.m_addr_len
-                        );
-                        if (num_bytes == -1) {
-                            if (m_logger_set) {
-                                NET_LOG_ERROR(
-                                    m_logger,
-                                    "Failed to write to socket: {}",
-                                    get_error_msg()
-                                );
-                            }
-                            std::cerr
-                                << std::format("Failed to write to socket: {}\n", get_error_msg());
-                            return;
-                        }
-                        if (num_bytes == 0) {
-                            if (m_logger_set) {
-                                NET_LOG_WARN(m_logger, "Connection reset by peer while writing");
-                            }
-                            std::cerr << std::format("Connection reset by peer while writing\n");
-                            return;
-                        }
-                    };
+                        std::cerr << std::format("Failed to write to socket: {}\n", err.value());
+                    }
+                };
                 if (m_thread_pool) {
                     m_thread_pool->submit(handle_func);
                 } else {
@@ -390,6 +324,16 @@ UdpServer::start() {
 
 std::shared_ptr<UdpServer> UdpServer::get_shared() {
     return std::static_pointer_cast<UdpServer>(SocketServer::get_shared());
+}
+
+[[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
+UdpServer::on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) {}
+
+void UdpServer::on_message(
+    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)>
+        handler
+) {
+    m_message_handler = std::move(handler);
 }
 
 } // namespace net

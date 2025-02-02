@@ -24,7 +24,7 @@ int main() {
     try {
         server->enable_thread_pool(10);
         // server->enable_epoll(20);
-        server->add_handler([server](net::Connection::ConstSharedPtr conn) {
+        server->on_accept([server](net::Connection::ConstSharedPtr conn) {
             while (server->status() == net::ConnectionStatus::CONNECTED) {
                 std::vector<uint8_t> req(1024);
                 auto err = server->read(req, conn);
