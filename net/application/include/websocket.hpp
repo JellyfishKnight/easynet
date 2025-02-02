@@ -197,10 +197,7 @@ public:
     void
     patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void add_websocket_handler(
-        std::function<
-            void(WebSocketFrame& res, WebSocketFrame& req, Connection::ConstSharedPtr conn)> handler
-    );
+    void add_websocket_handler(std::function<void(Connection::ConstSharedPtr conn)> handler);
 
     void allowed_path(const std::string& path);
 
@@ -222,8 +219,7 @@ private:
     std::unordered_set<std::string> m_allowed_paths;
     std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_ws_parsers;
 
-    std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::ConstSharedPtr conn)>
-        m_ws_handler;
+    std::function<void(Connection::ConstSharedPtr conn)> m_ws_handler;
     WebSocketStatus m_websocket_status = WebSocketStatus::DISCONNECTED;
 };
 

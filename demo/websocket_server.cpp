@@ -40,12 +40,10 @@ int main() {
 
     std::string res_str = "this is from server";
 
-    server.add_websocket_handler([&res_str](
-                                     net::WebSocketFrame& res,
-                                     net::WebSocketFrame& req,
-                                     net::Connection::ConstSharedPtr conn
-                                 ) {
-        res.set_fin(true).set_opcode(net::WebSocketOpcode::TEXT).set_payload(res_str);
+    server.add_websocket_handler([&server, &res_str](net::Connection::ConstSharedPtr conn) {
+        net::WebSocketFrame frame;
+
+        auto err = server.write_websocket_frame(frame);
     });
 
     while (true) {

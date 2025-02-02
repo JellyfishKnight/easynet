@@ -404,138 +404,124 @@ WebSocketServer::accept_ws_connection(const HttpRequest& req, std::vector<uint8_
 }
 
 void WebSocketServer::set_handler() {
-    auto http_handler = [this](
-                            std::vector<uint8_t>& res,
-                            std::vector<uint8_t>& req,
-                            Connection::ConstSharedPtr conn
-                        ) {
-        HttpRequest request;
-        HttpResponse response;
-        if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
-            m_parsers[{ conn->m_client_ip, conn->m_client_service }] =
-                std::make_shared<HttpParser>();
-        }
-        auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-        parser->read_req(req, request);
-        if (!parser->req_read_finished()) {
-            res.clear();
-            return;
-        }
-        parser->reset_state();
-        auto method = request.method();
-        auto path = request.url();
-        std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
-            handler;
+    auto http_handler = [this](Connection::ConstSharedPtr conn) {
+        while (m_server->status() == ConnectionStatus::CONNECTED) {
+            std::vector<uint8_t> req(1024);
+            std::vector<uint8_t> res;
+            auto err = m_server->read(req, conn);
+            if (err.has_value()) {
+                std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+                break;
+            }
 
-        for (auto allowed: m_allowed_paths) {
-            std::cout << "allowed " + allowed << std::endl;
-        }
-
-        // check if the request is a websocket upgrade request
-        if (request.headers().find("upgrade") != request.headers().end()
-            && m_allowed_paths.contains(path))
-        {
-            // check if request is correct
-            if (request.headers().at("upgrade") == "websocket"
-                && request.headers().at("connection") == "Upgrade")
+            HttpRequest request;
+            HttpResponse response;
+            if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
+                m_parsers[{ conn->m_client_ip, conn->m_client_service }] =
+                    std::make_shared<HttpParser>();
+            }
+            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
+            parser->read_req(req, request);
+            if (!parser->req_read_finished()) {
+                res.clear();
+                continue;
+            }
+            parser->reset_state();
+            auto method = request.method();
+            auto path = request.url();
+            std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::
+                iterator handler;
+            // check if the request is a websocket upgrade request
+            if (request.headers().find("upgrade") != request.headers().end()
+                && m_allowed_paths.contains(path))
             {
-                if (!m_ws_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
-                    m_ws_parsers[{ conn->m_client_ip, conn->m_client_service }] =
-                        std::make_shared<WebSocketParser>();
-                }
-                m_ws_connections_flag.insert({ conn->m_client_ip, conn->m_client_service });
-                auto err = accept_ws_connection(request, res);
-                if (err.has_value()) {
+                // check if request is correct
+                if (request.headers().at("upgrade") == "websocket"
+                    && request.headers().at("connection") == "Upgrade")
+                {
+                    if (!m_ws_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
+                        m_ws_parsers[{ conn->m_client_ip, conn->m_client_service }] =
+                            std::make_shared<WebSocketParser>();
+                    }
+                    m_ws_connections_flag.insert({ conn->m_client_ip, conn->m_client_service });
+                    auto err = accept_ws_connection(request, res);
+                    if (err.has_value()) {
+                        response.set_version(HTTP_VERSION_1_1)
+                            .set_status_code(HttpResponseCode::BAD_REQUEST)
+                            .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST))
+                            )
+                            .set_header("Content-Length", "0");
+                        res = parser->write_res(response);
+                    }
+                } else {
                     response.set_version(HTTP_VERSION_1_1)
                         .set_status_code(HttpResponseCode::BAD_REQUEST)
                         .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
                         .set_header("Content-Length", "0");
                     res = parser->write_res(response);
                 }
-            } else {
-                response.set_version(HTTP_VERSION_1_1)
-                    .set_status_code(HttpResponseCode::BAD_REQUEST)
-                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
-                    .set_header("Content-Length", "0");
-                res = parser->write_res(response);
+                err = m_server->write(res, conn);
+                if (err.has_value()) {
+                    std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                }
+                break;
             }
-            return;
-        }
 
-        // handle normal http request
-        try {
-            handler = m_handlers.at(method).find(path);
-        } catch (const std::out_of_range& e) {
-            if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
-                response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
-                res = parser->write_res(response);
-                return;
-            } else {
-                response.set_version(HTTP_VERSION_1_1)
-                    .set_status_code(HttpResponseCode::BAD_REQUEST)
-                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
-                    .set_header("Content-Length", "0");
-            }
-            res = parser->write_res(response);
-            return;
-        }
-        if (handler == m_handlers.at(method).end()) {
-            if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
-                response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
-                res = parser->write_res(response);
-                return;
-            } else {
-                response.set_version(HTTP_VERSION_1_1)
-                    .set_status_code(HttpResponseCode::NOT_FOUND)
-                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
-                    .set_header("Content-Length", "0");
-            }
-            res = parser->write_res(response);
-            return;
-        } else {
+            // handle normal http request
             try {
-                response = handler->second(request);
-            } catch (const HttpResponseCode& e) {
-                if (m_error_handlers.find(e) != m_error_handlers.end()) {
-                    response = m_error_handlers.at(e)(request);
+                handler = m_handlers.at(method).find(path);
+            } catch (const std::out_of_range& e) {
+                if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end())
+                {
+                    response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
                 } else {
                     response.set_version(HTTP_VERSION_1_1)
-                        .set_status_code(e)
-                        .set_reason(std::string(utils::dump_enum(e)))
+                        .set_status_code(HttpResponseCode::BAD_REQUEST)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
                         .set_header("Content-Length", "0");
                 }
             }
+
+            if (handler == m_handlers.at(method).end()) {
+                if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
+                } else {
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(HttpResponseCode::NOT_FOUND)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                        .set_header("Content-Length", "0");
+                }
+            } else {
+                try {
+                    response = handler->second(request);
+                } catch (const HttpResponseCode& e) {
+                    if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                        response = m_error_handlers.at(e)(request);
+                    } else {
+                        response.set_version(HTTP_VERSION_1_1)
+                            .set_status_code(e)
+                            .set_reason(std::string(utils::dump_enum(e)))
+                            .set_header("Content-Length", "0");
+                    }
+                }
+            }
+            res = parser->write_res(response);
+            err = m_server->write(res, conn);
+            if (err.has_value()) {
+                std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                break;
+            }
         }
-        res = parser->write_res(response);
     };
 
-    auto ws_handler = [this](
-                          std::vector<uint8_t>& res,
-                          std::vector<uint8_t>& req,
-                          Connection::ConstSharedPtr conn
-                      ) {
-        WebSocketFrame frame;
-        auto& parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
-        auto result = parser->read_frame(req);
-        if (!result.has_value()) {
-            res.clear();
-            return;
-        }
-        frame = std::move(result.value());
-        m_ws_handler(frame, frame, conn);
-        res = parser->write_frame(frame);
-    };
-
-    auto handler = [this, http_handler, ws_handler](
-                       std::vector<uint8_t>& res,
-                       std::vector<uint8_t>& req,
-                       Connection::ConstSharedPtr conn
-                   ) {
-        // parse request
-        if (m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })) {
-            ws_handler(res, req, conn);
-        } else {
-            http_handler(res, req, conn);
+    auto handler = [this, http_handler](Connection::ConstSharedPtr conn) {
+        while (m_server->status() == net::ConnectionStatus::CONNECTED) {
+            // parse request
+            if (m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })) {
+                m_ws_handler(conn);
+            } else {
+                http_handler(conn);
+            }
         }
     };
     m_server->add_handler(std::move(handler));
@@ -548,8 +534,7 @@ WebSocketStatus WebSocketServer::ws_status() const {
 }
 
 void WebSocketServer::add_websocket_handler(
-    std::function<void(WebSocketFrame& res, WebSocketFrame& req, Connection::ConstSharedPtr conn)>
-        handler
+    std::function<void(Connection::ConstSharedPtr conn)> handler
 ) {
     m_ws_handler = std::move(handler);
 }
@@ -621,14 +606,14 @@ WebSocketServer::read_websocket_frame(WebSocketFrame& frame, Connection::ConstSh
         && "Connection is not a websocket connection"
     );
     auto parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
-    std::vector<uint8_t> data;
+    std::vector<uint8_t> data(1024);
     auto err = m_server->read(data, conn);
     if (err.has_value()) {
         return err;
     }
     auto result = parser->read_frame(data);
     if (!result.has_value()) {
-        return "Failed to read frame";
+        return "Not finished yet";
     }
     frame = std::move(result.value());
     return std::nullopt;

@@ -137,72 +137,78 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 }
 
 void HttpServer::set_handler() {
-    auto handler = [this](
-                       std::vector<uint8_t>& res,
-                       std::vector<uint8_t>& req,
-                       Connection::ConstSharedPtr conn
-                   ) {
-        HttpRequest request;
-        HttpResponse response;
-        if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
-            m_parsers[{ conn->m_client_ip, conn->m_client_service }] =
-                std::make_shared<HttpParser>();
-        }
-        auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-        parser->read_req(req, request);
-        if (!parser->req_read_finished()) {
-            res.clear();
-            return;
-        }
-        parser->reset_state();
-        auto method = request.method();
-        auto path = request.url();
-        std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator
-            handler;
-        try {
-            handler = m_handlers.at(method).find(path);
-        } catch (const std::out_of_range& e) {
-            if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
-                response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
-                res = parser->write_res(response);
-                return;
-            } else {
-                response.set_version(HTTP_VERSION_1_1)
-                    .set_status_code(HttpResponseCode::BAD_REQUEST)
-                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
-                    .set_header("Content-Length", "0");
+    auto handler = [this](Connection::ConstSharedPtr conn) {
+        while (m_server->status() == net::ConnectionStatus::CONNECTED) {
+            std::vector<uint8_t> req(1024);
+            std::vector<uint8_t> res;
+            auto err = m_server->read(req, conn);
+            if (err.has_value()) {
+                std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+                break;
             }
-            res = parser->write_res(response);
-            return;
-        }
-        if (handler == m_handlers.at(method).end()) {
-            if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
-                response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
-                res = parser->write_res(response);
-                return;
-            } else {
-                response.set_version(HTTP_VERSION_1_1)
-                    .set_status_code(HttpResponseCode::NOT_FOUND)
-                    .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
-                    .set_header("Content-Length", "0");
+            HttpRequest request;
+            HttpResponse response;
+            if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
+                m_parsers[{ conn->m_client_ip, conn->m_client_service }] =
+                    std::make_shared<HttpParser>();
             }
-            res = parser->write_res(response);
-            return;
-        } else {
+            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
+            parser->read_req(req, request);
+            if (!parser->req_read_finished()) {
+                res.clear();
+                continue;
+            }
+            parser->reset_state();
+            auto method = request.method();
+            auto path = request.url();
+            std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::
+                iterator handler;
+            // if method is wrong
             try {
-                response = handler->second(request);
-            } catch (const HttpResponseCode& e) {
-                if (m_error_handlers.find(e) != m_error_handlers.end()) {
-                    response = m_error_handlers.at(e)(request);
+                handler = m_handlers.at(method).find(path);
+            } catch (const std::out_of_range& e) {
+                if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end())
+                {
+                    response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
                 } else {
                     response.set_version(HTTP_VERSION_1_1)
-                        .set_status_code(e)
-                        .set_reason(std::string(utils::dump_enum(e)))
+                        .set_status_code(HttpResponseCode::BAD_REQUEST)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
                         .set_header("Content-Length", "0");
                 }
             }
+            // if no handler for the path in this method is not found
+            if (handler == m_handlers.at(method).end()) {
+                if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
+                } else {
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(HttpResponseCode::NOT_FOUND)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                        .set_header("Content-Length", "0");
+                }
+            } else {
+                try {
+                    response = handler->second(request);
+                } catch (const HttpResponseCode& e) {
+                    if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                        response = m_error_handlers.at(e)(request);
+                    } else {
+                        response.set_version(HTTP_VERSION_1_1)
+                            .set_status_code(e)
+                            .set_reason(std::string(utils::dump_enum(e)))
+                            .set_header("Content-Length", "0");
+                    }
+                }
+            }
+            // write response to socket
+            res = parser->write_res(response);
+            err = m_server->write(res, conn);
+            if (err.has_value()) {
+                std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                break;
+            }
         }
-        res = parser->write_res(response);
     };
     m_server->add_handler(std::move(handler));
 }

@@ -1,5 +1,6 @@
 #include "udp.hpp"
 #include "address_resolver.hpp"
+#include "connection.hpp"
 #include "socket_base.hpp"
 #include <cassert>
 #include <cstdint>
@@ -135,6 +136,69 @@ UdpServer::listen() {
     return std::nullopt;
 }
 
+std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+    addressResolver::address client_addr;
+    ssize_t num_bytes = ::recvfrom(
+        m_listen_fd,
+        data.data(),
+        data.size(),
+        0,
+        &client_addr.m_addr,
+        &client_addr.m_addr_len
+    );
+    if (num_bytes == -1) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+        }
+        return get_error_msg();
+    }
+    if (num_bytes == 0) {
+        if (m_logger_set) {
+            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+        }
+        return "Connection reset by peer while reading";
+    }
+    if (conn == nullptr) {
+        conn = std::make_shared<Connection>();
+    }
+    conn->m_addr.m_addr = client_addr.m_addr;
+    conn->m_addr.m_addr_len = client_addr.m_addr_len;
+    conn->m_server_fd = m_listen_fd;
+    conn->m_status = ConnectionStatus::CONNECTED;
+    conn->m_server_ip = m_ip;
+    conn->m_server_service = m_service;
+    conn->m_client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+    conn->m_client_service =
+        std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
+    return std::nullopt;
+}
+
+std::optional<std::string>
+UdpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+    assert(conn != nullptr && "Connection is nullptr");
+    ssize_t num_bytes = ::sendto(
+        m_listen_fd,
+        data.data(),
+        data.size(),
+        0,
+        &conn->m_addr.m_addr,
+        conn->m_addr.m_addr_len
+    );
+    if (num_bytes == -1) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+        }
+        return get_error_msg();
+    }
+    if (num_bytes == 0) {
+        if (m_logger_set) {
+            NET_LOG_WARN(m_logger, "Connection reset by peer while writing");
+        }
+        return "Connection reset by peer while writing";
+    }
+    return std::nullopt;
+}
+
 [[deprecated("Udp doesn't need connection, this function will cause no effect"
 )]] std::optional<std::string>
 UdpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
@@ -158,7 +222,9 @@ std::optional<std::string> UdpServer::close() {
     return std::nullopt;
 }
 
-std::optional<std::string> UdpServer::start() {
+[[deprecated("Udp doesn't need connection, this function will cause no effect"
+)]] std::optional<std::string>
+UdpServer::start() {
     assert(m_default_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_epoll_enabled) {
@@ -184,6 +250,20 @@ std::optional<std::string> UdpServer::start() {
                             &client_addr.m_addr,
                             &client_addr.m_addr_len
                         );
+
+                        Connection::SharedPtr conn = std::make_shared<Connection>();
+                        conn->m_addr.m_addr = client_addr.m_addr;
+                        conn->m_addr.m_addr_len = client_addr.m_addr_len;
+                        conn->m_client_fd = m_listen_fd;
+                        conn->m_status = ConnectionStatus::CONNECTED;
+                        conn->m_server_ip = m_ip;
+                        conn->m_server_service = m_service;
+                        conn->m_client_ip =
+                            ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+                        conn->m_client_service = std::to_string(
+                            ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port)
+                        );
+
                         if (num_bytes == -1) {
                             if (m_logger_set) {
                                 NET_LOG_ERROR(

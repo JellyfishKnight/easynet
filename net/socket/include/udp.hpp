@@ -1,7 +1,11 @@
 #pragma once
 
+#include "connection.hpp"
 #include "socket_base.hpp"
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace net {
 
@@ -27,11 +31,12 @@ public:
 
     std::optional<std::string> close() override;
 
+    std::shared_ptr<UdpClient> get_shared();
+
+protected:
     [[deprecated("Udp doesn't need connection, this function will cause no effect"
     )]] std::optional<std::string>
     connect() override;
-
-    std::shared_ptr<UdpClient> get_shared();
 };
 
 /**
@@ -56,24 +61,33 @@ public:
 
     ~UdpServer();
 
-    [[deprecated("Udp dosen't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
-    listen() override;
-
     std::optional<std::string> close() override;
-
-    std::optional<std::string> start() override;
 
     std::shared_ptr<UdpServer> get_shared();
 
-    std::optional<std::string>
-    read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    std::optional<std::string> read(std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
-    std::optional<std::string>
-    write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
 protected:
-    void handle_connection(Connection::SharedPtr conn) override;
+    [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
+    handle_connection(Connection::SharedPtr conn) override;
+
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    listen() override;
+
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    start() override;
+
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+
+    [[deprecated("Udp doesn't need connection, this function will cause no effect"
+    )]] std::optional<std::string>
+    write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 };
 
 }; // namespace net
