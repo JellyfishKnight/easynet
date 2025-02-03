@@ -244,7 +244,7 @@ struct _http_base_parser {
         if (space2 == std::string::npos) {
             return "";
         }
-        return line.substr(space2);
+        return line.substr(space2 + 1);
     }
 
     std::string& body() {

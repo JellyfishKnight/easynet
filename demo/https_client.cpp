@@ -15,8 +15,6 @@ int main() {
 
     net::HttpClient client(ssl_client);
 
-    // client.add_ssl_context(ctx);
-
     client.connect_server();
 
     while (true) {

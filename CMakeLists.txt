@@ -88,16 +88,17 @@ find_package(GTest REQUIRED)
 
 # utils tests
 
-add_executable(LoggerTest utils/tests/test_logger.cpp)
-target_include_directories(LoggerTest PUBLIC ./utils/include)
-target_link_libraries(LoggerTest GTest::GTest utils)
+add_executable(LoggerTest tests/test_logger.cpp)
+target_link_libraries(LoggerTest GTest::GTest net::utils)
 
-add_executable(PrintTest utils/tests/test_print.cpp)
-target_include_directories(PrintTest PUBLIC ./utils/include)
-target_link_libraries(PrintTest GTest::GTest utils)
+add_executable(PrintTest tests/test_print.cpp)
+target_link_libraries(PrintTest GTest::GTest net::utils)
 
-add_executable(ThreadPoolTest utils/tests/test_thread_pool.cpp)
-target_include_directories(ThreadPoolTest PUBLIC ./utils/include)
-target_link_libraries(ThreadPoolTest GTest::GTest utils)
+add_executable(ThreadPoolTest tests/test_thread_pool.cpp)
+target_link_libraries(ThreadPoolTest GTest::GTest net::utils)
+
+add_executable(ParserTest tests/parser_test.cpp)
+target_link_libraries(ParserTest PUBLIC net::utils net::socket net::application GTest::GTest)
+
 
 
