@@ -233,12 +233,12 @@ TEST_F(ParserTest, WebSocketFrameLongReadTest) {
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
     net::WebSocketFrame res_frame;
 
-    while (true) {
-        auto res = websocket_parser.read_frame(buffer_data);
-        if (!res.has_value()) {
-            FAIL() << "frame read failed";
-        }
+    auto res = websocket_parser.read_frame(buffer_data);
+    if (!res.has_value()) {
+        FAIL() << "frame read failed";
     }
+    res_frame = res.value();
+
     ASSERT_EQ(res_frame.fin(), 1);
     ASSERT_EQ(res_frame.opcode(), net::WebSocketOpcode::TEXT);
     ASSERT_EQ(res_frame.rsv1(), 1);
