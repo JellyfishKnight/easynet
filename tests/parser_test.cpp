@@ -71,7 +71,7 @@ TEST_F(ParserTest, HttpResponseReadTest) {
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
 
     http_parser.read_res(buffer_data, res);
-    while (!http_parser.req_read_finished()) {
+    while (!http_parser.res_read_finished()) {
     };
     ASSERT_EQ(res.status_code(), net::HttpResponseCode::OK);
     ASSERT_EQ(res.reason(), std::string(utils::dump_enum(net::HttpResponseCode::OK)));
@@ -112,7 +112,7 @@ TEST_F(ParserTest, HttpResponseLongReadTest) {
     net::HttpResponse res;
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
     http_parser.read_res(buffer_data, res);
-    while (!http_parser.req_read_finished()) {
+    while (!http_parser.res_read_finished()) {
     };
 
     ASSERT_EQ(res.status_code(), net::HttpResponseCode::OK);
