@@ -2,7 +2,9 @@
 #include "http_parser.hpp"
 #include "websocket_utils.hpp"
 #include <cstdint>
+#include <cstdio>
 #include <gtest/gtest.h>
+#include <ios>
 #include <string>
 #include <vector>
 
@@ -132,9 +134,14 @@ TEST_F(ParserTest, WebSocketFrameWriteTest) {
         .set_mask(1)
         .set_payload("hello");
 
+    std::string str = "hello";
+    net::apply_mask(str, 1);
+
     auto frame_buffer = websocket_parser.write_frame(frame);
-    std::vector<uint8_t> wanted_buffer = { 0xf1, 0x85, 0x00, 0x00, 0x00, 0x01,
-                                           'h',  'e',  'l',  'l',  'o' };
+    std::vector<uint8_t> wanted_buffer = { 0xf1, 0x85, 0x00, 0x00, 0x00, 0x01 };
+    for (auto& c: str) {
+        wanted_buffer.push_back(c);
+    }
     //"\xF1\x85\0\0\0\x01hello";
     ASSERT_EQ(frame_buffer, wanted_buffer);
 }
@@ -154,6 +161,8 @@ TEST_F(ParserTest, WebSocketFrameLongWriteTest) {
         .set_mask(1)
         .set_payload(body);
 
+    net::apply_mask(body, 1);
+
     auto frame_buffer = websocket_parser.write_frame(frame);
     std::vector<uint8_t> wanted_buffer;
     wanted_buffer.push_back(0xf1);
@@ -164,28 +173,8 @@ TEST_F(ParserTest, WebSocketFrameLongWriteTest) {
     wanted_buffer.push_back(0x00);
     wanted_buffer.push_back(0x00);
     wanted_buffer.push_back(0x01);
-    for (int i = 0; i < 1000; i++) {
-        wanted_buffer.push_back('t');
-        wanted_buffer.push_back('h');
-        wanted_buffer.push_back('i');
-        wanted_buffer.push_back('s');
-        wanted_buffer.push_back(' ');
-        wanted_buffer.push_back('i');
-        wanted_buffer.push_back('s');
-        wanted_buffer.push_back(' ');
-        wanted_buffer.push_back('a');
-        wanted_buffer.push_back(' ');
-        wanted_buffer.push_back('b');
-        wanted_buffer.push_back('u');
-        wanted_buffer.push_back('f');
-        wanted_buffer.push_back('f');
-        wanted_buffer.push_back('e');
-        wanted_buffer.push_back('r');
-        wanted_buffer.push_back(' ');
-        wanted_buffer.push_back('t');
-        wanted_buffer.push_back('e');
-        wanted_buffer.push_back('s');
-        wanted_buffer.push_back('t');
+    for (auto& c: body) {
+        wanted_buffer.push_back(c);
     }
     ASSERT_EQ(frame_buffer, wanted_buffer);
 }

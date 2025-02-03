@@ -42,6 +42,13 @@ int main() {
 
     server.add_websocket_handler([&server, &res_str](net::Connection::ConstSharedPtr conn) {
         net::WebSocketFrame frame;
+        frame.set_fin(1)
+            .set_rsv1(0)
+            .set_rsv2(0)
+            .set_rsv3(0)
+            .set_opcode(net::WebSocketOpcode::TEXT)
+            .set_mask(0)
+            .set_payload(res_str);
 
         auto err = server.write_websocket_frame(frame);
     });

@@ -20,6 +20,8 @@ extern std::string generate_websocket_accept_key(const std::string& client_key);
 
 extern std::string generate_websocket_key();
 
+extern void apply_mask(std::string& data, uint32_t mask);
+
 enum class WebSocketOpcode : uint8_t {
     CONTINUATION = 0x0,
     TEXT = 0x1,
@@ -96,9 +98,12 @@ private:
 struct websocket_parser {
     std::string m_buffer;
     std::queue<WebSocketFrame> m_frames;
+    bool m_header_find = false;
     bool m_finished_frame = false;
 
     void push_chunk(const std::string& chunk);
+
+    bool parse_header(const std::vector<uint8_t>& header);
 
     void reset_state();
 

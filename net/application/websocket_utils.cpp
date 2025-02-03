@@ -1,10 +1,12 @@
 #include "websocket_utils.hpp"
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <ios>
 #include <iostream>
+#include <netinet/in.h>
 #include <optional>
 #include <random>
 #include <vector>
@@ -44,6 +46,16 @@ std::string generate_websocket_key() {
     }
 
     return base64_encode(std::string(key_data.begin(), key_data.end()));
+}
+
+void apply_mask(std::string& data, uint32_t mask) {
+    const std::vector<uint8_t> mask_key = { static_cast<uint8_t>(mask >> 24),
+                                            static_cast<uint8_t>(mask >> 16),
+                                            static_cast<uint8_t>(mask >> 8),
+                                            static_cast<uint8_t>(mask) };
+    for (size_t i = 0; i < data.size(); i++) {
+        data[i] ^= mask_key[i % 4];
+    }
 }
 
 WebSocketFrame::WebSocketFrame(WebSocketOpcode opcode, const std::string& payload, bool fin) {
@@ -180,6 +192,7 @@ void websocket_parser::reset_state() {
     m_buffer.clear();
     m_frames = std::queue<WebSocketFrame>();
     m_finished_frame = false;
+    m_header_find = false;
 }
 
 bool websocket_parser::has_finished_frame() const {
@@ -195,8 +208,26 @@ std::optional<WebSocketFrame> websocket_parser::read_frame() {
     return frame;
 }
 
+bool is_valid_opcode(uint8_t opcode) {
+    return opcode == 0x0 || opcode == 0x1 || opcode == 0x2 || opcode == 0x8 || opcode == 0x9
+        || opcode == 0xA;
+}
+
+bool websocket_parser::parse_header(const std::vector<uint8_t>& header) {
+    assert(header.size() == 2 && "Invalid header size");
+    uint8_t byte1 = header[0];
+    uint8_t byte2 = header[1];
+    auto opcode = static_cast<WebSocketOpcode>(byte1 & 0x0F);
+    if (!is_valid_opcode(byte1 & 0x0F)) {
+        return false;
+    }
+
+    return true;
+}
+
 void websocket_parser::push_chunk(const std::string& chunk) {
-    /// TODO: Implement this
+    if (!m_header_find) {
+    }
     if (!m_finished_frame) {
         m_buffer.append(chunk);
         if (m_buffer.size() < 2) {
@@ -242,7 +273,12 @@ void websocket_parser::push_chunk(const std::string& chunk) {
             );
         }
         uint8_t mask_size = frame.masked() ? 4 : 0;
-        frame.set_payload(m_buffer.substr(head_size + mask_size, length));
+        auto pay_load = m_buffer.substr(head_size + mask_size, length);
+        if (frame.masked()) {
+            apply_mask(pay_load, frame.mask());
+        }
+        frame.set_payload(pay_load);
+
         m_buffer = m_buffer.substr(head_size + mask_size + length);
         m_frames.push(frame);
         m_finished_frame = true;
@@ -295,7 +331,12 @@ void websocket_writer::write_frame(const WebSocketFrame& frame) {
         head_size += 4;
     }
     m_buffer.resize(head_size);
-    m_buffer.append(frame.payload());
+    auto pay_load = frame.payload();
+    // mask data
+    if (frame.masked()) {
+        apply_mask(pay_load, frame.mask());
+    }
+    m_buffer.append(pay_load);
 }
 
 std::vector<uint8_t> WebSocketParser::write_frame(const WebSocketFrame& frame) {

@@ -42,7 +42,7 @@ std::optional<std::string> WebSocketClient::read_ws(WebSocketFrame& data) {
         data = std::move(frame.value());
         return std::nullopt;
     } else {
-        return "Failed to read frame";
+        return "Failed to parse frame";
     }
 }
 
@@ -561,7 +561,7 @@ std::optional<std::string> WebSocketServer::write_websocket_frame(
                     m_ws_parsers.at({ connection->m_client_ip, connection->m_client_service });
                 data = parser->write_frame(frame);
 
-                auto err = m_server->write(data, conn);
+                auto err = m_server->write(data, connection);
                 if (err.has_value()) {
                     return err;
                 }
@@ -588,13 +588,13 @@ WebSocketServer::read_websocket_frame(WebSocketFrame& frame, Connection::ConstSh
                 auto parser =
                     m_ws_parsers.at({ connection->m_client_ip, connection->m_client_service });
                 std::vector<uint8_t> data;
-                auto err = m_server->read(data, conn);
+                auto err = m_server->read(data, connection);
                 if (err.has_value()) {
                     return err;
                 }
                 auto result = parser->read_frame(data);
                 if (!result.has_value()) {
-                    return "Failed to read frame";
+                    return "Failed to parse frame";
                 }
                 frame = std::move(result.value());
                 return std::nullopt;
