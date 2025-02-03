@@ -221,7 +221,7 @@ void websocket_parser::push_chunk(const std::string& chunk) {
             if (m_buffer.size() < 4) {
                 return;
             }
-            length = (m_buffer[2] << 8) | m_buffer[3];
+            length = (static_cast<uint64_t>(m_buffer[2]) << 8) | m_buffer[3];
             head_size = 4;
         } else {
             if (m_buffer.size() < 10) {
@@ -270,11 +270,11 @@ void websocket_writer::write_frame(const WebSocketFrame& frame) {
     m_buffer[0] |= static_cast<uint8_t>(frame.opcode());
     m_buffer[1] |= static_cast<uint8_t>(frame.masked()) << 7;
     m_buffer[1] |= frame.payload_length() < 126 ? frame.payload_length() : 126;
-    if (frame.payload_length() == 126) {
+    if (frame.payload_length() >= 126 && frame.payload_length() < 65536) {
         m_buffer[2] = frame.payload_length() >> 8;
         m_buffer[3] = frame.payload_length();
         head_size = 4;
-    } else if (frame.payload_length() == 127) {
+    } else if (frame.payload_length() >= 65536) {
         m_buffer[2] = frame.payload_length() >> 56;
         m_buffer[3] = frame.payload_length() >> 48;
         m_buffer[4] = frame.payload_length() >> 40;

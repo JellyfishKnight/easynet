@@ -139,6 +139,57 @@ TEST_F(ParserTest, WebSocketFrameWriteTest) {
     ASSERT_EQ(frame_buffer, wanted_buffer);
 }
 
+TEST_F(ParserTest, WebSocketFrameLongWriteTest) {
+    std::string body;
+    for (int i = 0; i < 1000; i++) {
+        body += "this is a buffer test";
+    }
+
+    net::WebSocketFrame frame;
+    frame.set_fin(1)
+        .set_opcode(net::WebSocketOpcode::TEXT)
+        .set_rsv1(1)
+        .set_rsv2(1)
+        .set_rsv3(1)
+        .set_mask(1)
+        .set_payload(body);
+
+    auto frame_buffer = websocket_parser.write_frame(frame);
+    std::vector<uint8_t> wanted_buffer;
+    wanted_buffer.push_back(0xf1);
+    wanted_buffer.push_back(0xfe);
+    wanted_buffer.push_back(0x52);
+    wanted_buffer.push_back(0x08);
+    wanted_buffer.push_back(0x00);
+    wanted_buffer.push_back(0x00);
+    wanted_buffer.push_back(0x00);
+    wanted_buffer.push_back(0x01);
+    for (int i = 0; i < 1000; i++) {
+        wanted_buffer.push_back('t');
+        wanted_buffer.push_back('h');
+        wanted_buffer.push_back('i');
+        wanted_buffer.push_back('s');
+        wanted_buffer.push_back(' ');
+        wanted_buffer.push_back('i');
+        wanted_buffer.push_back('s');
+        wanted_buffer.push_back(' ');
+        wanted_buffer.push_back('a');
+        wanted_buffer.push_back(' ');
+        wanted_buffer.push_back('b');
+        wanted_buffer.push_back('u');
+        wanted_buffer.push_back('f');
+        wanted_buffer.push_back('f');
+        wanted_buffer.push_back('e');
+        wanted_buffer.push_back('r');
+        wanted_buffer.push_back(' ');
+        wanted_buffer.push_back('t');
+        wanted_buffer.push_back('e');
+        wanted_buffer.push_back('s');
+        wanted_buffer.push_back('t');
+    }
+    ASSERT_EQ(frame_buffer, wanted_buffer);
+}
+
 TEST_F(ParserTest, WebSocketFrameReadTest) {
     net::WebSocketFrame generate_frame;
     generate_frame.set_fin(1)
@@ -162,6 +213,40 @@ TEST_F(ParserTest, WebSocketFrameReadTest) {
     ASSERT_EQ(frame->masked(), 1);
     ASSERT_EQ(frame->payload(), "hello");
     ASSERT_EQ(frame->mask(), 1);
+}
+
+TEST_F(ParserTest, WebSocketFrameLongReadTest) {
+    std::string body;
+    for (int i = 0; i < 1000; i++) {
+        body += "this is a buffer test";
+    }
+
+    net::WebSocketFrame generate_frame;
+    generate_frame.set_fin(1)
+        .set_opcode(net::WebSocketOpcode::TEXT)
+        .set_rsv1(1)
+        .set_rsv2(1)
+        .set_rsv3(1)
+        .set_mask(1)
+        .set_payload(body);
+    auto buffer = websocket_parser.write_frame(generate_frame);
+    std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
+    net::WebSocketFrame res_frame;
+
+    while (true) {
+        auto res = websocket_parser.read_frame(buffer_data);
+        if (!res.has_value()) {
+            FAIL() << "frame read failed";
+        }
+    }
+    ASSERT_EQ(res_frame.fin(), 1);
+    ASSERT_EQ(res_frame.opcode(), net::WebSocketOpcode::TEXT);
+    ASSERT_EQ(res_frame.rsv1(), 1);
+    ASSERT_EQ(res_frame.rsv2(), 1);
+    ASSERT_EQ(res_frame.rsv3(), 1);
+    ASSERT_EQ(res_frame.masked(), 1);
+    ASSERT_EQ(res_frame.payload(), body);
+    ASSERT_EQ(res_frame.mask(), 1);
 }
 
 int main() {
