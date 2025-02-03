@@ -122,6 +122,48 @@ TEST_F(ParserTest, HttpResponseLongReadTest) {
     ASSERT_EQ(res.body(), body);
 }
 
+TEST_F(ParserTest, WebSocketFrameWriteTest) {
+    net::WebSocketFrame frame;
+    frame.set_fin(1)
+        .set_opcode(net::WebSocketOpcode::TEXT)
+        .set_rsv1(1)
+        .set_rsv2(1)
+        .set_rsv3(1)
+        .set_mask(1)
+        .set_payload("hello");
+
+    auto frame_buffer = websocket_parser.write_frame(frame);
+    std::vector<uint8_t> wanted_buffer = { 0xf1, 0x85, 0x00, 0x00, 0x00, 0x01,
+                                           'h',  'e',  'l',  'l',  'o' };
+    //"\xF1\x85\0\0\0\x01hello";
+    ASSERT_EQ(frame_buffer, wanted_buffer);
+}
+
+TEST_F(ParserTest, WebSocketFrameReadTest) {
+    net::WebSocketFrame generate_frame;
+    generate_frame.set_fin(1)
+        .set_opcode(net::WebSocketOpcode::TEXT)
+        .set_rsv1(1)
+        .set_rsv2(1)
+        .set_rsv3(1)
+        .set_mask(1)
+        .set_payload("hello");
+    auto buffer = websocket_parser.write_frame(generate_frame);
+    std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
+    auto frame = websocket_parser.read_frame(buffer_data);
+    if (!frame.has_value()) {
+        FAIL() << "frame read failed";
+    }
+    ASSERT_EQ(frame->fin(), 1);
+    ASSERT_EQ(frame->opcode(), net::WebSocketOpcode::TEXT);
+    ASSERT_EQ(frame->rsv1(), 1);
+    ASSERT_EQ(frame->rsv2(), 1);
+    ASSERT_EQ(frame->rsv3(), 1);
+    ASSERT_EQ(frame->masked(), 1);
+    ASSERT_EQ(frame->payload(), "hello");
+    ASSERT_EQ(frame->mask(), 1);
+}
+
 int main() {
     testing::InitGoogleTest();
     return RUN_ALL_TESTS();

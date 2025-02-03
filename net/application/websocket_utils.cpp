@@ -2,6 +2,9 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <ios>
+#include <iostream>
 #include <optional>
 #include <random>
 #include <vector>
@@ -211,7 +214,10 @@ void websocket_parser::push_chunk(const std::string& chunk) {
         uint8_t payload_length = byte2 & 0x7F;
         uint64_t length = 0;
         uint8_t head_size = 2;
-        if (payload_length == 126) {
+        if (payload_length < 126) {
+            length = payload_length;
+            head_size = 2;
+        } else if (payload_length == 126) {
             if (m_buffer.size() < 4) {
                 return;
             }
@@ -227,18 +233,20 @@ void websocket_parser::push_chunk(const std::string& chunk) {
             head_size = 10;
         }
         if (frame.masked()) {
-            if (m_buffer.size() < 14) {
+            if (m_buffer.size() < head_size + 4) {
                 return;
             }
             frame.set_mask(
-                (m_buffer[10] << 24) | (m_buffer[11] << 16) | (m_buffer[12] << 8) | m_buffer[13]
+                (m_buffer[head_size] << 24) | (m_buffer[head_size + 1] << 16)
+                | (m_buffer[head_size + 2] << 8) | m_buffer[head_size + 3]
             );
         }
-        frame.set_payload(m_buffer.substr(head_size, length));
-        m_buffer = m_buffer.substr(head_size + length);
+        uint8_t mask_size = frame.masked() ? 4 : 0;
+        frame.set_payload(m_buffer.substr(head_size + mask_size, length));
+        m_buffer = m_buffer.substr(head_size + mask_size + length);
         m_frames.push(frame);
         m_finished_frame = true;
-        if (m_buffer.empty()) {
+        if (!m_buffer.empty()) {
             m_finished_frame = false;
         }
     }
@@ -254,13 +262,13 @@ void websocket_writer::reset_state() {
 
 void websocket_writer::write_frame(const WebSocketFrame& frame) {
     std::size_t head_size = 0;
-    m_buffer.resize(1024);
-    m_buffer[0] |= frame.fin() << 8;
-    m_buffer[0] |= frame.rsv1() << 7;
-    m_buffer[0] |= frame.rsv2() << 6;
-    m_buffer[0] |= frame.rsv3() << 5;
+    m_buffer.resize(1024, 0);
+    m_buffer[0] |= static_cast<uint8_t>(frame.fin()) << 7;
+    m_buffer[0] |= static_cast<uint8_t>(frame.rsv1()) << 6;
+    m_buffer[0] |= static_cast<uint8_t>(frame.rsv2()) << 5;
+    m_buffer[0] |= static_cast<uint8_t>(frame.rsv3()) << 4;
     m_buffer[0] |= static_cast<uint8_t>(frame.opcode());
-    m_buffer[1] |= frame.masked() << 7;
+    m_buffer[1] |= static_cast<uint8_t>(frame.masked()) << 7;
     m_buffer[1] |= frame.payload_length() < 126 ? frame.payload_length() : 126;
     if (frame.payload_length() == 126) {
         m_buffer[2] = frame.payload_length() >> 8;
