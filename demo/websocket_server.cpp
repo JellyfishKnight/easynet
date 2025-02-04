@@ -51,10 +51,13 @@ int main() {
             .set_payload(res_str);
 
         auto err = server.write_websocket_frame(frame);
+
+        std::cout << "Sent: " + res_str << std::endl;
     });
 
     while (true) {
         std::cin >> res_str;
+        std::cout << "input: " + res_str << std::endl;
         if (res_str == "exit") {
             server.close();
             return 0;

@@ -190,7 +190,7 @@ std::string& websocket_parser::buffer_raw() {
 
 void websocket_parser::reset_state() {
     m_buffer.clear();
-    m_frames = std::queue<WebSocketFrame>();
+    // m_frames = std::queue<WebSocketFrame>();
     m_finished_frame = false;
     m_header_find = false;
 }
@@ -205,6 +205,7 @@ std::optional<WebSocketFrame> websocket_parser::read_frame() {
     }
     WebSocketFrame frame = m_frames.front();
     m_frames.pop();
+    m_finished_frame = false;
     return frame;
 }
 
@@ -213,23 +214,32 @@ bool is_valid_opcode(uint8_t opcode) {
         || opcode == 0xA;
 }
 
-bool websocket_parser::parse_header(const std::vector<uint8_t>& header) {
-    assert(header.size() == 2 && "Invalid header size");
-    uint8_t byte1 = header[0];
-    uint8_t byte2 = header[1];
-    auto opcode = static_cast<WebSocketOpcode>(byte1 & 0x0F);
-    if (!is_valid_opcode(byte1 & 0x0F)) {
-        return false;
+std::size_t websocket_parser::find_header(const std::vector<uint8_t>& buffer) {
+    assert(buffer.size() >= 2 && "Invalid header size");
+    for (std::size_t i = 0; i < buffer.size() - 1; ++i) {
+        auto byte1 = buffer[i];
+        auto byte2 = buffer[i + 1];
+        auto opcode = byte1 & 0x0F;
+        if (is_valid_opcode(opcode)) {
+            m_header_find = true;
+            return i;
+        }
     }
+    m_header_find = false;
+    return buffer.size();
+}
 
-    return true;
+bool websocket_parser::buffer_empty() const {
+    return m_buffer.empty();
 }
 
 void websocket_parser::push_chunk(const std::string& chunk) {
+    auto start = 0;
     if (!m_header_find) {
+        start = find_header(std::vector<uint8_t>(chunk.begin(), chunk.end()));
     }
     if (!m_finished_frame) {
-        m_buffer.append(chunk);
+        m_buffer.append(chunk.substr(start));
         if (m_buffer.size() < 2) {
             return;
         }
@@ -280,9 +290,11 @@ void websocket_parser::push_chunk(const std::string& chunk) {
         frame.set_payload(pay_load);
 
         m_buffer = m_buffer.substr(head_size + mask_size + length);
+        auto frames_size = m_frames.size();
         m_frames.push(frame);
-        m_finished_frame = true;
-        if (!m_buffer.empty()) {
+        if (frames_size < m_frames.size()) {
+            m_finished_frame = true;
+        } else {
             m_finished_frame = false;
         }
     }
@@ -346,6 +358,10 @@ std::vector<uint8_t> WebSocketParser::write_frame(const WebSocketFrame& frame) {
 }
 
 std::optional<WebSocketFrame> WebSocketParser::read_frame(const std::vector<uint8_t>& data) {
+    if (m_parser.buffer_empty()) {
+        m_parser.reset_state();
+    }
+
     std::string chunk(data.begin(), data.end());
     m_parser.push_chunk(chunk);
     if (m_parser.has_finished_frame()) {

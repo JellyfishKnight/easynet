@@ -103,11 +103,13 @@ struct websocket_parser {
 
     void push_chunk(const std::string& chunk);
 
-    bool parse_header(const std::vector<uint8_t>& header);
+    std::size_t find_header(const std::vector<uint8_t>& buffer);
 
     void reset_state();
 
     std::string& buffer_raw();
+
+    bool buffer_empty() const;
 
     std::optional<WebSocketFrame> read_frame();
 
