@@ -421,11 +421,11 @@ void WebSocketServer::set_handler() {
                     std::make_shared<HttpParser>();
             }
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            auto not_finished = parser->read_req(request, req);
-            if (not_finished.has_value()) {
-                res.clear();
-                continue;
-            }
+            // auto not_finished = parser->read_req(request, req);
+            // if (not_finished.has_value()) {
+            //     res.clear();
+            //     continue;
+            // }
             auto method = request.method();
             auto path = request.url();
             std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::

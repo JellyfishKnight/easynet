@@ -393,14 +393,13 @@ public:
 
     std::vector<uint8_t> write_res(const HttpResponse& res);
 
-    std::optional<std::string> read_req(HttpRequest& out_req, const std::vector<uint8_t>& req = {});
+    std::optional<HttpRequest> read_req();
 
-    std::optional<std::string>
-    read_res(HttpResponse& out_res, const std::vector<uint8_t>& res = {});
+    void add_req_read_buffer(const std::vector<uint8_t>& buffer);
 
-    bool req_read_finished();
+    std::optional<HttpResponse> read_res();
 
-    bool res_read_finished();
+    void add_res_read_buffer(const std::vector<uint8_t>& buffer);
 
 private:
     http_response_parser<> m_res_parser;

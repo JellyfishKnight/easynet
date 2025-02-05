@@ -270,44 +270,42 @@ std::vector<uint8_t> HttpParser::write_res(const HttpResponse& res) {
     return std::vector<uint8_t>(m_res_writer.buffer().begin(), m_res_writer.buffer().end());
 }
 
-std::optional<std::string>
-HttpParser::read_req(HttpRequest& out_req, const std::vector<uint8_t>& req) {
-    m_req_read_buffer.insert(m_req_read_buffer.end(), req.begin(), req.end());
-    m_req_parser.push_chunk(m_req_read_buffer);
-    if (m_req_parser.request_finished()) {
-        out_req.set_method(m_req_parser.method());
-        out_req.set_url(m_req_parser.url());
-        out_req.set_version(m_req_parser.version());
-        out_req.set_headers(m_req_parser.headers());
-        out_req.set_body(m_req_parser.body());
+std::optional<HttpRequest> HttpParser::read_req() {
+    if (m_req_parser.header_finished()) {
+        HttpRequest req;
+        req.set_method(m_req_parser.method())
+            .set_url(m_req_parser.url())
+            .set_version(m_req_parser.version())
+            .set_headers(m_req_parser.headers())
+            .set_body(m_req_parser.body());
         m_req_parser.reset_state();
-        return std::nullopt;
+        return req;
     }
-    return "Not finished last request";
+    return std::nullopt;
 }
 
-std::optional<std::string>
-HttpParser::read_res(HttpResponse& out_res, const std::vector<uint8_t>& res) {
-    m_res_read_buffer.insert(m_res_read_buffer.end(), res.begin(), res.end());
-    m_res_parser.push_chunk(m_res_read_buffer);
-    if (m_res_parser.request_finished()) {
-        out_res.set_version(m_res_parser.version());
-        out_res.set_status_code(static_cast<HttpResponseCode>(m_res_parser.status()));
-        out_res.set_reason(std::string(utils::dump_enum(out_res.status_code())));
-        out_res.set_headers(m_res_parser.headers());
-        out_res.set_body(m_res_parser.body());
+void HttpParser::add_req_read_buffer(const std::vector<uint8_t>& buffer) {
+    m_req_read_buffer.insert(m_req_read_buffer.end(), buffer.begin(), buffer.end());
+    m_req_parser.push_chunk(m_req_read_buffer);
+}
+
+std::optional<HttpResponse> HttpParser::read_res() {
+    if (m_res_parser.header_finished()) {
+        HttpResponse res;
+        res.set_version(m_res_parser.version())
+            .set_status_code(static_cast<HttpResponseCode>(m_res_parser.status()))
+            .set_reason(std::string(utils::dump_enum(res.status_code())))
+            .set_headers(m_res_parser.headers())
+            .set_body(m_res_parser.body());
         m_res_parser.reset_state();
-        return std::nullopt;
+        return res;
     }
-    return "Not finished last response";
+    return std::nullopt;
 }
 
-bool HttpParser::req_read_finished() {
-    return m_req_parser.request_finished();
-}
-
-bool HttpParser::res_read_finished() {
-    return m_res_parser.request_finished();
+void HttpParser::add_res_read_buffer(const std::vector<uint8_t>& buffer) {
+    m_res_read_buffer.insert(m_res_read_buffer.end(), buffer.begin(), buffer.end());
+    m_res_parser.push_chunk(m_res_read_buffer);
 }
 
 } // namespace net

@@ -138,7 +138,7 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 
 void HttpServer::set_handler() {
     auto parser_thread = [this](Connection::ConstSharedPtr conn) {
-        m_response_buffer_queue.insert_or_assign(
+        m_request_buffer_queue.insert_or_assign(
             { conn->m_client_ip, conn->m_client_service },
             std::queue<HttpResponse>()
         );
@@ -155,12 +155,18 @@ void HttpServer::set_handler() {
                 std::cerr << "Failed to read from socket: " << err.value() << std::endl;
                 break;
             }
-            HttpRequest request;
+            std::optional<HttpRequest> req_opt;
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            parser->read_req(request, req);
-            if (!parser->req_read_finished()) {
-                res.clear();
-                continue;
+            auto& request_buffer =
+                m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
+            parser->add_req_read_buffer(req);
+            while (true) {
+                req_opt = parser->read_req();
+                if (req_opt.has_value()) {
+                    request_buffer.push(std::move(req_opt.value()));
+                } else {
+                    break;
+                }
             }
         }
     };
@@ -181,11 +187,11 @@ void HttpServer::set_handler() {
                     std::make_shared<HttpParser>();
             }
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            auto not_finished = parser->read_req(request, req);
-            if (not_finished.has_value()) {
-                res.clear();
-                continue;
-            }
+            // auto not_finished = parser->read_req(request, req);
+            // if (not_finished.has_value()) {
+            //     res.clear();
+            //     continue;
+            // }
             auto method = request.method();
             auto path = request.url();
             std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::

@@ -19,15 +19,17 @@ HttpClient::HttpClient(std::shared_ptr<TcpClient> client) {
 
 std::optional<std::string> HttpClient::read_http(HttpResponse& res) {
     std::vector<uint8_t> buffer(1024);
-    std::optional<std::string> not_finished;
+    std::optional<HttpResponse> res_opt;
     do {
         buffer.resize(1024);
         auto err = m_client->read(buffer);
         if (err.has_value()) {
             return err;
         }
-        not_finished = m_parser->read_res(res, buffer);
-    } while (not_finished.has_value());
+        m_parser->add_res_read_buffer(buffer);
+        res_opt = m_parser->read_res();
+    } while (!res_opt.has_value());
+    res = std::move(res_opt.value());
     return std::nullopt;
 }
 
