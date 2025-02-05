@@ -19,7 +19,11 @@ int main() {
     net::TcpServer::SharedPtr tcp_server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
     net::HttpServer server(tcp_server);
 
-    server.listen();
+    auto err = server.listen();
+    if (err.has_value()) {
+        std::cout << "Failed to listening: " + err.value() << std::endl;
+        return 1;
+    }
 
     auto content = readFileToString("/home/jk/Projects/net/index/index.html");
 

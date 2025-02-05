@@ -191,8 +191,11 @@ void http11_header_parser::push_chunk(std::string& chunk) {
             size_t body_len = std::stoul(content_length->second);
             if (header_len + 4 + body_len <= header.size()) {
                 m_body = header.substr(header_len + 4, body_len);
+                chunk = chunk.substr(header_len + 4 + body_len);
+            } else {
+                m_body = header.substr(header_len + 4, header.size() - header_len - 4);
+                chunk.clear();
             }
-            chunk = chunk.substr(header_len + 4 + body_len);
         }
     }
 }
@@ -266,7 +269,7 @@ std::vector<uint8_t> HttpParser::write_res(const HttpResponse& res) {
 }
 
 std::optional<HttpRequest> HttpParser::read_req() {
-    if (m_req_parser.header_finished()) {
+    if (m_req_parser.request_finished()) {
         HttpRequest req;
         req.set_method(m_req_parser.method())
             .set_url(m_req_parser.url())
@@ -274,6 +277,7 @@ std::optional<HttpRequest> HttpParser::read_req() {
             .set_headers(m_req_parser.headers())
             .set_body(m_req_parser.body());
         m_req_parser.reset_state();
+        add_req_read_buffer({});
         return req;
     }
     return std::nullopt;
@@ -285,7 +289,7 @@ void HttpParser::add_req_read_buffer(const std::vector<uint8_t>& buffer) {
 }
 
 std::optional<HttpResponse> HttpParser::read_res() {
-    if (m_res_parser.header_finished()) {
+    if (m_res_parser.request_finished()) {
         HttpResponse res;
         res.set_version(m_res_parser.version())
             .set_status_code(static_cast<HttpResponseCode>(m_res_parser.status()))
@@ -293,6 +297,7 @@ std::optional<HttpResponse> HttpParser::read_res() {
             .set_headers(m_res_parser.headers())
             .set_body(m_res_parser.body());
         m_res_parser.reset_state();
+        add_res_read_buffer({});
         return res;
     }
     return std::nullopt;
