@@ -233,7 +233,7 @@ bool websocket_parser::buffer_empty() const {
     return m_buffer.empty();
 }
 
-void websocket_parser::push_chunk(const std::string& chunk) {
+void websocket_parser::push_chunk(std::string& chunk) {
     auto start = 0;
     if (!m_header_find) {
         start = find_header(std::vector<uint8_t>(chunk.begin(), chunk.end()));

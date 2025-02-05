@@ -53,17 +53,30 @@ TEST_F(ParserTest, HttpResponseWriteTest) {
 }
 
 TEST_F(ParserTest, HttpRequestReadTest) {
-    std::string buffer = "POST /test HTTP/1.1\r\nContent-Length: 19\r\n\r\nthis is a post test";
+    std::string buffer =
+        "POST /test HTTP/1.1\r\nContent-Length: 19\r\n\r\nthis is a post testPOST /test HTTP/1.1\r\nContent-Length: 19\r\n\r\nthis is a post test";
     net::HttpRequest req;
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
-    http_parser.read_req(buffer_data, req);
-    while (!http_parser.req_read_finished()) {
+    auto not_finished = http_parser.read_req(req, buffer_data);
+    while (not_finished.has_value()) {
     };
     ASSERT_EQ(req.method(), net::HttpMethod::POST);
     ASSERT_EQ(req.url(), "/test");
     ASSERT_EQ(req.version(), HTTP_VERSION_1_1);
     ASSERT_EQ(req.header("content-length"), "19");
     ASSERT_EQ(req.body(), "this is a post test");
+
+    not_finished = http_parser.read_req(req);
+    while (not_finished.has_value()) {
+    };
+    ASSERT_EQ(req.method(), net::HttpMethod::POST);
+    ASSERT_EQ(req.url(), "/test");
+    ASSERT_EQ(req.version(), HTTP_VERSION_1_1);
+    ASSERT_EQ(req.header("content-length"), "19");
+    ASSERT_EQ(req.body(), "this is a post test");
+
+    not_finished = http_parser.read_req(req);
+    ASSERT_EQ(not_finished, "Not finished last request");
 }
 
 TEST_F(ParserTest, HttpResponseReadTest) {
@@ -72,8 +85,8 @@ TEST_F(ParserTest, HttpResponseReadTest) {
     net::HttpResponse res;
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
 
-    http_parser.read_res(buffer_data, res);
-    while (!http_parser.res_read_finished()) {
+    auto not_finished = http_parser.read_res(res, buffer_data);
+    while (not_finished.has_value()) {
     };
     ASSERT_EQ(res.status_code(), net::HttpResponseCode::OK);
     ASSERT_EQ(res.reason(), std::string(utils::dump_enum(net::HttpResponseCode::OK)));
@@ -92,8 +105,8 @@ TEST_F(ParserTest, HttpRequestLongReadTest) {
         "POST /test HTTP/1.1\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
     net::HttpRequest req;
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
-    http_parser.read_req(buffer_data, req);
-    while (!http_parser.req_read_finished()) {
+    auto not_finished = http_parser.read_req(req, buffer_data);
+    while (not_finished.has_value()) {
     };
 
     ASSERT_EQ(req.method(), net::HttpMethod::POST);
@@ -113,8 +126,8 @@ TEST_F(ParserTest, HttpResponseLongReadTest) {
         "HTTP/1.1 200 OK\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
     net::HttpResponse res;
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
-    http_parser.read_res(buffer_data, res);
-    while (!http_parser.res_read_finished()) {
+    auto not_finished = http_parser.read_res(res, buffer_data);
+    while (not_finished.has_value()) {
     };
 
     ASSERT_EQ(res.status_code(), net::HttpResponseCode::OK);

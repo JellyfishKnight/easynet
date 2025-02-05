@@ -57,6 +57,7 @@ int main() {
         std::cin >> input;
         if (input == "exit") {
             client.close();
+            t.join();
             return 0;
         }
         if (input == "s") {

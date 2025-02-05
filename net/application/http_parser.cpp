@@ -169,7 +169,7 @@ void http11_header_parser::_extract_headers() {
     }
 }
 
-void http11_header_parser::push_chunk(std::string_view chunk) {
+void http11_header_parser::push_chunk(std::string& chunk) {
     assert(!m_header_finished);
     size_t old_size = m_header.size();
     m_header.append(chunk);
@@ -184,10 +184,17 @@ void http11_header_parser::push_chunk(std::string_view chunk) {
         // 头部已经结束
         m_header_finished = true;
         // 把不小心多读取的正文留下
-        m_body = header.substr(header_len + 4);
         m_header.resize(header_len);
         // 开始分析头部，尝试提取 Content-length 字段
         _extract_headers();
+        auto content_length = m_header_keys.find("content-length");
+        if (content_length != m_header_keys.end()) {
+            size_t body_len = std::stoul(content_length->second);
+            if (header_len + 4 + body_len <= header.size()) {
+                m_body = header.substr(header_len + 4, body_len);
+            }
+            chunk = chunk.substr(header_len + 4 + body_len);
+        }
     }
 }
 
@@ -263,26 +270,36 @@ std::vector<uint8_t> HttpParser::write_res(const HttpResponse& res) {
     return std::vector<uint8_t>(m_res_writer.buffer().begin(), m_res_writer.buffer().end());
 }
 
-void HttpParser::read_req(std::vector<uint8_t>& req, HttpRequest& out_req) {
-    m_req_parser.push_chunk(std::string_view(reinterpret_cast<char*>(req.data()), req.size()));
+std::optional<std::string>
+HttpParser::read_req(HttpRequest& out_req, const std::vector<uint8_t>& req) {
+    m_req_read_buffer.insert(m_req_read_buffer.end(), req.begin(), req.end());
+    m_req_parser.push_chunk(m_req_read_buffer);
     if (m_req_parser.request_finished()) {
         out_req.set_method(m_req_parser.method());
         out_req.set_url(m_req_parser.url());
         out_req.set_version(m_req_parser.version());
         out_req.set_headers(m_req_parser.headers());
         out_req.set_body(m_req_parser.body());
+        m_req_parser.reset_state();
+        return std::nullopt;
     }
+    return "Not finished last request";
 }
 
-void HttpParser::read_res(std::vector<uint8_t>& res, HttpResponse& out_res) {
-    m_res_parser.push_chunk(std::string_view(reinterpret_cast<char*>(res.data()), res.size()));
+std::optional<std::string>
+HttpParser::read_res(HttpResponse& out_res, const std::vector<uint8_t>& res) {
+    m_res_read_buffer.insert(m_res_read_buffer.end(), res.begin(), res.end());
+    m_res_parser.push_chunk(m_res_read_buffer);
     if (m_res_parser.request_finished()) {
         out_res.set_version(m_res_parser.version());
         out_res.set_status_code(static_cast<HttpResponseCode>(m_res_parser.status()));
         out_res.set_reason(std::string(utils::dump_enum(out_res.status_code())));
         out_res.set_headers(m_res_parser.headers());
         out_res.set_body(m_res_parser.body());
+        m_res_parser.reset_state();
+        return std::nullopt;
     }
+    return "Not finished last response";
 }
 
 bool HttpParser::req_read_finished() {
@@ -291,11 +308,6 @@ bool HttpParser::req_read_finished() {
 
 bool HttpParser::res_read_finished() {
     return m_res_parser.request_finished();
-}
-
-void HttpParser::reset_state() {
-    m_res_parser.reset_state();
-    m_req_parser.reset_state();
 }
 
 } // namespace net

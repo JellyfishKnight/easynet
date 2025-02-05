@@ -137,6 +137,34 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 }
 
 void HttpServer::set_handler() {
+    auto parser_thread = [this](Connection::ConstSharedPtr conn) {
+        m_response_buffer_queue.insert_or_assign(
+            { conn->m_client_ip, conn->m_client_service },
+            std::queue<HttpResponse>()
+        );
+        m_parsers.insert_or_assign(
+            { conn->m_client_ip, conn->m_client_service },
+            std::make_shared<HttpParser>()
+        );
+        while (m_server->status() == ConnectionStatus::CONNECTED) {
+            // parse request
+            std::vector<uint8_t> req(1024);
+            std::vector<uint8_t> res;
+            auto err = m_server->read(req, conn);
+            if (err.has_value()) {
+                std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+                break;
+            }
+            HttpRequest request;
+            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
+            parser->read_req(request, req);
+            if (!parser->req_read_finished()) {
+                res.clear();
+                continue;
+            }
+        }
+    };
+
     auto handler = [this](Connection::ConstSharedPtr conn) {
         while (m_server->status() == net::ConnectionStatus::CONNECTED) {
             std::vector<uint8_t> req(1024);
@@ -153,12 +181,11 @@ void HttpServer::set_handler() {
                     std::make_shared<HttpParser>();
             }
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            parser->read_req(req, request);
-            if (!parser->req_read_finished()) {
+            auto not_finished = parser->read_req(request, req);
+            if (not_finished.has_value()) {
                 res.clear();
                 continue;
             }
-            parser->reset_state();
             auto method = request.method();
             auto path = request.url();
             std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::

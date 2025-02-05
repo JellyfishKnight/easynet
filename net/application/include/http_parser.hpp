@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -163,7 +164,7 @@ struct http11_header_parser {
 
     void _extract_headers();
 
-    void push_chunk(std::string_view chunk);
+    void push_chunk(std::string& chunk);
 
     std::string& headline();
 
@@ -258,13 +259,13 @@ struct _http_base_parser {
             return 0;
         }
         try {
-            return std::stoi(it->second);
+            return std::stoul(it->second);
         } catch (std::logic_error const&) {
             return 0;
         }
     }
 
-    void push_chunk(std::string_view chunk) {
+    void push_chunk(std::string& chunk) {
         assert(!m_body_finished);
         if (!m_header_parser.header_finished()) {
             m_header_parser.push_chunk(chunk);
@@ -276,8 +277,15 @@ struct _http_base_parser {
                 }
             }
         } else {
-            body().append(chunk);
-            body_accumulated_size += chunk.size();
+            auto sub = chunk.substr(
+                0,
+                m_content_length - body_accumulated_size > chunk.size()
+                    ? chunk.size()
+                    : m_content_length - body_accumulated_size
+            );
+            chunk = chunk.substr(sub.size());
+            body().append(sub);
+            body_accumulated_size += sub.size();
             if (body_accumulated_size >= m_content_length) {
                 m_body_finished = true;
             }
@@ -385,21 +393,25 @@ public:
 
     std::vector<uint8_t> write_res(const HttpResponse& res);
 
-    void read_req(std::vector<uint8_t>& req, HttpRequest& out_req);
+    std::optional<std::string> read_req(HttpRequest& out_req, const std::vector<uint8_t>& req = {});
 
-    void read_res(std::vector<uint8_t>& res, HttpResponse& out_res);
+    std::optional<std::string>
+    read_res(HttpResponse& out_res, const std::vector<uint8_t>& res = {});
 
     bool req_read_finished();
 
     bool res_read_finished();
-
-    void reset_state();
 
 private:
     http_response_parser<> m_res_parser;
     http_request_parser<> m_req_parser;
     http_request_writer<> m_req_writer;
     http_response_writer<> m_res_writer;
+
+    std::string m_req_read_buffer;
+    std::string m_res_read_buffer;
+    std::string m_req_write_buffer;
+    std::string m_res_write_buffer;
 };
 
 } // namespace net

@@ -101,7 +101,7 @@ struct websocket_parser {
     bool m_header_find = false;
     bool m_finished_frame = false;
 
-    void push_chunk(const std::string& chunk);
+    void push_chunk(std::string& chunk);
 
     std::size_t find_header(const std::vector<uint8_t>& buffer);
 
