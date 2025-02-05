@@ -46,7 +46,7 @@ int main() {
     timer.set_rate(30);
 
     server.add_websocket_handler([&server, &res_str, &timer](net::Connection::ConstSharedPtr conn) {
-        timer.sleep();
+        // timer.sleep();
         net::WebSocketFrame frame;
         frame.set_fin(1)
             .set_rsv1(0)

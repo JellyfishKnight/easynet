@@ -319,26 +319,30 @@ std::optional<std::string> WebSocketServer::accept_ws_connection(const HttpReque
 
 void WebSocketServer::set_handler() {
     auto http_handler = [this](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == ConnectionStatus::LISTENING && conn->m_status == ConnectionStatus::CONNECTED) {
-            std::vector<uint8_t> req(1024);
-            std::vector<uint8_t> res;
-            auto err = m_server->read(req, conn);
-            if (err.has_value()) {
-                std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+        std::vector<uint8_t> req(1024);
+        std::vector<uint8_t> res;
+        auto err = m_server->read(req, conn);
+        if (err.has_value()) {
+            std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+            std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+            return;
+        }
+
+        HttpRequest request;
+        HttpResponse response;
+        if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
+            m_parsers[{ conn->m_client_ip, conn->m_client_service }] = std::make_shared<HttpParser>();
+        }
+        auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
+        parser->add_req_read_buffer(req);
+        while (true) {
+            auto req_opt = parser->read_req();
+            if (!req_opt.has_value()) {
                 break;
             }
-
-            HttpRequest request;
+            auto& request = req_opt.value();
             HttpResponse response;
-            if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
-                m_parsers[{ conn->m_client_ip, conn->m_client_service }] = std::make_shared<HttpParser>();
-            }
-            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            // auto not_finished = parser->read_req(request, req);
-            // if (not_finished.has_value()) {
-            //     res.clear();
-            //     continue;
-            // }
+
             auto method = request.method();
             auto path = request.url();
             std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator handler;
@@ -369,6 +373,8 @@ void WebSocketServer::set_handler() {
                 err = m_server->write(res, conn);
                 if (err.has_value()) {
                     std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                    std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+                    return;
                 }
                 break;
             }
@@ -414,13 +420,16 @@ void WebSocketServer::set_handler() {
             err = m_server->write(res, conn);
             if (err.has_value()) {
                 std::cerr << "Failed to write to socket: " << err.value() << std::endl;
-                break;
+                std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+                return;
             }
-        }
+        };
     };
 
     auto handler = [this, http_handler](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == net::ConnectionStatus::CONNECTED) {
+        while (m_server->status() == net::ConnectionStatus::LISTENING
+               && conn->m_status == net::ConnectionStatus::CONNECTED)
+        {
             // parse request
             if (m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })) {
                 m_ws_handler(conn);

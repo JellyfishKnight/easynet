@@ -196,6 +196,8 @@ void http11_header_parser::push_chunk(std::string& chunk) {
                 m_body = header.substr(header_len + 4, header.size() - header_len - 4);
                 chunk.clear();
             }
+        } else {
+            chunk = chunk.substr(header_len + 4);
         }
     }
 }
