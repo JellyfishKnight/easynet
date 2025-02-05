@@ -99,7 +99,6 @@ protected:
     const std::unordered_map<HttpMethod, MethodHandlers&> m_handlers;
 
     std::unordered_map<ConnectionKey, std::shared_ptr<HttpParser>> m_parsers;
-    std::unordered_map<ConnectionKey, std::queue<HttpRequest>> m_request_buffer_queue;
 
     std::unordered_map<HttpResponseCode, std::function<HttpResponse(const HttpRequest&)>> m_error_handlers;
 

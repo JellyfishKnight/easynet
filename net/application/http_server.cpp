@@ -110,17 +110,12 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 }
 
 void HttpServer::set_handler() {
-    auto parser_thread_func = [this](Connection::ConstSharedPtr conn) {
-        m_request_buffer_queue.insert_or_assign(
-            { conn->m_client_ip, conn->m_client_service },
-            std::queue<HttpResponse>()
-        );
-        m_parsers.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, std::make_shared<HttpParser>());
-        auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-        auto& request_buffer = m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
+    auto handler_thread_func = [this](Connection::ConstSharedPtr conn) {
         while (m_server->status() == net::ConnectionStatus::LISTENING
                && conn->m_status == net::ConnectionStatus::CONNECTED)
         {
+            m_parsers.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, std::make_shared<HttpParser>());
+            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
             // parse request
             std::vector<uint8_t> req(1024);
             std::vector<uint8_t> res;
@@ -133,24 +128,10 @@ void HttpServer::set_handler() {
             parser->add_req_read_buffer(req);
             while (true) {
                 req_opt = parser->read_req();
-                if (req_opt.has_value()) {
-                    request_buffer.push(std::move(req_opt.value()));
-                } else {
+                if (!req_opt.has_value()) {
                     break;
                 }
-            }
-        }
-        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
-    };
-
-    auto handler_thread_func = [this](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == net::ConnectionStatus::LISTENING
-               && conn->m_status == net::ConnectionStatus::CONNECTED)
-        {
-            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            auto& request_buffer = m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
-            while (!request_buffer.empty()) {
-                auto& request = request_buffer.front();
+                auto& request = req_opt.value();
                 HttpResponse response;
                 auto method = request.method();
                 auto path = request.url();
@@ -199,31 +180,13 @@ void HttpServer::set_handler() {
                     std::cerr << "Failed to write to socket: " << err.value() << std::endl;
                     break;
                 }
-                request_buffer.pop();
             }
         }
+        m_parsers.erase({ conn->m_client_ip, conn->m_client_service });
         std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
     };
 
-    auto connection_manager = [this](Connection::ConstSharedPtr conn) {
-        Timer timer;
-        timer.set_rate(1);
-        while (true) {
-            if (m_server->status() == ConnectionStatus::LISTENING && conn->m_status == ConnectionStatus::CONNECTED) {
-                timer.sleep();
-            } else {
-                m_parsers.erase({ conn->m_client_ip, conn->m_client_service });
-                m_request_buffer_queue.erase({ conn->m_client_ip, conn->m_client_service });
-            }
-        }
-    };
-
-    auto handler = [parser_thread_func, handler_thread_func, connection_manager](Connection::ConstSharedPtr conn) {
-        auto unused_furture = std::async(std::launch::async, parser_thread_func, conn);
-        unused_furture = std::async(std::launch::async, handler_thread_func, conn);
-        connection_manager(conn);
-    };
-    m_server->on_accept(std::move(handler));
+    m_server->on_accept(std::move(handler_thread_func));
 }
 
 HttpServer::~HttpServer() {

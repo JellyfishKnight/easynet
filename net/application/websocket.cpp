@@ -319,7 +319,7 @@ std::optional<std::string> WebSocketServer::accept_ws_connection(const HttpReque
 
 void WebSocketServer::set_handler() {
     auto http_handler = [this](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == ConnectionStatus::CONNECTED) {
+        while (m_server->status() == ConnectionStatus::LISTENING && conn->m_status == ConnectionStatus::CONNECTED) {
             std::vector<uint8_t> req(1024);
             std::vector<uint8_t> res;
             auto err = m_server->read(req, conn);
