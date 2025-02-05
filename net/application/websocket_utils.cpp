@@ -247,8 +247,8 @@ void websocket_parser::push_chunk(std::string& chunk) {
             .set_rsv1(byte1 & 0x40)
             .set_rsv2(byte1 & 0x20)
             .set_rsv3(byte1 & 0x10)
-            .set_opcode(static_cast<WebSocketOpcode>(byte1 & 0x0F))
-            .set_mask(byte2 & 0x80);
+            .set_opcode(static_cast<WebSocketOpcode>(byte1 & 0x0F));
+        bool masked = byte2 & 0x80;
         uint8_t payload_length = byte2 & 0x7F;
         uint64_t length = 0;
         uint8_t head_size = 2;
@@ -270,7 +270,7 @@ void websocket_parser::push_chunk(std::string& chunk) {
             }
             head_size = 10;
         }
-        if (frame.masked()) {
+        if (masked) {
             if (m_buffer.size() < head_size + 4) {
                 return;
             }

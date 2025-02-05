@@ -90,8 +90,8 @@ private:
     uint16_t m_payload_length_2;
     uint64_t m_payload_length_3;
 
-    bool m_mask;
-    uint32_t m_mask_key = false;
+    bool m_mask = false;
+    uint32_t m_mask_key = 0;
     std::string m_payload;
 };
 
