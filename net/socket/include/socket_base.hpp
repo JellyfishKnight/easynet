@@ -145,7 +145,7 @@ protected:
     std::string m_ip;
     std::string m_service;
 
-    std::function<void(Connection::ConstSharedPtr conn)> m_default_handler;
+    std::function<void(Connection::ConstSharedPtr conn)> m_accept_handler;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     std::vector<struct ::epoll_event> m_events;

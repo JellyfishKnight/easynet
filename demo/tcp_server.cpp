@@ -25,7 +25,9 @@ int main() {
         server->enable_thread_pool(10);
         // server->enable_epoll(20);
         server->on_accept([server](net::Connection::ConstSharedPtr conn) {
-            while (server->status() == net::ConnectionStatus::CONNECTED) {
+            while (server->status() == net::ConnectionStatus::LISTENING
+                   && conn->m_status == net::ConnectionStatus::CONNECTED)
+            {
                 std::vector<uint8_t> req(1024);
                 auto err = server->read(req, conn);
                 if (err.has_value()) {

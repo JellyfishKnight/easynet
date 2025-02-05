@@ -2,9 +2,12 @@
 #include "connection.hpp"
 #include "enum_parser.hpp"
 #include "http_parser.hpp"
+#include "timer.hpp"
 #include <cassert>
 #include <format>
+#include <future>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -113,7 +116,11 @@ void HttpServer::set_handler() {
             std::queue<HttpResponse>()
         );
         m_parsers.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, std::make_shared<HttpParser>());
-        while (m_server->status() == ConnectionStatus::CONNECTED) {
+        auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
+        auto& request_buffer = m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
+        while (m_server->status() == net::ConnectionStatus::LISTENING
+               && conn->m_status == net::ConnectionStatus::CONNECTED)
+        {
             // parse request
             std::vector<uint8_t> req(1024);
             std::vector<uint8_t> res;
@@ -123,8 +130,6 @@ void HttpServer::set_handler() {
                 break;
             }
             std::optional<HttpRequest> req_opt;
-            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            auto& request_buffer = m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
             parser->add_req_read_buffer(req);
             while (true) {
                 req_opt = parser->read_req();
@@ -135,10 +140,13 @@ void HttpServer::set_handler() {
                 }
             }
         }
+        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
     };
 
     auto handler_thread_func = [this](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == ConnectionStatus::CONNECTED) {
+        while (m_server->status() == net::ConnectionStatus::LISTENING
+               && conn->m_status == net::ConnectionStatus::CONNECTED)
+        {
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
             auto& request_buffer = m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
             while (!request_buffer.empty()) {
@@ -194,76 +202,26 @@ void HttpServer::set_handler() {
                 request_buffer.pop();
             }
         }
+        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
     };
 
-    auto handler = [this](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == net::ConnectionStatus::CONNECTED) {
-            std::vector<uint8_t> req(1024);
-            std::vector<uint8_t> res;
-            auto err = m_server->read(req, conn);
-            if (err.has_value()) {
-                std::cerr << "Failed to read from socket: " << err.value() << std::endl;
-                break;
-            }
-            HttpRequest request;
-            HttpResponse response;
-            if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
-                m_parsers[{ conn->m_client_ip, conn->m_client_service }] = std::make_shared<HttpParser>();
-            }
-            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            // auto not_finished = parser->read_req(request, req);
-            // if (not_finished.has_value()) {
-            //     res.clear();
-            //     continue;
-            // }
-            auto method = request.method();
-            auto path = request.url();
-            std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator handler;
-            // if method is wrong
-            try {
-                handler = m_handlers.at(method).find(path);
-            } catch (const std::out_of_range& e) {
-                if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
-                    response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
-                } else {
-                    response.set_version(HTTP_VERSION_1_1)
-                        .set_status_code(HttpResponseCode::BAD_REQUEST)
-                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
-                        .set_header("Content-Length", "0");
-                }
-            }
-            // if no handler for the path in this method is not found
-            if (handler == m_handlers.at(method).end()) {
-                if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
-                    response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
-                } else {
-                    response.set_version(HTTP_VERSION_1_1)
-                        .set_status_code(HttpResponseCode::NOT_FOUND)
-                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
-                        .set_header("Content-Length", "0");
-                }
+    auto connection_manager = [this](Connection::ConstSharedPtr conn) {
+        Timer timer;
+        timer.set_rate(1);
+        while (true) {
+            if (m_server->status() == ConnectionStatus::LISTENING && conn->m_status == ConnectionStatus::CONNECTED) {
+                timer.sleep();
             } else {
-                try {
-                    response = handler->second(request);
-                } catch (const HttpResponseCode& e) {
-                    if (m_error_handlers.find(e) != m_error_handlers.end()) {
-                        response = m_error_handlers.at(e)(request);
-                    } else {
-                        response.set_version(HTTP_VERSION_1_1)
-                            .set_status_code(e)
-                            .set_reason(std::string(utils::dump_enum(e)))
-                            .set_header("Content-Length", "0");
-                    }
-                }
-            }
-            // write response to socket
-            res = parser->write_res(response);
-            err = m_server->write(res, conn);
-            if (err.has_value()) {
-                std::cerr << "Failed to write to socket: " << err.value() << std::endl;
-                break;
+                m_parsers.erase({ conn->m_client_ip, conn->m_client_service });
+                m_request_buffer_queue.erase({ conn->m_client_ip, conn->m_client_service });
             }
         }
+    };
+
+    auto handler = [parser_thread_func, handler_thread_func, connection_manager](Connection::ConstSharedPtr conn) {
+        auto unused_furture = std::async(std::launch::async, parser_thread_func, conn);
+        unused_furture = std::async(std::launch::async, handler_thread_func, conn);
+        connection_manager(conn);
     };
     m_server->on_accept(std::move(handler));
 }

@@ -216,7 +216,6 @@ std::size_t websocket_parser::find_header(const std::vector<uint8_t>& buffer) {
     assert(buffer.size() >= 2 && "Invalid header size");
     for (std::size_t i = 0; i < buffer.size() - 1; ++i) {
         auto byte1 = buffer[i];
-        auto byte2 = buffer[i + 1];
         auto opcode = byte1 & 0x0F;
         if (is_valid_opcode(opcode)) {
             m_header_find = true;

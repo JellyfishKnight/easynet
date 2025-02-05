@@ -113,7 +113,7 @@ UdpServer::UdpServer(const std::string& ip, const std::string& service) {
     m_logger_set = false;
     m_epoll_enabled = false;
     m_thread_pool = nullptr;
-    m_default_handler = nullptr;
+    m_accept_handler = nullptr;
     m_stop = true;
     m_status = ConnectionStatus::DISCONNECTED;
     m_socket_type = SocketType::UDP;
@@ -209,7 +209,7 @@ std::optional<std::string> UdpServer::close() {
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 UdpServer::start() {
-    assert(m_default_handler != nullptr && "No handler set");
+    assert(m_accept_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_epoll_enabled) {
         m_accept_thread = std::thread([this]() {

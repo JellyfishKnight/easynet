@@ -106,8 +106,17 @@ std::optional<std::string> SSLServer::listen() {
 std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
     int num_bytes = SSL_read(ssl_conn->m_ssl.get(), data.data(), data.size());
-    if (num_bytes <= 0) {
-        return "Failed to read data";
+    if (num_bytes < 0) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+        }
+        return get_error_msg();
+    }
+    if (num_bytes == 0) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
+        }
+        return "Connection reset by peer while reading";
     }
     data.resize(num_bytes);
     return std::nullopt;
@@ -115,8 +124,18 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, Connectio
 
 std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
-    if (SSL_write(ssl_conn->m_ssl.get(), data.data(), data.size()) <= 0) {
-        return "Failed to write data";
+    auto num_bytes = SSL_write(ssl_conn->m_ssl.get(), data.data(), data.size());
+    if (num_bytes < 0) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+        }
+        return get_error_msg();
+    }
+    if (num_bytes == 0) {
+        if (m_logger_set) {
+            NET_LOG_ERROR(m_logger, "Connection reset by peer while writing");
+        }
+        return "Connection reset by peer while writing";
     }
     return std::nullopt;
 }
@@ -132,7 +151,7 @@ std::optional<std::string> SSLServer::start() {
     if (m_status != ConnectionStatus::LISTENING) {
         return "Server is not listening";
     }
-    if (m_default_handler == nullptr) {
+    if (m_accept_handler == nullptr) {
         return "No handler set";
     }
     m_stop = false;
@@ -296,7 +315,6 @@ std::optional<std::string> SSLServer::start() {
             }
         });
     }
-    m_status = ConnectionStatus::CONNECTED;
     return std::nullopt;
 }
 

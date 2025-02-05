@@ -106,7 +106,7 @@ TcpServer::TcpServer(const std::string& ip, const std::string& service) {
     m_logger_set = false;
     m_epoll_enabled = false;
     m_thread_pool = nullptr;
-    m_default_handler = nullptr;
+    m_accept_handler = nullptr;
     m_stop = true;
     m_status = ConnectionStatus::DISCONNECTED;
     m_socket_type = SocketType::TCP;
@@ -171,7 +171,7 @@ std::optional<std::string> TcpServer::close() {
 
 std::optional<std::string> TcpServer::start() {
     assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
-    assert(m_default_handler != nullptr && "No handler set");
+    assert(m_accept_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_epoll_enabled) {
         m_accept_thread = std::thread([this]() {
@@ -307,12 +307,12 @@ std::optional<std::string> TcpServer::start() {
             }
         });
     }
-    m_status = ConnectionStatus::CONNECTED;
     return std::nullopt;
 }
 
 std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    assert(m_status == ConnectionStatus::CONNECTED && "Server is not connected");
+    assert(conn->m_status == ConnectionStatus::CONNECTED && "Client is not connected");
+    assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::recv(conn->m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
@@ -332,7 +332,8 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connectio
 }
 
 std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    assert(m_status == ConnectionStatus::CONNECTED && "Server is not connected");
+    assert(conn->m_status == ConnectionStatus::CONNECTED && "Client is not connected");
+    assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::send(conn->m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
@@ -351,8 +352,8 @@ std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, Co
 }
 
 void TcpServer::handle_connection(Connection::SharedPtr conn) {
-    assert(m_default_handler != nullptr && "No handler set");
-    m_default_handler(conn);
+    assert(m_accept_handler != nullptr && "No handler set");
+    m_accept_handler(conn);
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {

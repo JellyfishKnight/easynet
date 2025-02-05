@@ -99,7 +99,7 @@ std::optional<std::string> SocketServer::enable_epoll(std::size_t event_num) {
 }
 
 void SocketServer::on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) {
-    m_default_handler = handler;
+    m_accept_handler = handler;
 }
 
 std::optional<std::string>
