@@ -24,6 +24,21 @@ int main() {
     }
     std::cout << "Body: " << res.body() << std::endl;
 
+    std::thread t([&client]() {
+        while (true) {
+            if (client.ws_status() != net::WebSocketStatus::CONNECTED) {
+                continue;
+            }
+            net::WebSocketFrame frame;
+            auto err = client.read_ws(frame);
+            if (err.has_value()) {
+                std::cout << err.value() << std::endl;
+                return;
+            }
+            std::cout << "Received: " << frame.payload() << std::endl;
+        }
+    });
+
     update_req.set_version(HTTP_VERSION_1_1)
         .set_method(net::HttpMethod::GET)
         .set_url("/")
@@ -39,18 +54,6 @@ int main() {
         std::cout << err.value() << std::endl;
         return 1;
     }
-
-    std::thread t([&client]() {
-        while (true) {
-            net::WebSocketFrame frame;
-            auto err = client.read_ws(frame);
-            if (err.has_value()) {
-                std::cout << err.value() << std::endl;
-                return;
-            }
-            std::cout << "Received: " << frame.payload() << std::endl;
-        }
-    });
 
     while (true) {
         std::string input;

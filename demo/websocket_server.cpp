@@ -2,6 +2,7 @@
 #include "timer.hpp"
 #include "websocket.hpp"
 #include <memory>
+#include <sys/types.h>
 #include <thread>
 
 std::string readFileToString(const std::string& filePath) {
@@ -43,10 +44,12 @@ int main() {
     std::string res_str = "this is from server";
 
     net::Timer timer;
-    timer.set_rate(30);
+    timer.set_rate(1000);
 
     server.add_websocket_handler([&server, &res_str, &timer](net::Connection::ConstSharedPtr conn) {
-        // timer.sleep();
+        static uint64_t count = 0;
+        res_str = "this is from server " + std::to_string(count++);
+        timer.sleep();
         net::WebSocketFrame frame;
         frame.set_fin(1)
             .set_rsv1(0)

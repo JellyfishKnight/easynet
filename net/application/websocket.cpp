@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <thread>
 #include <vector>
 
 namespace net {
@@ -29,6 +30,10 @@ std::optional<std::string> WebSocketClient::upgrade(const HttpRequest& upgrade_r
 
 std::optional<std::string> WebSocketClient::close() {
     return HttpClient::close();
+}
+
+WebSocketStatus WebSocketClient::ws_status() const {
+    return m_websocket_status;
 }
 
 std::optional<std::string> WebSocketClient::read_ws(WebSocketFrame& data) {
@@ -435,6 +440,7 @@ void WebSocketServer::set_handler() {
                 m_ws_handler(conn);
             } else {
                 http_handler(conn);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         }
     };

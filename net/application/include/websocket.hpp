@@ -152,6 +152,8 @@ public:
 
     std::shared_ptr<WebSocketClient> get_shared();
 
+    WebSocketStatus ws_status() const;
+
     ~WebSocketClient();
 
 private:
