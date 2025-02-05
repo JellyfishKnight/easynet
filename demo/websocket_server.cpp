@@ -44,7 +44,7 @@ int main() {
     std::string res_str = "this is from server";
 
     net::Timer timer;
-    timer.set_rate(1000);
+    timer.set_rate(10);
 
     server.add_websocket_handler([&server, &res_str, &timer](net::Connection::ConstSharedPtr conn) {
         static uint64_t count = 0;
@@ -56,7 +56,6 @@ int main() {
             .set_rsv2(0)
             .set_rsv3(0)
             .set_opcode(net::WebSocketOpcode::TEXT)
-            .set_mask(0)
             .set_payload(res_str);
 
         auto err = server.write_websocket_frame(frame);
