@@ -258,6 +258,10 @@ WebSocketServer::WebSocketServer(std::shared_ptr<TcpServer> server): HttpServer(
     set_handler();
 }
 
+ConnectionStatus WebSocketServer::status() const {
+    return m_server->status();
+}
+
 void WebSocketServer::get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
     HttpServer::get(path, handler);

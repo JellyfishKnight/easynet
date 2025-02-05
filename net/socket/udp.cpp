@@ -209,7 +209,6 @@ std::optional<std::string> UdpServer::close() {
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 UdpServer::start() {
-    assert(m_accept_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_epoll_enabled) {
         m_accept_thread = std::thread([this]() {

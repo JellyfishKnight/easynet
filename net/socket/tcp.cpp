@@ -1,6 +1,9 @@
 #include "tcp.hpp"
+#include "connection.hpp"
 #include "socket_base.hpp"
 #include <cassert>
+#include <csignal>
+#include <exception>
 #include <memory>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -311,7 +314,6 @@ std::optional<std::string> TcpServer::start() {
 }
 
 std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    assert(conn->m_status == ConnectionStatus::CONNECTED && "Client is not connected");
     assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::recv(conn->m_client_fd, data.data(), data.size(), 0);
@@ -319,12 +321,14 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connectio
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
         }
+        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
             NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
         }
+        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
         return "Connection reset by peer while reading";
     }
     data.resize(num_bytes);
@@ -332,28 +336,30 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connectio
 }
 
 std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    assert(conn->m_status == ConnectionStatus::CONNECTED && "Client is not connected");
     assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::send(conn->m_client_fd, data.data(), data.size(), 0);
+    ssize_t num_bytes = ::send(conn->m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
         }
+        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
             NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
         }
+        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
         return "Connection reset by peer while writing";
     }
     return std::nullopt;
 }
 
 void TcpServer::handle_connection(Connection::SharedPtr conn) {
-    assert(m_accept_handler != nullptr && "No handler set");
-    m_accept_handler(conn);
+    while (m_status == ConnectionStatus::LISTENING && conn->m_status == ConnectionStatus::CONNECTED) {
+        m_accept_handler(conn);
+    }
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {

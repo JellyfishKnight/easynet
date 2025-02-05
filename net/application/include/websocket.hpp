@@ -172,6 +172,8 @@ public:
 
     WebSocketStatus ws_status() const;
 
+    ConnectionStatus status() const;
+
     void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
     void post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;

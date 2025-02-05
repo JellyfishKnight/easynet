@@ -56,10 +56,13 @@ int main() {
             .set_rsv2(0)
             .set_rsv3(0)
             .set_opcode(net::WebSocketOpcode::TEXT)
-            // .set_mask(0)
             .set_payload(res_str);
 
         auto err = server.write_websocket_frame(frame);
+        if (err.has_value()) {
+            std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+            return;
+        }
 
         std::cout << "Sent: " + res_str << std::endl;
     });
