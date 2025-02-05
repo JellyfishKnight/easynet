@@ -31,8 +31,7 @@ TEST_F(ParserTest, HttpRequestWriteTest) {
 
     auto req_buffer = http_parser.write_req(req);
 
-    std::string wanted_buffer =
-        "POST /test HTTP/1.1\r\nContent-Length: 19\r\n\r\nthis is a post test";
+    std::string wanted_buffer = "POST /test HTTP/1.1\r\nContent-Length: 19\r\n\r\nthis is a post test";
 
     ASSERT_EQ(std::string(req_buffer.begin(), req_buffer.end()), wanted_buffer);
 }
@@ -102,8 +101,7 @@ TEST_F(ParserTest, HttpRequestLongReadTest) {
         body += "this is a buffer test";
     }
 
-    std::string buffer =
-        "POST /test HTTP/1.1\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+    std::string buffer = "POST /test HTTP/1.1\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
     net::HttpRequest req;
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
 
@@ -124,8 +122,7 @@ TEST_F(ParserTest, HttpResponseLongReadTest) {
         body += "this is a buffer test";
     }
 
-    std::string buffer =
-        "HTTP/1.1 200 OK\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+    std::string buffer = "HTTP/1.1 200 OK\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
     net::HttpResponse res;
     std::vector<uint8_t> buffer_data(buffer.begin(), buffer.end());
 

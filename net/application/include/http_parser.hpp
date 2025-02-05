@@ -152,8 +152,7 @@ struct http11_header_parser {
     std::string m_header; // "GET / HTTP/1.1\nHost: 142857.red\r\nAccept:
         // */*\r\nConnection: close"
     std::string m_headline; // "GET / HTTP/1.1"
-    std::unordered_map<std::string, std::string>
-        m_header_keys; // {"Host": "142857.red", "Accept": "*/*",
+    std::unordered_map<std::string, std::string> m_header_keys; // {"Host": "142857.red", "Accept": "*/*",
     // "Connection: close"}
     std::string m_body; // 不小心超量读取的正文（如果有的话）
     bool m_header_finished = false;
@@ -279,9 +278,8 @@ struct _http_base_parser {
         } else {
             auto sub = chunk.substr(
                 0,
-                m_content_length - body_accumulated_size > chunk.size()
-                    ? chunk.size()
-                    : m_content_length - body_accumulated_size
+                m_content_length - body_accumulated_size > chunk.size() ? chunk.size()
+                                                                        : m_content_length - body_accumulated_size
             );
             chunk = chunk.substr(sub.size());
             body().append(sub);

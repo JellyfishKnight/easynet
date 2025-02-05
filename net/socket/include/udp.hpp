@@ -34,8 +34,7 @@ public:
     std::shared_ptr<UdpClient> get_shared();
 
 protected:
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
+    [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
     connect() override;
 };
 
@@ -76,10 +75,8 @@ public:
 
     std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
 
-    void on_message(
-        std::function<
-            void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> handler
-    );
+    void
+    on_message(std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> handler);
 
 protected:
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
@@ -88,24 +85,19 @@ protected:
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
     handle_connection(Connection::SharedPtr conn) override;
 
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
+    [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
     listen() override;
 
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
+    [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
     start() override;
 
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
+    [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
     read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 
-    [[deprecated("Udp doesn't need connection, this function will cause no effect"
-    )]] std::optional<std::string>
+    [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
     write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
 
-    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)>
-        m_message_handler;
+    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> m_message_handler;
 };
 
 }; // namespace net

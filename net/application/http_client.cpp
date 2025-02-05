@@ -69,9 +69,7 @@ std::future<HttpResponse> HttpClient::async_get(
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() {
-        return get(path, headers, version);
-    });
+    return std::async(std::launch::async, [this, path, &headers, &version]() { return get(path, headers, version); });
 }
 
 HttpResponse HttpClient::post(
@@ -81,11 +79,7 @@ HttpResponse HttpClient::post(
     const std::string& version
 ) {
     HttpRequest req;
-    req.set_method(HttpMethod::POST)
-        .set_url(path)
-        .set_headers(headers)
-        .set_version(version)
-        .set_body(body);
+    req.set_method(HttpMethod::POST).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -116,11 +110,7 @@ HttpResponse HttpClient::put(
     const std::string& version
 ) {
     HttpRequest req;
-    req.set_method(HttpMethod::PUT)
-        .set_url(path)
-        .set_headers(headers)
-        .set_version(version)
-        .set_body(body);
+    req.set_method(HttpMethod::PUT).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -168,9 +158,7 @@ std::future<HttpResponse> HttpClient::async_del(
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() {
-        return del(path, headers, version);
-    });
+    return std::async(std::launch::async, [this, path, &headers, &version]() { return del(path, headers, version); });
 }
 
 HttpResponse HttpClient::patch(
@@ -180,11 +168,7 @@ HttpResponse HttpClient::patch(
     const std::string& version
 ) {
     HttpRequest req;
-    req.set_method(HttpMethod::PATCH)
-        .set_url(path)
-        .set_headers(headers)
-        .set_version(version)
-        .set_body(body);
+    req.set_method(HttpMethod::PATCH).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_http(req);
     if (err.has_value()) {
         throw std::runtime_error(err.value());
@@ -232,9 +216,7 @@ std::future<HttpResponse> HttpClient::async_head(
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() {
-        return head(path, headers, version);
-    });
+    return std::async(std::launch::async, [this, path, &headers, &version]() { return head(path, headers, version); });
 }
 
 HttpResponse HttpClient::options(
@@ -319,9 +301,7 @@ std::future<HttpResponse> HttpClient::async_trace(
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() {
-        return trace(path, headers, version);
-    });
+    return std::async(std::launch::async, [this, path, &headers, &version]() { return trace(path, headers, version); });
 }
 
 std::optional<std::string> HttpClient::connect_server() {

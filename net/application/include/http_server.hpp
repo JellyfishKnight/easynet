@@ -38,32 +38,23 @@ public:
 
     virtual ~HttpServer();
 
-    virtual void
-    get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    virtual void
-    patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
+    virtual void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
     std::optional<std::string> listen();
 
@@ -87,18 +78,14 @@ public:
 
     std::shared_ptr<HttpServer> get_shared();
 
-    virtual void add_error_handler(
-        HttpResponseCode err_code,
-        std::function<HttpResponse(const HttpRequest&)> handler
-    );
+    virtual void add_error_handler(HttpResponseCode err_code, std::function<HttpResponse(const HttpRequest&)> handler);
 
     [[nodiscard]] std::shared_ptr<TcpServer> convert2tcp();
 
 protected:
     virtual void set_handler();
 
-    using MethodHandlers =
-        std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;
+    using MethodHandlers = std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;
     MethodHandlers m_get_handlers;
     MethodHandlers m_post_handlers;
     MethodHandlers m_put_handlers;
@@ -114,8 +101,7 @@ protected:
     std::unordered_map<ConnectionKey, std::shared_ptr<HttpParser>> m_parsers;
     std::unordered_map<ConnectionKey, std::queue<HttpRequest>> m_request_buffer_queue;
 
-    std::unordered_map<HttpResponseCode, std::function<HttpResponse(const HttpRequest&)>>
-        m_error_handlers;
+    std::unordered_map<HttpResponseCode, std::function<HttpResponse(const HttpRequest&)>> m_error_handlers;
 
     std::shared_ptr<TcpServer> m_server;
 };

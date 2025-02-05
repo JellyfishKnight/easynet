@@ -170,32 +170,23 @@ public:
 
     WebSocketStatus ws_status() const;
 
-    void
-    get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+    void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void
-    post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+    void post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void
-    put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+    void put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void
-    del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+    void del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void
-    head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+    void head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void
-    trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+    void trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler)
-        override;
+    void connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler)
-        override;
+    void options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void
-    patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
+    void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
     void add_websocket_handler(std::function<void(Connection::ConstSharedPtr conn)> handler);
 
@@ -206,12 +197,10 @@ public:
     std::optional<std::string>
     write_websocket_frame(const WebSocketFrame& frame, Connection::ConstSharedPtr conn = nullptr);
 
-    std::optional<std::string>
-    read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn = nullptr);
+    std::optional<std::string> read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn = nullptr);
 
 private:
-    std::optional<std::string>
-    accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res);
+    std::optional<std::string> accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res);
 
     void set_handler() override;
 

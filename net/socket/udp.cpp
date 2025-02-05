@@ -65,14 +65,8 @@ std::optional<std::string> UdpClient::read(std::vector<uint8_t>& data) {
 
 std::optional<std::string> UdpClient::write(const std::vector<uint8_t>& data) {
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::sendto(
-        m_fd,
-        data.data(),
-        data.size(),
-        0,
-        m_addr_info.get_address().m_addr,
-        m_addr_info.get_address().m_len
-    );
+    ssize_t num_bytes =
+        ::sendto(m_fd, data.data(), data.size(), 0, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
@@ -99,8 +93,7 @@ std::optional<std::string> UdpClient::close() {
     return std::nullopt;
 }
 
-[[deprecated("Udp doesn't need connection, this function will cause no effect"
-)]] std::optional<std::string>
+[[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 UdpClient::connect() {
     return std::nullopt;
 }
@@ -125,9 +118,7 @@ UdpServer::UdpServer(const std::string& ip, const std::string& service) {
     m_status = ConnectionStatus::DISCONNECTED;
     m_socket_type = SocketType::UDP;
     // bind
-    if (::bind(m_listen_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len)
-        == -1)
-    {
+    if (::bind(m_listen_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to bind socket: {}", get_error_msg());
         }
@@ -141,22 +132,15 @@ UdpServer::~UdpServer() {
     }
 }
 
-[[deprecated("Udp doesn't need connection, this function will cause no effect"
-)]] std::optional<std::string>
+[[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 UdpServer::listen() {
     return std::nullopt;
 }
 
 std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
     addressResolver::address client_addr;
-    ssize_t num_bytes = ::recvfrom(
-        m_listen_fd,
-        data.data(),
-        data.size(),
-        0,
-        &client_addr.m_addr,
-        &client_addr.m_addr_len
-    );
+    ssize_t num_bytes =
+        ::recvfrom(m_listen_fd, data.data(), data.size(), 0, &client_addr.m_addr, &client_addr.m_addr_len);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
@@ -179,22 +163,14 @@ std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, Connectio
     conn->m_server_ip = m_ip;
     conn->m_server_service = m_service;
     conn->m_client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
-    conn->m_client_service =
-        std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
+    conn->m_client_service = std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
     return std::nullopt;
 }
 
-std::optional<std::string>
-UdpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+std::optional<std::string> UdpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
     assert(conn != nullptr && "Connection is nullptr");
-    ssize_t num_bytes = ::sendto(
-        m_listen_fd,
-        data.data(),
-        data.size(),
-        0,
-        &conn->m_addr.m_addr,
-        conn->m_addr.m_addr_len
-    );
+    ssize_t num_bytes =
+        ::sendto(m_listen_fd, data.data(), data.size(), 0, &conn->m_addr.m_addr, conn->m_addr.m_addr_len);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
@@ -210,14 +186,12 @@ UdpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
     return std::nullopt;
 }
 
-[[deprecated("Udp doesn't need connection, this function will cause no effect"
-)]] std::optional<std::string>
+[[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 UdpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     return std::nullopt;
 }
 
-[[deprecated("Udp doesn't need connection, this function will cause no effect"
-)]] std::optional<std::string>
+[[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 UdpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     return std::nullopt;
 }
@@ -233,8 +207,7 @@ std::optional<std::string> UdpServer::close() {
     return std::nullopt;
 }
 
-[[deprecated("Udp doesn't need connection, this function will cause no effect"
-)]] std::optional<std::string>
+[[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 UdpServer::start() {
     assert(m_default_handler != nullptr && "No handler set");
     m_stop = false;
@@ -256,20 +229,12 @@ UdpServer::start() {
                         auto err = this->read(buffer, conn);
                         if (err.has_value()) {
                             if (m_logger_set) {
-                                NET_LOG_ERROR(
-                                    m_logger,
-                                    "Failed to read from socket: {}",
-                                    err.value()
-                                );
+                                NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", err.value());
                             }
-                            std::cerr
-                                << std::format("Failed to read from socket: {}\n", err.value());
+                            std::cerr << std::format("Failed to read from socket: {}\n", err.value());
                             continue;
                         }
-                        m_connections.insert_or_assign(
-                            { conn->m_client_ip, conn->m_client_service },
-                            conn
-                        );
+                        m_connections.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, conn);
 
                         auto task = [b = std::move(buffer), conn, this]() {
                             std::vector<uint8_t> res, req = b;
@@ -280,14 +245,9 @@ UdpServer::start() {
                             auto err = this->write(res, conn);
                             if (err.has_value()) {
                                 if (m_logger_set) {
-                                    NET_LOG_ERROR(
-                                        m_logger,
-                                        "Failed to write to socket: {}",
-                                        err.value()
-                                    );
+                                    NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", err.value());
                                 }
-                                std::cerr
-                                    << std::format("Failed to write to socket: {}\n", err.value());
+                                std::cerr << std::format("Failed to write to socket: {}\n", err.value());
                                 m_connections.erase({ conn->m_client_ip, conn->m_client_service });
                             }
                         };
@@ -351,8 +311,7 @@ std::shared_ptr<UdpServer> UdpServer::get_shared() {
 UdpServer::on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) {}
 
 void UdpServer::on_message(
-    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)>
-        handler
+    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> handler
 ) {
     m_message_handler = std::move(handler);
 }

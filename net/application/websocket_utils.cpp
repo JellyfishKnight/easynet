@@ -180,8 +180,7 @@ void WebSocketFrame::clear() {
 }
 
 bool WebSocketFrame::is_control_frame() const {
-    return m_opcode == WebSocketOpcode::CLOSE || m_opcode == WebSocketOpcode::PING
-        || m_opcode == WebSocketOpcode::PONG;
+    return m_opcode == WebSocketOpcode::CLOSE || m_opcode == WebSocketOpcode::PING || m_opcode == WebSocketOpcode::PONG;
 }
 
 std::string& websocket_parser::buffer_raw() {
@@ -210,8 +209,7 @@ std::optional<WebSocketFrame> websocket_parser::read_frame() {
 }
 
 bool is_valid_opcode(uint8_t opcode) {
-    return opcode == 0x0 || opcode == 0x1 || opcode == 0x2 || opcode == 0x8 || opcode == 0x9
-        || opcode == 0xA;
+    return opcode == 0x0 || opcode == 0x1 || opcode == 0x2 || opcode == 0x8 || opcode == 0x9 || opcode == 0xA;
 }
 
 std::size_t websocket_parser::find_header(const std::vector<uint8_t>& buffer) {
@@ -278,8 +276,8 @@ void websocket_parser::push_chunk(std::string& chunk) {
                 return;
             }
             frame.set_mask(
-                (m_buffer[head_size] << 24) | (m_buffer[head_size + 1] << 16)
-                | (m_buffer[head_size + 2] << 8) | m_buffer[head_size + 3]
+                (m_buffer[head_size] << 24) | (m_buffer[head_size + 1] << 16) | (m_buffer[head_size + 2] << 8)
+                | m_buffer[head_size + 3]
             );
         }
         uint8_t mask_size = frame.masked() ? 4 : 0;

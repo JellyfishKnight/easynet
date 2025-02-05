@@ -1,12 +1,12 @@
 #pragma once
 
-#include <iostream>
 #include <concepts>
+#include <format>
+#include <iostream>
 #include <ostream>
 #include <ranges>
-#include <type_traits>
-#include <format>
 #include <source_location>
+#include <type_traits>
 
 namespace utils {
 
@@ -17,7 +17,7 @@ void print(BasicType value) {
 }
 
 template<typename BasicType>
-    requires std::is_fundamental_v<BasicType>   
+    requires std::is_fundamental_v<BasicType>
 void print(const BasicType* array, size_t size) {
     std::cout << "[";
     for (size_t i = 0; i < size; ++i) {
@@ -32,16 +32,14 @@ void print(const BasicType* array, size_t size) {
 
 // print container type
 template<typename ContainerType>
-requires requires {
-    typename ContainerType::iterator;
-}
+    requires requires { typename ContainerType::iterator; }
 void print(const ContainerType& container) {
     if constexpr (std::is_same_v<ContainerType, std::string>) {
         std::cout << container << std::endl;
         return;
     }
     std::cout << "[";
-    
+
     for (auto it = container.begin(); it != container.end(); ++it) {
         // last one do not print " "
         if (it == container.end() - 1) [[unlikely]] {
@@ -50,7 +48,7 @@ void print(const ContainerType& container) {
             std::cout << *it << " ";
         }
     }
-    std::cout << "]" <<std::endl;
+    std::cout << "]" << std::endl;
 }
 
 // print string type
@@ -63,6 +61,5 @@ template<typename... Args>
 void print(const std::format_string<Args...>& fmt, Args&&... args) {
     std::cout << std::format(std::move(fmt), std::forward<Args>(std::move(args))...) << std::endl;
 }
-
 
 } // namespace utils

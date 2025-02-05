@@ -35,8 +35,7 @@ constexpr std::string_view _enum_type_name() {
 template<auto CrItMaGiC>
 constexpr std::string_view _enum_value_name() {
     constexpr auto type = _enum_type_name<decltype(CrItMaGiC)>();
-    constexpr std::string_view name =
-        _try_remove_prefix(_try_extract_value(__PRETTY_FUNCTION__), type);
+    constexpr std::string_view name = _try_remove_prefix(_try_extract_value(__PRETTY_FUNCTION__), type);
     return name;
 }
 
@@ -69,9 +68,7 @@ constexpr size_t _enum_range() {
 template<class E, size_t... Is>
 constexpr std::string_view _dump_enum_impl(E value, std::index_sequence<Is...>) {
     std::string_view ret;
-    (void
-    )((value == static_cast<E>(Is) && ((ret = _enum_value_name<static_cast<E>(Is)>()), false))
-      || ...);
+    (void)((value == static_cast<E>(Is) && ((ret = _enum_value_name<static_cast<E>(Is)>()), false)) || ...);
     return ret;
 }
 

@@ -102,12 +102,8 @@ void SocketServer::on_accept(std::function<void(Connection::ConstSharedPtr conn)
     m_default_handler = handler;
 }
 
-std::optional<std::string> SocketServer::get_peer_info(
-    int fd,
-    std::string& ip,
-    std::string& service,
-    addressResolver::address& info
-) {
+std::optional<std::string>
+SocketServer::get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info) {
     if (::getpeername(fd, &info.m_addr, &info.m_addr_len) == 0) {
         ip = ::inet_ntoa(((struct sockaddr_in*)&info.m_addr)->sin_addr);
         service = std::to_string(ntohs(((struct sockaddr_in*)&info.m_addr)->sin_port));
@@ -132,8 +128,7 @@ std::shared_ptr<SocketServer> SocketServer::get_shared() {
     return shared_from_this();
 }
 
-std::unordered_map<ConnectionKey, Connection::ConstSharedPtr>
-SocketServer::get_connections() const {
+std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> SocketServer::get_connections() const {
     std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> connections;
     for (const auto& [key, conn]: m_connections) {
         connections[key] = conn;

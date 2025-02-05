@@ -58,11 +58,7 @@ public:
         }
     };
 
-    address_info resolve(
-        const std::string& name,
-        const std::string& service,
-        struct ::addrinfo* hints = nullptr
-    ) {
+    address_info resolve(const std::string& name, const std::string& service, struct ::addrinfo* hints = nullptr) {
         int err = ::getaddrinfo(name.c_str(), service.c_str(), hints, &m_head);
         if (err != 0) {
             throw std::system_error(err, std::system_category(), "Failed to resolve address");

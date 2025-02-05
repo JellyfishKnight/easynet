@@ -24,8 +24,7 @@ HttpResponse& HttpResponse::set_header(const std::string& key, const std::string
     return *this;
 }
 
-HttpResponse& HttpResponse::set_headers(const std::unordered_map<std::string, std::string>& headers
-) {
+HttpResponse& HttpResponse::set_headers(const std::unordered_map<std::string, std::string>& headers) {
     m_headers = headers;
     return *this;
 }
@@ -222,11 +221,7 @@ std::string& http11_header_writer::buffer() {
     return m_buffer;
 }
 
-void http11_header_writer::begin_header(
-    std::string_view first,
-    std::string_view second,
-    std::string_view third
-) {
+void http11_header_writer::begin_header(std::string_view first, std::string_view second, std::string_view third) {
     m_buffer.append(first);
     m_buffer.append(" ");
     m_buffer.append(second);

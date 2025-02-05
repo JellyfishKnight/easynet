@@ -130,10 +130,7 @@ TEST_F(LoggerTest, TestLoggerOutputToConsole) {
 }
 
 TEST_F(LoggerTest, TestLoggerWithSourceLocation) {
-    auto logger1 = utils::LoggerManager::get_instance().get_logger(
-        "logger_process_11111111",
-        "multi_process_test.log"
-    );
+    auto logger1 = utils::LoggerManager::get_instance().get_logger("logger_process_11111111", "multi_process_test.log");
 
     for (int i = 0; i < 10; ++i) {
         NET_LOG_WARN(logger1, "This is a warning message");

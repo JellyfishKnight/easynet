@@ -17,9 +17,7 @@ SSLContext::SSLContext() {
     SSL_library_init();
     OpenSSL_add_all_algorithms();
     SSL_load_error_strings();
-    m_ctx = std::shared_ptr<SSL_CTX>(SSL_CTX_new(TLS_method()), [](SSL_CTX* ctx) {
-        SSL_CTX_free(ctx);
-    });
+    m_ctx = std::shared_ptr<SSL_CTX>(SSL_CTX_new(TLS_method()), [](SSL_CTX* ctx) { SSL_CTX_free(ctx); });
     if (m_ctx == nullptr) {
         throw std::runtime_error("Failed to create SSL context");
     }
@@ -46,11 +44,7 @@ std::shared_ptr<SSL_CTX> SSLContext::get() {
     return m_ctx;
 }
 
-SSLClient::SSLClient(
-    std::shared_ptr<SSLContext> ctx,
-    const std::string& ip,
-    const std::string& service
-):
+SSLClient::SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service):
     TcpClient(ip, service),
     m_ctx(std::move(ctx)) {
     m_ssl = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
@@ -97,11 +91,7 @@ std::shared_ptr<SSLClient> SSLClient::get_shared() {
     return std::static_pointer_cast<SSLClient>(TcpClient::get_shared());
 }
 
-SSLServer::SSLServer(
-    std::shared_ptr<SSLContext> ctx,
-    const std::string& ip,
-    const std::string& service
-):
+SSLServer::SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service):
     TcpServer(ip, service),
     m_ctx(std::move(ctx)) {}
 
@@ -113,10 +103,8 @@ std::optional<std::string> SSLServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string>
-SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    auto ssl_conn =
-        std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
+std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
+    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
     int num_bytes = SSL_read(ssl_conn->m_ssl.get(), data.data(), data.size());
     if (num_bytes <= 0) {
         return "Failed to read data";
@@ -125,10 +113,8 @@ SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
     return std::nullopt;
 }
 
-std::optional<std::string>
-SSLServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    auto ssl_conn =
-        std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
+std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
+    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
     if (SSL_write(ssl_conn->m_ssl.get(), data.data(), data.size()) <= 0) {
         return "Failed to write data";
     }
@@ -168,16 +154,9 @@ std::optional<std::string> SSLServer::start() {
                         int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &len);
                         if (client_fd == -1) {
                             if (m_logger_set) {
-                                NET_LOG_ERROR(
-                                    m_logger,
-                                    "Failed to accept Connection: {}",
-                                    get_error_msg()
-                                );
+                                NET_LOG_ERROR(m_logger, "Failed to accept Connection: {}", get_error_msg());
                             }
-                            std::cerr << std::format(
-                                "Failed to accept Connection: {}\n",
-                                get_error_msg()
-                            );
+                            std::cerr << std::format("Failed to accept Connection: {}\n", get_error_msg());
                             continue;
                         }
                         struct ::epoll_event event;
@@ -185,16 +164,9 @@ std::optional<std::string> SSLServer::start() {
                         event.data.fd = client_fd;
                         if (::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1) {
                             if (m_logger_set) {
-                                NET_LOG_ERROR(
-                                    m_logger,
-                                    "Failed to add client socket to epoll: {}",
-                                    get_error_msg()
-                                );
+                                NET_LOG_ERROR(m_logger, "Failed to add client socket to epoll: {}", get_error_msg());
                             }
-                            std::cerr << std::format(
-                                "Failed to add client socket to epoll: {}\n",
-                                get_error_msg()
-                            );
+                            std::cerr << std::format("Failed to add client socket to epoll: {}\n", get_error_msg());
                             continue;
                         }
                         auto conn = std::make_shared<SSLConnection>();
@@ -205,9 +177,7 @@ std::optional<std::string> SSLServer::start() {
                         ssl_conn->m_server_ip = m_ip;
                         ssl_conn->m_server_service = m_service;
                         ssl_conn->m_ssl =
-                            std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) {
-                                SSL_free(ssl);
-                            });
+                            std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
                         if (ssl_conn->m_ssl == nullptr) {
                             if (m_logger_set) {
                                 NET_LOG_ERROR(m_logger, "Failed to create SSL object");
@@ -279,22 +249,15 @@ std::optional<std::string> SSLServer::start() {
                 }
                 if (FD_ISSET(m_listen_fd, &readfds)) {
                     addressResolver::address client_addr;
-                    int client_fd =
-                        ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
+                    int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
                     if (client_fd == -1) {
                         if (m_logger_set) {
-                            NET_LOG_ERROR(
-                                m_logger,
-                                "Failed to accept Connection: {}",
-                                get_error_msg()
-                            );
+                            NET_LOG_ERROR(m_logger, "Failed to accept Connection: {}", get_error_msg());
                         }
-                        std::cerr
-                            << std::format("Failed to accept Connection: {}\n", get_error_msg());
+                        std::cerr << std::format("Failed to accept Connection: {}\n", get_error_msg());
                         continue;
                     }
-                    std::string client_ip =
-                        ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+                    std::string client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
                     std::string client_service =
                         std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
                     auto& conn = m_connections[{ client_ip, client_service }];
@@ -309,9 +272,7 @@ std::optional<std::string> SSLServer::start() {
                     ssl_conn->m_client_service = client_service;
                     ssl_conn->m_addr = client_addr;
                     ssl_conn->m_ssl =
-                        std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) {
-                            SSL_free(ssl);
-                        });
+                        std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
                     if (ssl_conn->m_ssl == nullptr) {
                         if (m_logger_set) {
                             NET_LOG_ERROR(m_logger, "Failed to create SSL object");

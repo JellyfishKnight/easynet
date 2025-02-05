@@ -26,66 +26,39 @@ HttpServer::HttpServer(std::shared_ptr<TcpServer> server):
     set_handler();
 }
 
-void HttpServer::get(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::GET).insert_or_assign(path, handler);
 }
 
-void HttpServer::post(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::POST).insert_or_assign(path, handler);
 }
 
-void HttpServer::put(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::PUT).insert_or_assign(path, handler);
 }
 
-void HttpServer::del(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::DELETE).insert_or_assign(path, handler);
 }
 
-void HttpServer::head(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::HEAD).insert_or_assign(path, handler);
 }
 
-void HttpServer::trace(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::TRACE).insert_or_assign(path, handler);
 }
 
-void HttpServer::connect(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::CONNECT).insert_or_assign(path, handler);
 }
 
-void HttpServer::options(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::OPTIONS).insert_or_assign(path, handler);
 }
 
-void HttpServer::patch(
-    const std::string path,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_handlers.at(HttpMethod::PATCH).insert_or_assign(path, handler);
 }
 
@@ -117,10 +90,7 @@ ConnectionStatus HttpServer::status() const {
     return m_server->status();
 }
 
-void HttpServer::add_error_handler(
-    HttpResponseCode err_code,
-    std::function<HttpResponse(const HttpRequest&)> handler
-) {
+void HttpServer::add_error_handler(HttpResponseCode err_code, std::function<HttpResponse(const HttpRequest&)> handler) {
     m_error_handlers[err_code] = handler;
 }
 
@@ -137,15 +107,12 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 }
 
 void HttpServer::set_handler() {
-    auto parser_thread = [this](Connection::ConstSharedPtr conn) {
+    auto parser_thread_func = [this](Connection::ConstSharedPtr conn) {
         m_request_buffer_queue.insert_or_assign(
             { conn->m_client_ip, conn->m_client_service },
             std::queue<HttpResponse>()
         );
-        m_parsers.insert_or_assign(
-            { conn->m_client_ip, conn->m_client_service },
-            std::make_shared<HttpParser>()
-        );
+        m_parsers.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, std::make_shared<HttpParser>());
         while (m_server->status() == ConnectionStatus::CONNECTED) {
             // parse request
             std::vector<uint8_t> req(1024);
@@ -157,8 +124,7 @@ void HttpServer::set_handler() {
             }
             std::optional<HttpRequest> req_opt;
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            auto& request_buffer =
-                m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
+            auto& request_buffer = m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
             parser->add_req_read_buffer(req);
             while (true) {
                 req_opt = parser->read_req();
@@ -167,6 +133,65 @@ void HttpServer::set_handler() {
                 } else {
                     break;
                 }
+            }
+        }
+    };
+
+    auto handler_thread_func = [this](Connection::ConstSharedPtr conn) {
+        while (m_server->status() == ConnectionStatus::CONNECTED) {
+            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
+            auto& request_buffer = m_request_buffer_queue.at({ conn->m_client_ip, conn->m_client_service });
+            while (!request_buffer.empty()) {
+                auto& request = request_buffer.front();
+                HttpResponse response;
+                auto method = request.method();
+                auto path = request.url();
+                std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator handler;
+                // if method is wrong
+                try {
+                    handler = m_handlers.at(method).find(path);
+                } catch (const std::out_of_range& e) {
+                    if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
+                        response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
+                    } else {
+                        response.set_version(HTTP_VERSION_1_1)
+                            .set_status_code(HttpResponseCode::BAD_REQUEST)
+                            .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
+                            .set_header("Content-Length", "0");
+                    }
+                }
+                // if no handler for the path in this method is not found
+                if (handler == m_handlers.at(method).end()) {
+                    if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                        response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
+                    } else {
+                        response.set_version(HTTP_VERSION_1_1)
+                            .set_status_code(HttpResponseCode::NOT_FOUND)
+                            .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                            .set_header("Content-Length", "0");
+                    }
+                } else {
+                    try {
+                        response = handler->second(request);
+                    } catch (const HttpResponseCode& e) {
+                        if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                            response = m_error_handlers.at(e)(request);
+                        } else {
+                            response.set_version(HTTP_VERSION_1_1)
+                                .set_status_code(e)
+                                .set_reason(std::string(utils::dump_enum(e)))
+                                .set_header("Content-Length", "0");
+                        }
+                    }
+                }
+                // write response to socket
+                auto res = parser->write_res(response);
+                auto err = m_server->write(res, conn);
+                if (err.has_value()) {
+                    std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                    break;
+                }
+                request_buffer.pop();
             }
         }
     };
@@ -183,8 +208,7 @@ void HttpServer::set_handler() {
             HttpRequest request;
             HttpResponse response;
             if (!m_parsers.contains({ conn->m_client_ip, conn->m_client_service })) {
-                m_parsers[{ conn->m_client_ip, conn->m_client_service }] =
-                    std::make_shared<HttpParser>();
+                m_parsers[{ conn->m_client_ip, conn->m_client_service }] = std::make_shared<HttpParser>();
             }
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
             // auto not_finished = parser->read_req(request, req);
@@ -194,14 +218,12 @@ void HttpServer::set_handler() {
             // }
             auto method = request.method();
             auto path = request.url();
-            std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::
-                iterator handler;
+            std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator handler;
             // if method is wrong
             try {
                 handler = m_handlers.at(method).find(path);
             } catch (const std::out_of_range& e) {
-                if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end())
-                {
+                if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
                     response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
                 } else {
                     response.set_version(HTTP_VERSION_1_1)
