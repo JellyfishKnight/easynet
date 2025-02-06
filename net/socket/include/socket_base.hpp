@@ -8,7 +8,9 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <sys/epoll.h>
 #include <sys/types.h>

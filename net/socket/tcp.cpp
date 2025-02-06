@@ -1,12 +1,15 @@
 #include "tcp.hpp"
 #include "connection.hpp"
 #include "socket_base.hpp"
+#include "timer.hpp"
 #include <cassert>
 #include <csignal>
 #include <exception>
 #include <memory>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <thread>
+#include <utility>
 
 namespace net {
 
@@ -224,7 +227,10 @@ std::optional<std::string> TcpServer::start() {
                             std::cerr << std::format("Failed to get peer info: {}\n", err.value());
                             continue;
                         } else {
-                            m_connections.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, conn);
+                            m_connections.insert_or_assign(
+                                { conn->m_client_ip, conn->m_client_service },
+                                std::move(conn)
+                            );
                         }
                     } else {
                         std::string ip, service;
@@ -237,17 +243,19 @@ std::optional<std::string> TcpServer::start() {
                             std::cerr << std::format("Failed to get peer info: {}\n", err.value());
                             continue;
                         }
-                        auto& conn = m_connections.at({ ip, service });
                         if (m_thread_pool) {
-                            m_thread_pool->submit([this, conn]() {
+                            m_thread_pool->submit([this, conn = std::move(m_connections.at({ ip, service }))]() {
                                 handle_connection(conn);
-                                m_connections.erase({ conn->m_client_ip, conn->m_client_service });
                             });
+                            m_connections.erase({ ip, service });
                         } else {
-                            auto unused_future = std::async(std::launch::async, [this, conn]() {
-                                handle_connection(conn);
-                                m_connections.erase({ conn->m_client_ip, conn->m_client_service });
-                            });
+                            auto unused_future = std::async(
+                                std::launch::async,
+                                [this, conn = std::move(m_connections.at({ ip, service }))]() {
+                                    handle_connection(conn);
+                                }
+                            );
+                            m_connections.erase({ ip, service });
                         }
                     }
                 }
@@ -294,17 +302,10 @@ std::optional<std::string> TcpServer::start() {
                     conn->m_client_ip = client_ip;
                     conn->m_client_service = client_service;
                     conn->m_addr = client_addr;
-                    m_connections.insert_or_assign({ client_ip, client_service }, conn);
                     if (m_thread_pool) {
-                        m_thread_pool->submit([this, &conn]() {
-                            handle_connection(conn);
-                            m_connections.erase({ conn->m_client_ip, conn->m_client_service });
-                        });
+                        m_thread_pool->submit([this, conn]() { handle_connection(conn); });
                     } else {
-                        auto unused_future = std::async(std::launch::async, [this, &conn]() {
-                            handle_connection(conn);
-                            m_connections.erase({ conn->m_client_ip, conn->m_client_service });
-                        });
+                        auto unused = std::async(std::launch::async, [this, conn]() { handle_connection(conn); });
                     }
                 }
             }
@@ -360,6 +361,7 @@ void TcpServer::handle_connection(Connection::SharedPtr conn) {
     while (m_status == ConnectionStatus::LISTENING && conn->m_status == ConnectionStatus::CONNECTED) {
         m_accept_handler(conn);
     }
+    conn->m_status = ConnectionStatus::DISCONNECTED;
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {

@@ -17,10 +17,7 @@ std::string readFileToString(const std::string& filePath) {
 
 int main() {
     net::SSLContext::SharedPtr ctx = net::SSLContext::create();
-    ctx->set_certificates(
-        "/home/jk/Projects/net/keys/certificate.crt",
-        "/home/jk/Projects/net/keys/private.key"
-    );
+    ctx->set_certificates("/home/jk/Projects/net/keys/certificate.crt", "/home/jk/Projects/net/keys/private.key");
 
     net::SSLServer::SharedPtr server = std::make_shared<net::SSLServer>(ctx, "127.0.0.1", "8080");
 
@@ -31,6 +28,7 @@ int main() {
     auto content = readFileToString("/home/jk/Projects/net/index/index.html");
 
     http_server.enable_thread_pool(96);
+    // http_server.enable_epoll(1024);
     http_server.get("/", [&content](const net::HttpRequest& req) {
         net::HttpResponse res;
         res.set_version(HTTP_VERSION_1_1)

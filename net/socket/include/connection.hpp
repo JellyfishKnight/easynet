@@ -47,7 +47,9 @@ struct Connection: std::enable_shared_from_this<Connection> {
     addressResolver::address m_addr;
     ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
 
-    virtual ~Connection() = default;
+    virtual ~Connection() {
+        ::close(m_client_fd);
+    }
 };
 
 } // namespace net
