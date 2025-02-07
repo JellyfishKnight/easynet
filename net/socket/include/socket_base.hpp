@@ -17,6 +17,7 @@
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace net {
@@ -154,6 +155,7 @@ protected:
 
     std::map<int, RemoteTarget> m_remotes;
     std::shared_mutex m_remotes_mutex;
+    std::unordered_set<Event::SharedPtr> m_events;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     EventLoop::SharedPtr m_event_loop;

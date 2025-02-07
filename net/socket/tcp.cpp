@@ -200,48 +200,46 @@ std::optional<std::string> TcpServer::start() {
                     if (!this->m_on_read) {
                         return;
                     }
-                    RemoteTarget remote_target;
                     {
                         std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                        remote_target = m_remotes.at(client_fd);
-                    }
-                    if (this->m_thread_pool) {
-                        this->m_thread_pool->submit(std::bind(this->m_on_read, remote_target));
-                    } else {
-                        this->m_on_read(remote_target);
+                        RemoteTarget& remote_target = m_remotes.at(client_fd);
+                        if (this->m_thread_pool) {
+                            this->m_thread_pool->submit(std::bind(this->m_on_read, remote_target));
+                        } else {
+                            this->m_on_read(remote_target);
+                        }
                     }
                 };
                 client_event_handler->m_on_write = [this](int client_fd) {
                     if (!this->m_on_write) {
                         return;
                     }
-                    RemoteTarget remote_target;
                     {
                         std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                        remote_target = m_remotes.at(client_fd);
-                    }
-                    if (this->m_thread_pool) {
-                        this->m_thread_pool->submit(std::bind(this->m_on_write, remote_target));
-                    } else {
-                        this->m_on_write(remote_target);
+                        RemoteTarget& remote_target = m_remotes.at(client_fd);
+                        if (this->m_thread_pool) {
+                            this->m_thread_pool->submit(std::bind(this->m_on_write, remote_target));
+                        } else {
+                            this->m_on_write(remote_target);
+                        }
                     }
                 };
                 client_event_handler->m_on_error = [this](int client_fd) {
                     if (!this->m_on_error) {
                         return;
-                    }
-                    RemoteTarget remote_target;
+                    };
                     {
                         std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                        remote_target = m_remotes.at(client_fd);
-                    }
-                    if (this->m_thread_pool) {
-                        this->m_thread_pool->submit(std::bind(this->m_on_error, remote_target));
-                    } else {
-                        this->m_on_error(remote_target);
+                        RemoteTarget& remote_target = m_remotes.at(client_fd);
+                        if (this->m_thread_pool) {
+                            this->m_thread_pool->submit(std::bind(this->m_on_error, remote_target));
+                        } else {
+                            this->m_on_error(remote_target);
+                        }
                     }
                 };
                 auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
+                m_events.insert(client_event);
                 m_event_loop->add_event(client_event);
             };
             server_event_handler->m_on_error = [this](int server_fd) {
@@ -254,6 +252,19 @@ std::optional<std::string> TcpServer::start() {
             auto server_event = std::make_shared<Event>(m_listen_fd, server_event_handler);
             m_event_loop->add_event(server_event);
             while (!m_stop) {
+                // erase expired remotes
+                for (auto it = m_events.begin(); it != m_events.end();) {
+                    if (m_remotes.at((*it)->get_fd()).m_status == false) {
+                        m_event_loop->remove_event(*it);
+                        {
+                            std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+                            m_remotes.erase((*it)->get_fd());
+                        }
+                        it = m_events.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
                 m_event_loop->wait_for_events();
             }
         });
