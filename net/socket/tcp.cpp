@@ -1,5 +1,6 @@
 #include "tcp.hpp"
-#include "connection.hpp"
+#include "event_loop.hpp"
+#include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "timer.hpp"
 #include <cassert>
@@ -25,7 +26,7 @@ TcpClient::TcpClient(const std::string& ip, const std::string& service) {
     m_ip = ip;
     m_service = service;
     m_logger_set = false;
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     m_socket_type = SocketType::TCP;
 }
 
@@ -36,7 +37,7 @@ std::optional<std::string> TcpClient::connect() {
         }
         return get_error_msg();
     }
-    m_status = ConnectionStatus::CONNECTED;
+    m_status = SocketStatus::CONNECTED;
     return std::nullopt;
 }
 
@@ -47,12 +48,12 @@ std::optional<std::string> TcpClient::close() {
         }
         return get_error_msg();
     }
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     return std::nullopt;
 }
 
 std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
-    assert(m_status == ConnectionStatus::CONNECTED && "Client is not connected");
+    assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::recv(m_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
@@ -63,16 +64,16 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        return "Connection reset by peer while reading";
+        return "RemoteTarget reset by peer while reading";
     }
     data.resize(num_bytes);
     return std::nullopt;
 }
 
 std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data) {
-    assert(m_status == ConnectionStatus::CONNECTED && "Client is not connected");
+    assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::send(m_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
@@ -83,9 +84,9 @@ std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data) {
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        return "Connection reset by peer while writing";
+        return "RemoteTarget reset by peer while writing";
     }
     return std::nullopt;
 }
@@ -95,7 +96,7 @@ std::shared_ptr<TcpClient> TcpClient::get_shared() {
 }
 
 TcpClient::~TcpClient() {
-    if (m_status == ConnectionStatus::CONNECTED) {
+    if (m_status == SocketStatus::CONNECTED) {
         close();
     }
 }
@@ -110,16 +111,15 @@ TcpServer::TcpServer(const std::string& ip, const std::string& service) {
     m_ip = ip;
     m_service = service;
     m_logger_set = false;
-    m_epoll_enabled = false;
     m_thread_pool = nullptr;
     m_accept_handler = nullptr;
     m_stop = true;
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     m_socket_type = SocketType::TCP;
 }
 
 TcpServer::~TcpServer() {
-    if (m_status == ConnectionStatus::CONNECTED) {
+    if (m_status == SocketStatus::CONNECTED) {
         close();
     }
 }
@@ -146,21 +146,14 @@ std::optional<std::string> TcpServer::listen() {
         return get_error_msg();
     }
 
-    m_status = ConnectionStatus::LISTENING;
+    m_status = SocketStatus::LISTENING;
     return std::nullopt;
 }
 
 std::optional<std::string> TcpServer::close() {
     m_stop = true;
     m_accept_thread.join();
-    if (m_epoll_enabled) {
-        ::close(m_epoll_fd);
-        m_epoll_enabled = false;
-    }
-    for (auto& [Key, Conn]: m_connections) {
-        ::close(Conn->m_client_fd);
-    }
-    m_connections.clear();
+    m_event_loop.reset();
     if (m_thread_pool) {
         m_thread_pool->stop();
         m_thread_pool.reset();
@@ -171,142 +164,62 @@ std::optional<std::string> TcpServer::close() {
         }
         return get_error_msg();
     }
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     return std::nullopt;
 }
 
 std::optional<std::string> TcpServer::start() {
-    assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
+    assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(m_accept_handler != nullptr && "No handler set");
     m_stop = false;
-    if (m_epoll_enabled) {
+    if (m_event_loop) {
         m_accept_thread = std::thread([this]() {
-            while (!m_stop) {
-                std::vector<struct ::epoll_event> events(m_events.size());
-                int num_events = ::epoll_wait(m_epoll_fd, events.data(), m_events.size(), -1);
-                if (num_events == -1) {
+            EventHandler::SharedPtr server_event_handler = std::make_shared<EventHandler>();
+            server_event_handler->m_on_read = [this](int server_fd) {
+                addressResolver::address client_addr;
+                int client_fd = ::accept(server_fd, &client_addr.m_addr, &client_addr.m_addr_len);
+                if (client_fd == -1) {
                     if (m_logger_set) {
-                        NET_LOG_ERROR(m_logger, "Failed to wait for events: {}", get_error_msg());
+                        NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
                     }
-                    continue;
+                    std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
+                    return;
                 }
-                for (int i = 0; i < num_events; ++i) {
-                    if (events[i].data.fd == m_listen_fd) {
-                        addressResolver::address client_addr;
-                        socklen_t len;
-                        int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &len);
-                        if (client_fd == -1) {
-                            if (m_logger_set) {
-                                NET_LOG_ERROR(m_logger, "Failed to accept Connection: {}", get_error_msg());
-                            }
-                            std::cerr << std::format("Failed to accept Connection: {}\n", get_error_msg());
-                            continue;
-                        }
-                        struct ::epoll_event event;
-                        event.events = EPOLLIN;
-                        event.data.fd = client_fd;
-                        if (::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1) {
-                            if (m_logger_set) {
-                                NET_LOG_ERROR(m_logger, "Failed to add client socket to epoll: {}", get_error_msg());
-                            }
-                            std::cerr << std::format("Failed to add client socket to epoll: {}\n", get_error_msg());
-                            continue;
-                        }
-                        auto conn = std::make_shared<Connection>();
-                        conn->m_client_fd = events[i].data.fd;
-                        conn->m_server_fd = m_listen_fd;
-                        conn->m_status = ConnectionStatus::CONNECTED;
-                        conn->m_server_ip = m_ip;
-                        conn->m_server_service = m_service;
-                        auto err =
-                            get_peer_info(conn->m_client_fd, conn->m_client_ip, conn->m_client_service, conn->m_addr);
-                        if (err.has_value()) {
-                            if (m_logger_set) {
-                                NET_LOG_ERROR(m_logger, "Failed to get peer info: {}", err.value());
-                            }
-                            std::cerr << std::format("Failed to get peer info: {}\n", err.value());
-                            continue;
-                        } else {
-                            m_connections.insert_or_assign(
-                                { conn->m_client_ip, conn->m_client_service },
-                                std::move(conn)
-                            );
-                        }
-                    } else {
-                        std::string ip, service;
-                        addressResolver::address info;
-                        auto err = get_peer_info(events[i].data.fd, ip, service, info);
-                        if (err.has_value()) {
-                            if (m_logger_set) {
-                                NET_LOG_ERROR(m_logger, "Failed to get peer info: {}", err.value());
-                            }
-                            std::cerr << std::format("Failed to get peer info: {}\n", err.value());
-                            continue;
-                        }
-                        if (m_thread_pool) {
-                            m_thread_pool->submit([this, conn = std::move(m_connections.at({ ip, service }))]() {
-                                handle_connection(conn);
-                            });
-                            m_connections.erase({ ip, service });
-                        } else {
-                            auto unused_future = std::async(
-                                std::launch::async,
-                                [this, conn = std::move(m_connections.at({ ip, service }))]() {
-                                    handle_connection(conn);
-                                }
-                            );
-                            m_connections.erase({ ip, service });
-                        }
-                    }
+                auto client_event_handler = std::make_shared<EventHandler>();
+                client_event_handler->m_on_read = this->m_on_read;
+                client_event_handler->m_on_write = this->m_on_write;
+                client_event_handler->m_on_error = this->m_on_error;
+                auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
+                m_event_loop->add_event(client_event);
+            };
+            server_event_handler->m_on_error = [this](int server_fd) {
+                if (m_logger_set) {
+                    NET_LOG_ERROR(m_logger, "Error on server socket: {}", get_error_msg());
                 }
+                std::cerr << std::format("Error on server socket: {}\n", get_error_msg());
+                this->close();
+            };
+            auto server_event = std::make_shared<Event>(m_listen_fd, server_event_handler);
+            while (!m_stop) {
+                m_event_loop->wait_for_events();
             }
         });
     } else {
         m_accept_thread = std::thread([this]() {
             while (!m_stop) {
-                // use select to avoid blocking on accept
-                ::fd_set readfds;
-                FD_ZERO(&readfds);
-                FD_SET(m_listen_fd, &readfds);
-                struct timeval timeout = { 1, 0 };
-                int ret = ::select(m_listen_fd + 1, &readfds, nullptr, nullptr, &timeout);
-                if (ret == -1) {
+                addressResolver::address client_addr;
+                int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
+                if (client_fd == -1) {
                     if (m_logger_set) {
-                        NET_LOG_ERROR(m_logger, "Failed to wait for events: {}", get_error_msg());
+                        NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
                     }
-                    std::cerr << std::format("Failed to wait for events: {}\n", get_error_msg());
+                    std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
                     continue;
                 }
-                if (ret == 0) {
-                    continue;
-                }
-                if (FD_ISSET(m_listen_fd, &readfds)) {
-                    addressResolver::address client_addr;
-                    int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
-                    if (client_fd == -1) {
-                        if (m_logger_set) {
-                            NET_LOG_ERROR(m_logger, "Failed to accept Connection: {}", get_error_msg());
-                        }
-                        std::cerr << std::format("Failed to accept Connection: {}\n", get_error_msg());
-                        continue;
-                    }
-                    std::string client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
-                    std::string client_service =
-                        std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
-                    auto conn = std::make_shared<Connection>();
-                    conn->m_client_fd = client_fd;
-                    conn->m_server_fd = m_listen_fd;
-                    conn->m_status = ConnectionStatus::CONNECTED;
-                    conn->m_server_ip = m_ip;
-                    conn->m_server_service = m_service;
-                    conn->m_client_ip = client_ip;
-                    conn->m_client_service = client_service;
-                    conn->m_addr = client_addr;
-                    if (m_thread_pool) {
-                        m_thread_pool->submit([this, conn]() { handle_connection(conn); });
-                    } else {
-                        auto unused = std::async(std::launch::async, [this, conn]() { handle_connection(conn); });
-                    }
+                if (m_thread_pool) {
+                    m_thread_pool->submit([this, client_fd]() { handle_connection(client_fd); });
+                } else {
+                    auto unused = std::async(std::launch::async, [this, client_fd]() { handle_connection(client_fd); });
                 }
             }
         });
@@ -314,54 +227,53 @@ std::optional<std::string> TcpServer::start() {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
+std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+    assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::recv(conn->m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
         }
-        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
-        return "Connection reset by peer while reading";
+        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
+        return "RemoteTarget reset by peer while reading";
     }
     data.resize(num_bytes);
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    assert(m_status == ConnectionStatus::LISTENING && "Server is not listening");
+std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+    assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes = ::send(conn->m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
         }
-        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
-        return "Connection reset by peer while writing";
+        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
+        return "RemoteTarget reset by peer while writing";
     }
     return std::nullopt;
 }
 
-void TcpServer::handle_connection(Connection::SharedPtr conn) {
-    while (m_status == ConnectionStatus::LISTENING && conn->m_status == ConnectionStatus::CONNECTED) {
-        m_accept_handler(conn);
+void TcpServer::handle_connection(int client_fd) {
+    while (m_status == SocketStatus::LISTENING) {
+        m_accept_handler(client_fd);
     }
-    conn->m_status = ConnectionStatus::DISCONNECTED;
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {

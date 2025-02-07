@@ -317,7 +317,7 @@ HttpClient::~HttpClient() {
     if (m_client == nullptr) {
         return;
     }
-    if (m_client->status() == ConnectionStatus::CONNECTED) {
+    if (m_client->status() == SocketStatus::CONNECTED) {
         m_client->close();
     }
     m_client.reset();
@@ -339,7 +339,7 @@ std::string HttpClient::get_service() const {
     return m_client->get_service();
 }
 
-ConnectionStatus HttpClient::status() const {
+SocketStatus HttpClient::status() const {
     return m_client->status();
 }
 

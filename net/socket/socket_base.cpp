@@ -1,7 +1,8 @@
 #include "socket_base.hpp"
 #include "address_resolver.hpp"
-#include "connection.hpp"
+#include "event_loop.hpp"
 #include "logger.hpp"
+#include "remote_target.hpp"
 #include <cassert>
 #include <cstddef>
 #include <format>
@@ -31,11 +32,6 @@ void SocketClient::set_logger(const utils::LoggerManager::Logger& logger) {
     m_logger_set = true;
 }
 
-std::string SocketClient::get_error_msg() {
-    // read error from system cateogry
-    return std::system_category().message(errno);
-}
-
 std::string SocketClient::get_ip() const {
     return m_ip;
 }
@@ -44,7 +40,7 @@ std::string SocketClient::get_service() const {
     return m_service;
 }
 
-ConnectionStatus SocketClient::status() const {
+SocketStatus SocketClient::status() const {
     return m_status;
 }
 
@@ -65,40 +61,31 @@ void SocketServer::set_logger(const utils::LoggerManager::Logger& logger) {
     m_logger_set = true;
 }
 
-std::string SocketServer::get_error_msg() {
-    // read error from system cateogry
-    return std::system_category().message(errno);
-}
-
 void SocketServer::enable_thread_pool(std::size_t worker_num) {
     assert(worker_num > 0 && "Worker number should be greater than 0");
     assert(m_thread_pool == nullptr && "Thread pool is already enabled");
     assert(
-        m_status == ConnectionStatus::DISCONNECTED
-        || m_status == ConnectionStatus::LISTENING && "Server is already connected"
+        m_status == SocketStatus::DISCONNECTED || m_status == SocketStatus::LISTENING && "Server is already connected"
     );
     m_thread_pool = std::make_shared<utils::ThreadPool>(worker_num);
 }
 
-std::optional<std::string> SocketServer::enable_epoll(std::size_t event_num) {
+void SocketServer::enable_event_loop(EventLoopType type) {
     assert(
-        m_status == ConnectionStatus::DISCONNECTED
-        || m_status == ConnectionStatus::LISTENING && "Server is already connected"
+        m_status == SocketStatus::DISCONNECTED || m_status == SocketStatus::LISTENING && "Server is already connected"
     );
-    assert(event_num > 0 && "Event number should be greater than 0");
-    m_epoll_fd = ::epoll_create1(0);
-    if (m_epoll_fd == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to create epoll: {}", get_error_msg());
-        }
-        return get_error_msg();
+    if (type == EventLoopType::SELECT) {
+        m_event_loop = std::make_shared<SelectEventLoop>();
+    } else if (type == EventLoopType::EPOLL) {
+        m_event_loop = std::make_shared<EpollEventLoop>();
+    } else if (type == EventLoopType::POLL) {
+        m_event_loop = std::make_shared<PollEventLoop>();
+    } else {
+        throw std::runtime_error("Unsupported event loop type");
     }
-    m_events.resize(event_num);
-    m_epoll_enabled = true;
-    return std::nullopt;
 }
 
-void SocketServer::on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) {
+void SocketServer::on_accept(std::function<void(int client_fd)> handler) {
     m_accept_handler = handler;
 }
 
@@ -120,20 +107,12 @@ std::string SocketServer::get_service() const {
     return m_service;
 }
 
-ConnectionStatus SocketServer::status() const {
+SocketStatus SocketServer::status() const {
     return m_status;
 }
 
 std::shared_ptr<SocketServer> SocketServer::get_shared() {
     return shared_from_this();
-}
-
-std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> SocketServer::get_connections() const {
-    std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> connections;
-    for (const auto& [key, conn]: m_connections) {
-        connections[key] = conn;
-    }
-    return connections;
 }
 
 } // namespace net

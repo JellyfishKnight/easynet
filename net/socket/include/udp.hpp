@@ -1,6 +1,6 @@
 #pragma once
 
-#include "connection.hpp"
+#include "remote_target.hpp"
 #include "socket_base.hpp"
 #include <cstdint>
 #include <optional>
@@ -40,7 +40,7 @@ protected:
 
 /**
  * @brief UdpServer class
- * @note Connection in udp server is representing a client which has sent a message to the server,
+ * @note RemoteTarget in udp server is representing a client which has sent a message to the server,
  *       the server will send the message back to the client, you can also construct a connection 
  *       object with the client's ip and service to send message to the client you want
  */
@@ -71,19 +71,19 @@ public:
      * @return std::optional<std::string> error message if any
      * @note if the 2nd param is null, it's broadcasting to every client saved on this server
      */
-    std::optional<std::string> read(std::vector<uint8_t>& data, Connection::SharedPtr conn);
+    std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn);
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::SharedPtr conn);
+    std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn);
 
     void
-    on_message(std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> handler);
+    on_message(std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, RemoteTarget::ConstSharedPtr)> handler);
 
 protected:
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-    on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) override;
+    on_accept(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) override;
 
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-    handle_connection(Connection::SharedPtr conn) override;
+    handle_connection(RemoteTarget::SharedPtr conn) override;
 
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
     listen() override;
@@ -92,12 +92,12 @@ protected:
     start() override;
 
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-    read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
 
     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-    write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
 
-    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> m_message_handler;
+    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, RemoteTarget::ConstSharedPtr)> m_message_handler;
 };
 
 }; // namespace net

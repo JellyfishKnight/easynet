@@ -29,25 +29,16 @@ struct hash<net::ConnectionKey> {
 
 namespace net {
 
-enum class ConnectionStatus { CONNECTED = 0, LISTENING, DISCONNECTED };
+struct RemoteTarget: std::enable_shared_from_this<RemoteTarget> {
+    NET_DECLARE_PTRS(RemoteTarget)
 
-struct Connection: std::enable_shared_from_this<Connection> {
-    NET_DECLARE_PTRS(Connection)
-
-    Connection() = default;
-
-    std::string m_client_ip;
-    std::string m_client_service;
-    std::string m_server_ip;
-    std::string m_server_service;
+    RemoteTarget() = default;
 
     int m_client_fd;
-    int m_server_fd;
 
-    addressResolver::address m_addr;
-    ConnectionStatus m_status = ConnectionStatus::DISCONNECTED;
+    bool m_status = false;
 
-    virtual ~Connection() {
+    virtual ~RemoteTarget() {
         ::close(m_client_fd);
     }
 };

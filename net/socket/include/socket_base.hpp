@@ -1,8 +1,9 @@
 #pragma once
 
 #include "address_resolver.hpp"
-#include "connection.hpp"
+#include "event_loop.hpp"
 #include "logger.hpp"
+#include "remote_target.hpp"
 #include "thread_pool.hpp"
 #include <cstdint>
 #include <functional>
@@ -24,6 +25,8 @@ enum class SocketType : uint8_t {
     UDP,
     RAW,
 };
+
+enum class SocketStatus { CONNECTED = 0, LISTENING, DISCONNECTED };
 
 class SocketClient: std::enable_shared_from_this<SocketClient> {
 public:
@@ -57,22 +60,20 @@ public:
 
     std::string get_service() const;
 
-    ConnectionStatus status() const;
+    SocketStatus status() const;
 
     virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
 
     virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
 
 protected:
-    std::string get_error_msg();
-
     int m_fd;
     addressResolver m_addr_resolver;
     addressResolver::address_info m_addr_info;
     std::string m_ip;
     std::string m_service;
 
-    ConnectionStatus m_status;
+    SocketStatus m_status;
     SocketType m_socket_type;
 
     bool m_logger_set;
@@ -80,6 +81,8 @@ protected:
 };
 
 class SocketServer: std::enable_shared_from_this<SocketServer> {
+    using CallBack = std::function<void(int client_fd)>;
+
 public:
     NET_DECLARE_PTRS(SocketServer)
 
@@ -107,7 +110,7 @@ public:
 
     void enable_thread_pool(std::size_t worker_num);
 
-    std::optional<std::string> enable_epoll(std::size_t event_num);
+    void enable_event_loop(EventLoopType type = EventLoopType::SELECT);
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
@@ -117,26 +120,22 @@ public:
 
     std::string get_service() const;
 
-    ConnectionStatus status() const;
+    SocketStatus status() const;
 
-    /**
-     * @brief add a handler to the server to handle the connection
-     * @param handler the handler to be added
-     * @note the handler should take 1 arguments:
-     *      1. a const reference to a Connection object which contains the connection information
-     */
-    virtual void on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler);
+    virtual void on_read(CallBack handler);
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) = 0;
+    virtual void on_write(CallBack handler);
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) = 0;
+    virtual void on_error(CallBack handler);
 
-    std::unordered_map<ConnectionKey, Connection::ConstSharedPtr> get_connections() const;
+    virtual void on_accept(CallBack handler);
+
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, int client_fd) = 0;
+
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, int client_fd) = 0;
 
 protected:
-    virtual void handle_connection(Connection::SharedPtr conn) = 0;
-
-    std::string get_error_msg();
+    virtual void handle_connection(int client_fd) = 0;
 
     std::optional<std::string>
     get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info);
@@ -147,19 +146,19 @@ protected:
     std::string m_ip;
     std::string m_service;
 
-    std::function<void(Connection::ConstSharedPtr conn)> m_accept_handler;
+    CallBack m_accept_handler;
+    CallBack m_on_read;
+    CallBack m_on_write;
+    CallBack m_on_error;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
-    std::vector<struct ::epoll_event> m_events;
-    int m_epoll_fd;
+    EventLoop::SharedPtr m_event_loop;
 
-    std::unordered_map<ConnectionKey, Connection::SharedPtr> m_connections;
     bool m_stop;
-    bool m_epoll_enabled;
 
     std::thread m_accept_thread;
 
-    ConnectionStatus m_status;
+    SocketStatus m_status;
     SocketType m_socket_type;
 
     bool m_logger_set;

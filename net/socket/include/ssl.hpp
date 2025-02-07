@@ -13,8 +13,8 @@
 
 namespace net {
 
-struct SSLConnection: public Connection {
-    SSLConnection(): Connection() {}
+struct SSLConnection: public RemoteTarget {
+    SSLConnection(): RemoteTarget() {}
 
     std::shared_ptr<SSL> m_ssl;
 };
@@ -93,12 +93,12 @@ public:
 
     std::shared_ptr<SSLServer> get_shared();
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
 
 protected:
-    void handle_connection(Connection::SharedPtr conn) override;
+    void handle_connection(RemoteTarget::SharedPtr conn) override;
 
     std::shared_ptr<SSLContext> m_ctx;
 };

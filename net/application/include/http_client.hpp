@@ -1,7 +1,7 @@
 #pragma once
 
-#include "connection.hpp"
 #include "http_parser.hpp"
+#include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "ssl.hpp"
 #include "tcp.hpp"
@@ -155,7 +155,7 @@ public:
 
     std::string get_service() const;
 
-    ConnectionStatus status() const;
+    SocketStatus status() const;
 
     std::shared_ptr<HttpClient> get_shared();
 

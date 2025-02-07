@@ -1,5 +1,6 @@
 #pragma once
 
+#include "defines.hpp"
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -10,9 +11,13 @@
 
 namespace net {
 
+enum class EventLoopType : uint8_t { SELECT = 0x01, POLL = 0x02, EPOLL = 0x03 };
+
 enum class EventType : uint8_t { READ = 0x01, WRITE = 0x02, ERROR = 0x04, HUP = 0x08 };
 
 struct EventHandler {
+    NET_DECLARE_PTRS(EventHandler)
+
     using Callback = std::function<void(int)>;
 
     Callback m_on_read = nullptr;
@@ -22,6 +27,8 @@ struct EventHandler {
 
 class Event {
 public:
+    NET_DECLARE_PTRS(Event)
+
     Event(int fd, const std::shared_ptr<EventHandler>& handler): m_fd(fd), m_handler(handler) {
         if (m_handler->m_on_read) {
             m_type = static_cast<EventType>(static_cast<uint8_t>(m_type) | static_cast<uint8_t>(EventType::READ));
@@ -85,6 +92,8 @@ private:
 
 class EventLoop {
 public:
+    NET_DECLARE_PTRS(EventLoop)
+
     virtual ~EventLoop() = default;
 
     virtual void add_event(const std::shared_ptr<Event>& event) = 0;
@@ -96,6 +105,8 @@ public:
 
 class SelectEventLoop: public EventLoop {
 public:
+    NET_DECLARE_PTRS(SelectEventLoop)
+
     SelectEventLoop(): m_max_fd(0) {}
 
     void add_event(const std::shared_ptr<Event>& event) override {
@@ -154,6 +165,8 @@ private:
 
 class PollEventLoop: public EventLoop {
 public:
+    NET_DECLARE_PTRS(PollEventLoop)
+
     void add_event(const std::shared_ptr<Event>& event) override {
         m_poll_fds.push_back({ event->get_fd(), 0, 0 });
         m_events[event->get_fd()] = event;
@@ -201,6 +214,8 @@ private:
 
 class EpollEventLoop: public EventLoop {
 public:
+    NET_DECLARE_PTRS(EpollEventLoop)
+
     EpollEventLoop(): m_epoll_fd(epoll_create1(0)) {
         if (m_epoll_fd == -1) {
             throw std::runtime_error("Failed to create epoll instance");
@@ -236,8 +251,6 @@ public:
         }
 
         for (int i = 0; i < num_events; ++i) {
-            // Handle event based on events[i].events
-            // Handle accordingly, like using m_events[events[i].data.fd]->trigger()
             if (events[i].events & EPOLLIN) {
                 m_events.at(events[i].data.fd)->on_read();
             }

@@ -1,9 +1,9 @@
 #include "websocket.hpp"
-#include "connection.hpp"
 #include "enum_parser.hpp"
 #include "http_client.hpp"
 #include "http_parser.hpp"
 #include "http_server.hpp"
+#include "remote_target.hpp"
 #include "websocket_utils.hpp"
 #include <cassert>
 #include <cstdint>
@@ -57,7 +57,7 @@ std::optional<std::string> WebSocketClient::write_ws(const WebSocketFrame& data)
 
 WebSocketClient::~WebSocketClient() {
     if (m_client) {
-        if (m_client->status() == ConnectionStatus::CONNECTED) {
+        if (m_client->status() == SocketStatus::CONNECTED) {
             m_client->close();
         }
         m_client.reset();
@@ -258,7 +258,7 @@ WebSocketServer::WebSocketServer(std::shared_ptr<TcpServer> server): HttpServer(
     set_handler();
 }
 
-ConnectionStatus WebSocketServer::status() const {
+SocketStatus WebSocketServer::status() const {
     return m_server->status();
 }
 
@@ -318,7 +318,7 @@ std::optional<std::string> WebSocketServer::accept_ws_connection(const HttpReque
         .set_status_code(HttpResponseCode::SWITCHING_PROTOCOLS)
         .set_reason(std::string(utils::dump_enum(HttpResponseCode::SWITCHING_PROTOCOLS)))
         .set_header("Upgrade", "websocket")
-        .set_header("Connection", "Upgrade")
+        .set_header("RemoteTarget", "Upgrade")
         .set_header("Sec-WebSocket-Accept", accept_key)
         .set_header("Sec-WebSocket-Version", "13");
     HttpParser parser;
@@ -327,13 +327,13 @@ std::optional<std::string> WebSocketServer::accept_ws_connection(const HttpReque
 }
 
 void WebSocketServer::set_handler() {
-    auto http_handler = [this](Connection::ConstSharedPtr conn) {
+    auto http_handler = [this](RemoteTarget::ConstSharedPtr conn) {
         std::vector<uint8_t> req(1024);
         std::vector<uint8_t> res;
         auto err = m_server->read(req, conn);
         if (err.has_value()) {
             std::cerr << "Failed to read from socket: " << err.value() << std::endl;
-            std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+            std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
             return;
         }
 
@@ -382,7 +382,7 @@ void WebSocketServer::set_handler() {
                 err = m_server->write(res, conn);
                 if (err.has_value()) {
                     std::cerr << "Failed to write to socket: " << err.value() << std::endl;
-                    std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+                    std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
                     return;
                 }
                 break;
@@ -429,16 +429,14 @@ void WebSocketServer::set_handler() {
             err = m_server->write(res, conn);
             if (err.has_value()) {
                 std::cerr << "Failed to write to socket: " << err.value() << std::endl;
-                std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+                std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
                 return;
             }
         };
     };
 
-    auto handler = [this, http_handler](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == net::ConnectionStatus::LISTENING
-               && conn->m_status == net::ConnectionStatus::CONNECTED)
-        {
+    auto handler = [this, http_handler](RemoteTarget::ConstSharedPtr conn) {
+        while (m_server->status() == net::SocketStatus::LISTENING && conn->m_status == net::SocketStatus::CONNECTED) {
             // parse request
             if (m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })) {
                 m_ws_handler(conn);
@@ -457,7 +455,7 @@ WebSocketStatus WebSocketServer::ws_status() const {
     return m_websocket_status;
 }
 
-void WebSocketServer::add_websocket_handler(std::function<void(Connection::ConstSharedPtr conn)> handler) {
+void WebSocketServer::add_websocket_handler(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) {
     m_ws_handler = std::move(handler);
 }
 
@@ -470,7 +468,7 @@ std::shared_ptr<WebSocketServer> WebSocketServer::get_shared() {
 }
 
 std::optional<std::string>
-WebSocketServer::write_websocket_frame(const WebSocketFrame& frame, Connection::ConstSharedPtr conn) {
+WebSocketServer::write_websocket_frame(const WebSocketFrame& frame, RemoteTarget::ConstSharedPtr conn) {
     std::vector<uint8_t> data;
     if (conn == nullptr) {
         for (auto& [key, connection]: m_server->get_connections()) {
@@ -488,7 +486,7 @@ WebSocketServer::write_websocket_frame(const WebSocketFrame& frame, Connection::
     }
     assert(
         m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })
-        && "Connection is not a websocket connection"
+        && "RemoteTarget is not a websocket connection"
     );
     auto parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
     data = parser->write_frame(frame);
@@ -496,7 +494,7 @@ WebSocketServer::write_websocket_frame(const WebSocketFrame& frame, Connection::
 }
 
 std::optional<std::string>
-WebSocketServer::read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn) {
+WebSocketServer::read_websocket_frame(WebSocketFrame& frame, RemoteTarget::ConstSharedPtr conn) {
     if (conn == nullptr) {
         for (auto& [key, connection]: m_server->get_connections()) {
             if (m_ws_connections_flag.contains({ connection->m_client_ip, connection->m_client_service })) {
@@ -517,7 +515,7 @@ WebSocketServer::read_websocket_frame(WebSocketFrame& frame, Connection::ConstSh
     }
     assert(
         m_ws_connections_flag.contains({ conn->m_client_ip, conn->m_client_service })
-        && "Connection is not a websocket connection"
+        && "RemoteTarget is not a websocket connection"
     );
     auto parser = m_ws_parsers.at({ conn->m_client_ip, conn->m_client_service });
     std::vector<uint8_t> data(1024);

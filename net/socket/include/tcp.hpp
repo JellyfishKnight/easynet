@@ -55,12 +55,12 @@ public:
 
     std::shared_ptr<TcpServer> get_shared();
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    std::optional<std::string> read(std::vector<uint8_t>& data, int client_fd) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) override;
+    std::optional<std::string> write(const std::vector<uint8_t>& data, int client_fd) override;
 
 protected:
-    void handle_connection(Connection::SharedPtr conn) override;
+    void handle_connection(int client_fd) override;
 };
 
 } // namespace net

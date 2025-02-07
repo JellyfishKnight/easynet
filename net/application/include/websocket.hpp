@@ -1,10 +1,10 @@
 #pragma once
 
-#include "connection.hpp"
 #include "defines.hpp"
 #include "http_client.hpp"
 #include "http_parser.hpp"
 #include "http_server.hpp"
+#include "remote_target.hpp"
 #include "tcp.hpp"
 #include "websocket_utils.hpp"
 #include <functional>
@@ -172,7 +172,7 @@ public:
 
     WebSocketStatus ws_status() const;
 
-    ConnectionStatus status() const;
+    SocketStatus status() const;
 
     void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
@@ -192,16 +192,16 @@ public:
 
     void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
-    void add_websocket_handler(std::function<void(Connection::ConstSharedPtr conn)> handler);
+    void add_websocket_handler(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler);
 
     void allowed_path(const std::string& path);
 
     std::shared_ptr<WebSocketServer> get_shared();
 
     std::optional<std::string>
-    write_websocket_frame(const WebSocketFrame& frame, Connection::ConstSharedPtr conn = nullptr);
+    write_websocket_frame(const WebSocketFrame& frame, RemoteTarget::ConstSharedPtr conn = nullptr);
 
-    std::optional<std::string> read_websocket_frame(WebSocketFrame& frame, Connection::ConstSharedPtr conn = nullptr);
+    std::optional<std::string> read_websocket_frame(WebSocketFrame& frame, RemoteTarget::ConstSharedPtr conn = nullptr);
 
 private:
     std::optional<std::string> accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res);
@@ -212,7 +212,7 @@ private:
     std::unordered_set<std::string> m_allowed_paths;
     std::unordered_map<ConnectionKey, std::shared_ptr<WebSocketParser>> m_ws_parsers;
 
-    std::function<void(Connection::ConstSharedPtr conn)> m_ws_handler;
+    std::function<void(RemoteTarget::ConstSharedPtr conn)> m_ws_handler;
     WebSocketStatus m_websocket_status = WebSocketStatus::DISCONNECTED;
 };
 

@@ -1,6 +1,6 @@
 #include "udp.hpp"
 #include "address_resolver.hpp"
-#include "connection.hpp"
+#include "remote_target.hpp"
 #include "socket_base.hpp"
 #include <algorithm>
 #include <cassert>
@@ -27,12 +27,12 @@ UdpClient::UdpClient(const std::string& ip, const std::string& service) {
     m_ip = ip;
     m_service = service;
     m_logger_set = false;
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     m_socket_type = SocketType::UDP;
 }
 
 UdpClient::~UdpClient() {
-    if (m_status == ConnectionStatus::CONNECTED) {
+    if (m_status == SocketStatus::CONNECTED) {
         close();
     }
 }
@@ -55,9 +55,9 @@ std::optional<std::string> UdpClient::read(std::vector<uint8_t>& data) {
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        return "Connection reset by peer while reading";
+        return "RemoteTarget reset by peer while reading";
     }
     data.resize(num_bytes);
     return std::nullopt;
@@ -75,9 +75,9 @@ std::optional<std::string> UdpClient::write(const std::vector<uint8_t>& data) {
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while writing");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while writing");
         }
-        return "Connection reset by peer while writing";
+        return "RemoteTarget reset by peer while writing";
     }
     return std::nullopt;
 }
@@ -89,7 +89,7 @@ std::optional<std::string> UdpClient::close() {
         }
         return get_error_msg();
     }
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     return std::nullopt;
 }
 
@@ -115,7 +115,7 @@ UdpServer::UdpServer(const std::string& ip, const std::string& service) {
     m_thread_pool = nullptr;
     m_accept_handler = nullptr;
     m_stop = true;
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     m_socket_type = SocketType::UDP;
     // bind
     if (::bind(m_listen_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
@@ -127,7 +127,7 @@ UdpServer::UdpServer(const std::string& ip, const std::string& service) {
 }
 
 UdpServer::~UdpServer() {
-    if (m_status == ConnectionStatus::CONNECTED) {
+    if (m_status == SocketStatus::CONNECTED) {
         close();
     }
 }
@@ -137,7 +137,7 @@ UdpServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, Connection::SharedPtr conn) {
+std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn) {
     addressResolver::address client_addr;
     ssize_t num_bytes =
         ::recvfrom(m_listen_fd, data.data(), data.size(), 0, &client_addr.m_addr, &client_addr.m_addr_len);
@@ -149,17 +149,17 @@ std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, Connectio
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        return "Connection reset by peer while reading";
+        return "RemoteTarget reset by peer while reading";
     }
     if (conn == nullptr) {
-        conn = std::make_shared<Connection>();
+        conn = std::make_shared<RemoteTarget>();
     }
     conn->m_addr.m_addr = client_addr.m_addr;
     conn->m_addr.m_addr_len = client_addr.m_addr_len;
     conn->m_server_fd = m_listen_fd;
-    conn->m_status = ConnectionStatus::CONNECTED;
+    conn->m_status = SocketStatus::CONNECTED;
     conn->m_server_ip = m_ip;
     conn->m_server_service = m_service;
     conn->m_client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
@@ -167,8 +167,8 @@ std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, Connectio
     return std::nullopt;
 }
 
-std::optional<std::string> UdpServer::write(const std::vector<uint8_t>& data, Connection::SharedPtr conn) {
-    assert(conn != nullptr && "Connection is nullptr");
+std::optional<std::string> UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn) {
+    assert(conn != nullptr && "RemoteTarget is nullptr");
     ssize_t num_bytes =
         ::sendto(m_listen_fd, data.data(), data.size(), 0, &conn->m_addr.m_addr, conn->m_addr.m_addr_len);
     if (num_bytes == -1) {
@@ -179,20 +179,20 @@ std::optional<std::string> UdpServer::write(const std::vector<uint8_t>& data, Co
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while writing");
+            NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while writing");
         }
-        return "Connection reset by peer while writing";
+        return "RemoteTarget reset by peer while writing";
     }
     return std::nullopt;
 }
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-UdpServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
+UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
     return std::nullopt;
 }
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-UdpServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
+UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
     return std::nullopt;
 }
 
@@ -203,7 +203,7 @@ std::optional<std::string> UdpServer::close() {
         }
         return get_error_msg();
     }
-    m_status = ConnectionStatus::DISCONNECTED;
+    m_status = SocketStatus::DISCONNECTED;
     return std::nullopt;
 }
 
@@ -223,7 +223,7 @@ UdpServer::start() {
                 }
                 for (int i = 0; i < num_events; ++i) {
                     if (m_events[i].events & EPOLLIN) {
-                        Connection::SharedPtr conn = std::make_shared<Connection>();
+                        RemoteTarget::SharedPtr conn = std::make_shared<RemoteTarget>();
                         std::vector<uint8_t> buffer(1024);
                         auto err = this->read(buffer, conn);
                         if (err.has_value()) {
@@ -264,7 +264,7 @@ UdpServer::start() {
         m_accept_thread = std::thread([this]() {
             while (!m_stop) {
                 // receive is handled by main thread, and compute is handled by thread pool
-                Connection::SharedPtr conn = std::make_shared<Connection>();
+                RemoteTarget::SharedPtr conn = std::make_shared<RemoteTarget>();
                 std::vector<uint8_t> buffer(1024);
                 auto err = this->read(buffer, conn);
                 if (err.has_value()) {
@@ -307,10 +307,10 @@ std::shared_ptr<UdpServer> UdpServer::get_shared() {
 }
 
 [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-UdpServer::on_accept(std::function<void(Connection::ConstSharedPtr conn)> handler) {}
+UdpServer::on_accept(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) {}
 
 void UdpServer::on_message(
-    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, Connection::ConstSharedPtr)> handler
+    std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, RemoteTarget::ConstSharedPtr)> handler
 ) {
     m_message_handler = std::move(handler);
 }

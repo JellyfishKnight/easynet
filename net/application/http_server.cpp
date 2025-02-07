@@ -1,7 +1,7 @@
 #include "http_server.hpp"
-#include "connection.hpp"
 #include "enum_parser.hpp"
 #include "http_parser.hpp"
+#include "remote_target.hpp"
 #include "timer.hpp"
 #include <cassert>
 #include <format>
@@ -89,7 +89,7 @@ std::string HttpServer::get_service() const {
     return m_server->get_service();
 }
 
-ConnectionStatus HttpServer::status() const {
+SocketStatus HttpServer::status() const {
     return m_server->status();
 }
 
@@ -110,10 +110,8 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 }
 
 void HttpServer::set_handler() {
-    auto handler_thread_func = [this](Connection::ConstSharedPtr conn) {
-        while (m_server->status() == net::ConnectionStatus::LISTENING
-               && conn->m_status == net::ConnectionStatus::CONNECTED)
-        {
+    auto handler_thread_func = [this](RemoteTarget::ConstSharedPtr conn) {
+        while (m_server->status() == net::SocketStatus::LISTENING && conn->m_status == net::SocketStatus::CONNECTED) {
             m_parsers.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, std::make_shared<HttpParser>());
             auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
             // parse request
@@ -183,7 +181,7 @@ void HttpServer::set_handler() {
             }
         }
         m_parsers.erase({ conn->m_client_ip, conn->m_client_service });
-        std::const_pointer_cast<Connection>(conn)->m_status = ConnectionStatus::DISCONNECTED;
+        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
     };
 
     m_server->on_accept(std::move(handler_thread_func));
@@ -191,7 +189,7 @@ void HttpServer::set_handler() {
 
 HttpServer::~HttpServer() {
     if (m_server) {
-        if (m_server->status() == ConnectionStatus::CONNECTED) {
+        if (m_server->status() == SocketStatus::CONNECTED) {
             m_server->close();
         }
         m_server.reset();

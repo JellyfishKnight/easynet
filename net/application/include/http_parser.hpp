@@ -153,7 +153,7 @@ struct http11_header_parser {
         // */*\r\nConnection: close"
     std::string m_headline; // "GET / HTTP/1.1"
     std::unordered_map<std::string, std::string> m_header_keys; // {"Host": "142857.red", "Accept": "*/*",
-    // "Connection: close"}
+    // "RemoteTarget: close"}
     std::string m_body; // 不小心超量读取的正文（如果有的话）
     bool m_header_finished = false;
 

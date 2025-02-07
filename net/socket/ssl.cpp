@@ -1,5 +1,5 @@
 #include "ssl.hpp"
-#include "connection.hpp"
+#include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "tcp.hpp"
 #include <algorithm>
@@ -103,8 +103,8 @@ std::optional<std::string> SSLServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
+std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<RemoteTarget>(conn));
     int num_bytes = SSL_read(ssl_conn->m_ssl.get(), data.data(), data.size());
     if (num_bytes < 0) {
         if (m_logger_set) {
@@ -114,16 +114,16 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, Connectio
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
+            NET_LOG_ERROR(m_logger, "RemoteTarget reset by peer while reading");
         }
-        return "Connection reset by peer while reading";
+        return "RemoteTarget reset by peer while reading";
     }
     data.resize(num_bytes);
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Connection::ConstSharedPtr conn) {
-    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<Connection>(conn));
+std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+    auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(std::const_pointer_cast<RemoteTarget>(conn));
     auto num_bytes = SSL_write(ssl_conn->m_ssl.get(), data.data(), data.size());
     if (num_bytes < 0) {
         if (m_logger_set) {
@@ -133,9 +133,9 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Co
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Connection reset by peer while writing");
+            NET_LOG_ERROR(m_logger, "RemoteTarget reset by peer while writing");
         }
-        return "Connection reset by peer while writing";
+        return "RemoteTarget reset by peer while writing";
     }
     return std::nullopt;
 }
@@ -148,7 +148,7 @@ std::optional<std::string> SSLServer::close() {
 }
 
 std::optional<std::string> SSLServer::start() {
-    if (m_status != ConnectionStatus::LISTENING) {
+    if (m_status != SocketStatus::LISTENING) {
         return "Server is not listening";
     }
     if (m_accept_handler == nullptr) {
@@ -173,9 +173,9 @@ std::optional<std::string> SSLServer::start() {
                         int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &len);
                         if (client_fd == -1) {
                             if (m_logger_set) {
-                                NET_LOG_ERROR(m_logger, "Failed to accept Connection: {}", get_error_msg());
+                                NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
                             }
-                            std::cerr << std::format("Failed to accept Connection: {}\n", get_error_msg());
+                            std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
                             continue;
                         }
                         struct ::epoll_event event;
@@ -191,7 +191,7 @@ std::optional<std::string> SSLServer::start() {
                         auto ssl_conn = std::make_shared<SSLConnection>();
                         ssl_conn->m_client_fd = events[i].data.fd;
                         ssl_conn->m_server_fd = m_listen_fd;
-                        ssl_conn->m_status = ConnectionStatus::CONNECTED;
+                        ssl_conn->m_status = SocketStatus::CONNECTED;
                         ssl_conn->m_server_ip = m_ip;
                         ssl_conn->m_server_service = m_service;
                         ssl_conn->m_ssl =
@@ -273,9 +273,9 @@ std::optional<std::string> SSLServer::start() {
                     int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
                     if (client_fd == -1) {
                         if (m_logger_set) {
-                            NET_LOG_ERROR(m_logger, "Failed to accept Connection: {}", get_error_msg());
+                            NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
                         }
-                        std::cerr << std::format("Failed to accept Connection: {}\n", get_error_msg());
+                        std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
                         continue;
                     }
                     std::string client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
@@ -284,7 +284,7 @@ std::optional<std::string> SSLServer::start() {
                     auto ssl_conn = std::make_shared<SSLConnection>();
                     ssl_conn->m_client_fd = client_fd;
                     ssl_conn->m_server_fd = m_listen_fd;
-                    ssl_conn->m_status = ConnectionStatus::CONNECTED;
+                    ssl_conn->m_status = SocketStatus::CONNECTED;
                     ssl_conn->m_server_ip = m_ip;
                     ssl_conn->m_server_service = m_service;
                     ssl_conn->m_client_ip = client_ip;
@@ -314,7 +314,7 @@ std::optional<std::string> SSLServer::start() {
     return std::nullopt;
 }
 
-void SSLServer::handle_connection(Connection::SharedPtr conn) {
+void SSLServer::handle_connection(RemoteTarget::SharedPtr conn) {
     auto ssl_conn = std::dynamic_pointer_cast<SSLConnection>(conn);
     if (SSL_accept(ssl_conn->m_ssl.get()) <= 0) {
         if (m_logger_set) {

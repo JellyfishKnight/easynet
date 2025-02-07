@@ -1,5 +1,7 @@
 #pragma once
 
+#include <system_error>
+
 namespace net {
 
 #define NET_DECLARE_PTRS(CLASS) \
@@ -10,4 +12,7 @@ namespace net {
     using UniquePtr = std::unique_ptr<CLASS>; \
     using ConstUniquePtr = std::unique_ptr<const CLASS>;
 
+inline std::string get_error_msg() {
+    return std::system_category().message(errno);
+}
 } // namespace net

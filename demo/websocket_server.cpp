@@ -46,7 +46,7 @@ int main() {
     net::Timer timer;
     timer.set_rate(10);
 
-    server.add_websocket_handler([&server, &res_str, &timer](net::Connection::ConstSharedPtr conn) {
+    server.add_websocket_handler([&server, &res_str, &timer](net::RemoteTarget::ConstSharedPtr conn) {
         static uint64_t count = 0;
         res_str = "this is from server " + std::to_string(count++);
         timer.sleep();
