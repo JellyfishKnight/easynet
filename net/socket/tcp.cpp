@@ -191,28 +191,54 @@ std::optional<std::string> TcpServer::start() {
                 RemoteTarget remote;
                 remote.m_client_fd = client_fd;
                 remote.m_status = true;
-                m_remotes.insert({ client_fd, remote });
-
+                {
+                    std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+                    m_remotes.insert({ client_fd, remote });
+                }
                 auto client_event_handler = std::make_shared<EventHandler>();
                 client_event_handler->m_on_read = [this](int client_fd) {
+                    if (!this->m_on_read) {
+                        return;
+                    }
+                    RemoteTarget remote_target;
+                    {
+                        std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+                        remote_target = m_remotes.at(client_fd);
+                    }
                     if (this->m_thread_pool) {
-                        this->m_thread_pool->submit(std::bind(this->m_on_read, m_remotes.at(client_fd)));
+                        this->m_thread_pool->submit(std::bind(this->m_on_read, remote_target));
                     } else {
-                        this->m_on_read(m_remotes.at(client_fd));
+                        this->m_on_read(remote_target);
                     }
                 };
                 client_event_handler->m_on_write = [this](int client_fd) {
+                    if (!this->m_on_write) {
+                        return;
+                    }
+                    RemoteTarget remote_target;
+                    {
+                        std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+                        remote_target = m_remotes.at(client_fd);
+                    }
                     if (this->m_thread_pool) {
-                        this->m_thread_pool->submit(std::bind(this->m_on_write, m_remotes.at(client_fd)));
+                        this->m_thread_pool->submit(std::bind(this->m_on_write, remote_target));
                     } else {
-                        this->m_on_write(m_remotes.at(client_fd));
+                        this->m_on_write(remote_target);
                     }
                 };
                 client_event_handler->m_on_error = [this](int client_fd) {
+                    if (!this->m_on_error) {
+                        return;
+                    }
+                    RemoteTarget remote_target;
+                    {
+                        std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+                        remote_target = m_remotes.at(client_fd);
+                    }
                     if (this->m_thread_pool) {
-                        this->m_thread_pool->submit(std::bind(this->m_on_error, m_remotes.at(client_fd)));
+                        this->m_thread_pool->submit(std::bind(this->m_on_error, remote_target));
                     } else {
-                        this->m_on_error(m_remotes.at(client_fd));
+                        this->m_on_error(remote_target);
                     }
                 };
                 auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
@@ -226,6 +252,7 @@ std::optional<std::string> TcpServer::start() {
                 this->close();
             };
             auto server_event = std::make_shared<Event>(m_listen_fd, server_event_handler);
+            m_event_loop->add_event(server_event);
             while (!m_stop) {
                 m_event_loop->wait_for_events();
             }
