@@ -38,9 +38,7 @@ struct RemoteTarget: std::enable_shared_from_this<RemoteTarget> {
 
     bool m_status = false;
 
-    virtual ~RemoteTarget() {
-        ::close(m_client_fd);
-    }
+    virtual ~RemoteTarget() = default;
 };
 
 } // namespace net

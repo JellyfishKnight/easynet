@@ -114,9 +114,9 @@
 //     }
 //     if (num_bytes == 0) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "RemoteTarget reset by peer while reading");
+//             NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
 //         }
-//         return "RemoteTarget reset by peer while reading";
+//         return "Connection reset by peer while reading";
 //     }
 //     data.resize(num_bytes);
 //     return std::nullopt;
@@ -133,9 +133,9 @@
 //     }
 //     if (num_bytes == 0) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "RemoteTarget reset by peer while writing");
+//             NET_LOG_ERROR(m_logger, "Connection reset by peer while writing");
 //         }
-//         return "RemoteTarget reset by peer while writing";
+//         return "Connection reset by peer while writing";
 //     }
 //     return std::nullopt;
 // }
