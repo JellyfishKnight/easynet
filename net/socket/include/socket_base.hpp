@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <future>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -122,13 +123,13 @@ public:
 
     SocketStatus status() const;
 
-     void on_read(CallBack handler) ;
+    void on_read(CallBack handler);
 
-     void on_write(CallBack handler);
+    void on_write(CallBack handler);
 
-     void on_error(CallBack handler);
+    void on_error(CallBack handler);
 
-     void on_accept(CallBack handler) ;
+    void on_accept(CallBack handler);
 
     virtual std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
 
@@ -151,7 +152,8 @@ protected:
     CallBack m_on_write;
     CallBack m_on_error;
 
-    std::unordered_map<int, RemoteTarget> m_remotes;
+    std::map<int, RemoteTarget> m_remotes;
+    std::shared_mutex m_remotes_mutex;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     EventLoop::SharedPtr m_event_loop;

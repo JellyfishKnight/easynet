@@ -25,7 +25,7 @@ TEST_F(ThreadPoolTest, TestThreadPool) {
     std::vector<std::future<int>> futures;
     for (int i = 0; i < 100; ++i) {
         auto f = [](int a, int b) { return a + b; };
-        auto opt = pool->submit(std::to_string(i), f, i, i + 1);
+        auto opt = pool->submit(f, i, i + 1);
         if (opt.has_value()) {
             try {
                 futures.emplace_back(std::move(opt.value()));
@@ -42,39 +42,6 @@ TEST_F(ThreadPoolTest, TestThreadPool) {
         } catch (const std::future_error& e) {
             FAIL() << e.what();
         }
-    }
-}
-
-TEST_F(ThreadPoolTest, AddTaskWithName) {
-    auto f = [](int a, int b) { return a + b; };
-    std::vector<std::future<int>> futures;
-    for (int i = 0; i < 100; ++i) {
-        auto opt = pool->submit(std::to_string(i), f, i, i + 1);
-        if (opt.has_value()) {
-            futures.emplace_back(std::move(opt.value()));
-        } else {
-            FAIL() << "Failed to submit task";
-        }
-    }
-    for (int i = 0; i < 100; ++i) {
-        ASSERT_EQ(futures[i].get(), i + i + 1);
-    }
-}
-
-TEST_F(ThreadPoolTest, GetStatusOfTask) {
-    auto f = [](int a, int b) {
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-        return a + b;
-    };
-    std::vector<std::future<int>> futures;
-    for (int i = 0; i < 100; ++i) {
-        futures.emplace_back(*pool->submit(std::to_string(i), f, i, i + 1));
-    }
-    for (int i = 0; i < 100; ++i) {
-        ASSERT_EQ(futures[i].get(), i + i + 1);
-        auto status = pool->get_task_status(std::to_string(i));
-        ASSERT_TRUE(status.has_value());
-        ASSERT_EQ(std::get<0>(status.value()), utils::TaskStatus::FINISHED);
     }
 }
 

@@ -7,7 +7,9 @@
 #include <csignal>
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <netdb.h>
+#include <shared_mutex>
 #include <sys/socket.h>
 #include <thread>
 #include <utility>
@@ -243,12 +245,27 @@ std::optional<std::string> TcpServer::start() {
                 RemoteTarget remote;
                 remote.m_client_fd = client_fd;
                 remote.m_status = true;
-                m_remotes.insert({ client_fd, remote });
+                {
+                    std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+                    m_remotes.insert({ client_fd, remote });
+                }
                 if (m_thread_pool) {
-                    m_thread_pool->submit([this, client_fd]() { handle_connection(m_remotes.at(client_fd)); });
+                    m_thread_pool->submit([this, client_fd]() {
+                        RemoteTarget remote;
+                        {
+                            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+                            remote = m_remotes.at(client_fd);
+                        }
+                        handle_connection(remote);
+                    });
                 } else {
                     auto unused = std::async(std::launch::async, [this, client_fd]() {
-                        handle_connection(m_remotes.at(client_fd));
+                        RemoteTarget remote;
+                        {
+                            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+                            remote = m_remotes.at(client_fd);
+                        }
+                        handle_connection(remote);
                     });
                 }
             }
@@ -301,8 +318,12 @@ std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, co
 }
 
 void TcpServer::handle_connection(const RemoteTarget& remote) {
-    while (m_status == SocketStatus::LISTENING) {
+    while (m_status == SocketStatus::LISTENING && remote.m_status) {
         m_accept_handler(remote);
+    }
+    {
+        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+        m_remotes.erase(remote.m_client_fd);
     }
 }
 

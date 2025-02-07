@@ -1,3 +1,5 @@
+#include "event_loop.hpp"
+#include "remote_target.hpp"
 #include "socket.hpp"
 #include <cstdint>
 #include <cstdlib>
@@ -22,9 +24,10 @@ int main() {
     }
 
     try {
-        server->enable_thread_pool(10);
-        // server->enable_epoll(20);
-        server->on_accept([server](const net::RemoteTarget& conn) {
+        server->enable_thread_pool(96);
+        // server->enable_event_loop();
+
+        auto handler = [server](const net::RemoteTarget& conn) {
             std::vector<uint8_t> req(1024);
             auto err = server->read(req, conn);
             if (err.has_value()) {
@@ -35,7 +38,9 @@ int main() {
             if (err_write.has_value()) {
                 std::cerr << std::format("Failed to write to socket {} : {}\n", conn.m_client_fd, err.value());
             }
-        });
+        };
+        server->on_read(handler);
+        server->on_accept(handler);
     } catch (std::system_error const& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         return 1;

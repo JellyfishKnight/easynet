@@ -3,6 +3,7 @@
 #include "defines.hpp"
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <sys/epoll.h>
 #include <sys/poll.h>
@@ -247,7 +248,7 @@ public:
         std::vector<struct epoll_event> events(10);
         int num_events = epoll_wait(m_epoll_fd, events.data(), events.size(), -1);
         if (num_events < 0) {
-            throw std::runtime_error("epoll_wait failed");
+            std::cerr << "Failed to wait for events: " + get_error_msg() << std::endl;
         }
 
         for (int i = 0; i < num_events; ++i) {
