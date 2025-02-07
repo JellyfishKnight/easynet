@@ -75,6 +75,9 @@ void SocketServer::enable_event_loop(EventLoopType type) {
         m_status == SocketStatus::DISCONNECTED || m_status == SocketStatus::LISTENING && "Server is already connected"
     );
     if (type == EventLoopType::SELECT) {
+        std::cerr
+            << "Select way is not stable for it can't handle more than 1024 connections even if the value of socket_fd\
+             is more than 1024\n";
         m_event_loop = std::make_shared<SelectEventLoop>();
     } else if (type == EventLoopType::EPOLL) {
         m_event_loop = std::make_shared<EpollEventLoop>();

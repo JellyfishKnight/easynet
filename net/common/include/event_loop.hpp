@@ -125,6 +125,11 @@ public:
         {
             FD_SET(event->get_fd(), &error_fds);
         }
+
+        if (event->get_fd() == 1024) {
+            int a = 0;
+        }
+
         m_events[event->get_fd()] = event;
     }
 
@@ -132,6 +137,11 @@ public:
         FD_CLR(event_fd, &read_fds);
         FD_CLR(event_fd, &write_fds);
         FD_CLR(event_fd, &error_fds);
+
+        if (m_max_fd == 1024) {
+            int a = 0;
+        }
+
         m_events.erase(event_fd);
     }
 
@@ -139,6 +149,10 @@ public:
         fd_set temp_read_fds = read_fds;
         fd_set temp_write_fds = write_fds;
         fd_set temp_error_fds = error_fds;
+
+        if (m_max_fd == 1024) {
+            int a = 0;
+        }
 
         int result = select(m_max_fd + 1, &temp_read_fds, &temp_write_fds, &temp_error_fds, nullptr);
         if (result < 0) {

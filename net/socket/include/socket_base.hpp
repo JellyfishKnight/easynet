@@ -112,7 +112,7 @@ public:
 
     void enable_thread_pool(std::size_t worker_num);
 
-    void enable_event_loop(EventLoopType type = EventLoopType::SELECT);
+    void enable_event_loop(EventLoopType type = EventLoopType::EPOLL);
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
