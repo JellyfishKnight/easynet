@@ -188,13 +188,6 @@ std::optional<std::string> TcpServer::start() {
                     return;
                 }
 
-                RemoteTarget remote;
-                remote.m_client_fd = client_fd;
-                remote.m_status = true;
-                {
-                    std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-                    m_remotes.insert({ client_fd, remote });
-                }
                 auto client_event_handler = std::make_shared<EventHandler>();
                 client_event_handler->m_on_read = [this](int client_fd) {
                     if (!this->m_on_read) {
@@ -239,7 +232,14 @@ std::optional<std::string> TcpServer::start() {
                     }
                 };
                 auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
-                m_events.insert(client_event);
+                RemoteTarget remote;
+                remote.m_client_fd = client_fd;
+                remote.m_status = true;
+                {
+                    std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+                    m_remotes.insert({ client_fd, remote });
+                    m_events.insert(client_event);
+                }
                 m_event_loop->add_event(client_event);
             };
             server_event_handler->m_on_error = [this](int server_fd) {
@@ -255,12 +255,12 @@ std::optional<std::string> TcpServer::start() {
                 // erase expired remotes
                 for (auto it = m_events.begin(); it != m_events.end();) {
                     if (m_remotes.at((*it)->get_fd()).m_status == false) {
-                        m_event_loop->remove_event(*it);
+                        m_event_loop->remove_event((*it)->get_fd());
                         {
                             std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
                             m_remotes.erase((*it)->get_fd());
+                            it = m_events.erase(it);
                         }
-                        it = m_events.erase(it);
                     } else {
                         ++it;
                     }

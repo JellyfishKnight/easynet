@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <shared_mutex>
 #include <sys/epoll.h>
 #include <sys/poll.h>
 #include <sys/select.h>
@@ -99,7 +100,7 @@ public:
 
     virtual void add_event(const std::shared_ptr<Event>& event) = 0;
 
-    virtual void remove_event(const std::shared_ptr<Event>& event) = 0;
+    virtual void remove_event(int event_fd) = 0;
 
     virtual void wait_for_events() = 0;
 };
@@ -126,12 +127,12 @@ public:
         }
     }
 
-    void remove_event(const std::shared_ptr<Event>& event) override {
-        FD_CLR(event->get_fd(), &read_fds);
-        FD_CLR(event->get_fd(), &write_fds);
-        FD_CLR(event->get_fd(), &error_fds);
+    void remove_event(int event_fd) override {
+        FD_CLR(event_fd, &read_fds);
+        FD_CLR(event_fd, &write_fds);
+        FD_CLR(event_fd, &error_fds);
 
-        m_events.erase(event->get_fd());
+        m_events.erase(event_fd);
     }
 
     void wait_for_events() override {
@@ -161,6 +162,7 @@ public:
 private:
     fd_set read_fds, write_fds, error_fds;
     std::unordered_map<int, std::shared_ptr<Event>> m_events;
+    std::shared_mutex m_events_mutex;
     int m_max_fd;
 };
 
@@ -173,16 +175,16 @@ public:
         m_events[event->get_fd()] = event;
     }
 
-    void remove_event(const std::shared_ptr<Event>& event) override {
+    void remove_event(int event_fd) override {
         m_poll_fds.erase(
             std::remove_if(
                 m_poll_fds.begin(),
                 m_poll_fds.end(),
-                [event](const pollfd& p) { return p.fd == event->get_fd(); }
+                [event_fd](const pollfd& p) { return p.fd == event_fd; }
             ),
             m_poll_fds.end()
         );
-        m_events.erase(event->get_fd());
+        m_events.erase(event_fd);
     }
 
     void wait_for_events() override {
@@ -237,11 +239,11 @@ public:
         m_events[event->get_fd()] = event;
     }
 
-    void remove_event(const std::shared_ptr<Event>& event) override {
-        if (epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, event->get_fd(), nullptr) == -1) {
+    void remove_event(int event_fd) override {
+        if (epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, event_fd, nullptr) == -1) {
             throw std::runtime_error("Failed to remove event from epoll");
         }
-        m_events.erase(event->get_fd());
+        m_events.erase(event_fd);
     }
 
     void wait_for_events() override {
