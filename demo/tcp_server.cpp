@@ -25,7 +25,7 @@ int main() {
 
     try {
         // server->enable_thread_pool(96);
-        server->enable_event_loop();
+        server->enable_event_loop(net::EventLoopType::POLL);
 
         auto handler = [server](const net::RemoteTarget& conn) {
             std::vector<uint8_t> req(1024);

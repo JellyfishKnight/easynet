@@ -1,4 +1,5 @@
 #include "tcp.hpp"
+#include "defines.hpp"
 #include "event_loop.hpp"
 #include "remote_target.hpp"
 #include "socket_base.hpp"
@@ -10,6 +11,7 @@
 #include <mutex>
 #include <netdb.h>
 #include <shared_mutex>
+#include <stdexcept>
 #include <sys/socket.h>
 #include <thread>
 #include <utility>
@@ -265,7 +267,11 @@ std::optional<std::string> TcpServer::start() {
                         ++it;
                     }
                 }
-                m_event_loop->wait_for_events();
+                try {
+                    m_event_loop->wait_for_events();
+                } catch (std::runtime_error& e) {
+                    std::cerr << "Failed to waiting for events: " + get_error_msg() << std::endl;
+                }
             }
         });
     } else {

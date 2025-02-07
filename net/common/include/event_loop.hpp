@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <sys/epoll.h>
 #include <sys/poll.h>
@@ -112,7 +113,6 @@ public:
     SelectEventLoop(): m_max_fd(0) {}
 
     void add_event(const std::shared_ptr<Event>& event) override {
-        m_events[event->get_fd()] = event;
         m_max_fd = std::max(m_max_fd, event->get_fd());
         if (static_cast<uint8_t>(event->get_type()) & static_cast<uint8_t>(EventType::READ)) {
             FD_SET(event->get_fd(), &read_fds);
@@ -125,13 +125,13 @@ public:
         {
             FD_SET(event->get_fd(), &error_fds);
         }
+        m_events[event->get_fd()] = event;
     }
 
     void remove_event(int event_fd) override {
         FD_CLR(event_fd, &read_fds);
         FD_CLR(event_fd, &write_fds);
         FD_CLR(event_fd, &error_fds);
-
         m_events.erase(event_fd);
     }
 
@@ -142,10 +142,9 @@ public:
 
         int result = select(m_max_fd + 1, &temp_read_fds, &temp_write_fds, &temp_error_fds, nullptr);
         if (result < 0) {
-            throw std::runtime_error("select failed");
+            throw std::runtime_error(get_error_msg());
         }
 
-        // 遍历已触发的事件
         for (const auto& [fd, event]: m_events) {
             if (FD_ISSET(fd, &temp_read_fds)) {
                 event->on_read();
@@ -162,7 +161,6 @@ public:
 private:
     fd_set read_fds, write_fds, error_fds;
     std::unordered_map<int, std::shared_ptr<Event>> m_events;
-    std::shared_mutex m_events_mutex;
     int m_max_fd;
 };
 
@@ -171,26 +169,25 @@ public:
     NET_DECLARE_PTRS(PollEventLoop)
 
     void add_event(const std::shared_ptr<Event>& event) override {
-        m_poll_fds.push_back({ event->get_fd(), 0, 0 });
+        m_poll_fds.push_back({ event->get_fd(), POLLIN | POLLOUT | POLLERR | POLLHUP, 0 });
         m_events[event->get_fd()] = event;
     }
 
     void remove_event(int event_fd) override {
-        m_poll_fds.erase(
-            std::remove_if(
-                m_poll_fds.begin(),
-                m_poll_fds.end(),
-                [event_fd](const pollfd& p) { return p.fd == event_fd; }
-            ),
-            m_poll_fds.end()
-        );
+        for (size_t i = 0; i < m_poll_fds.size(); ++i) {
+            if (m_poll_fds[i].fd == event_fd) {
+                m_poll_fds.erase(m_poll_fds.begin() + i);
+                break;
+            }
+        }
+
         m_events.erase(event_fd);
     }
 
     void wait_for_events() override {
-        int result = poll(m_poll_fds.data(), m_poll_fds.size(), -1);
+        int result = ::poll(m_poll_fds.data(), m_poll_fds.size(), -1);
         if (result < 0) {
-            throw std::runtime_error("poll failed");
+            throw std::runtime_error(get_error_msg());
         }
 
         for (size_t i = 0; i < m_poll_fds.size(); ++i) {
@@ -250,7 +247,7 @@ public:
         std::vector<struct epoll_event> events(10);
         int num_events = epoll_wait(m_epoll_fd, events.data(), events.size(), -1);
         if (num_events < 0) {
-            std::cerr << "Failed to wait for events: " + get_error_msg() << std::endl;
+            throw std::runtime_error(get_error_msg());
         }
 
         for (int i = 0; i < num_events; ++i) {
