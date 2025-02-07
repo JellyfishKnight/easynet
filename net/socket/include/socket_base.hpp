@@ -81,7 +81,7 @@ protected:
 };
 
 class SocketServer: std::enable_shared_from_this<SocketServer> {
-    using CallBack = std::function<void(int client_fd)>;
+    using CallBack = std::function<void(const RemoteTarget& remote)>;
 
 public:
     NET_DECLARE_PTRS(SocketServer)
@@ -122,20 +122,20 @@ public:
 
     SocketStatus status() const;
 
-    virtual void on_read(CallBack handler);
+     void on_read(CallBack handler) ;
 
-    virtual void on_write(CallBack handler);
+     void on_write(CallBack handler);
 
-    virtual void on_error(CallBack handler);
+     void on_error(CallBack handler);
 
-    virtual void on_accept(CallBack handler);
+     void on_accept(CallBack handler) ;
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, int client_fd) = 0;
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, int client_fd) = 0;
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
 
 protected:
-    virtual void handle_connection(int client_fd) = 0;
+    virtual void handle_connection(const RemoteTarget& remote) = 0;
 
     std::optional<std::string>
     get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info);
@@ -150,6 +150,8 @@ protected:
     CallBack m_on_read;
     CallBack m_on_write;
     CallBack m_on_error;
+
+    std::unordered_map<int, RemoteTarget> m_remotes;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     EventLoop::SharedPtr m_event_loop;

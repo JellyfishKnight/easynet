@@ -85,8 +85,20 @@ void SocketServer::enable_event_loop(EventLoopType type) {
     }
 }
 
-void SocketServer::on_accept(std::function<void(int client_fd)> handler) {
+void SocketServer::on_accept(std::function<void(const RemoteTarget&)> handler) {
     m_accept_handler = handler;
+}
+
+void SocketServer::on_read(CallBack handler) {
+    m_on_read = handler;
+}
+
+void SocketServer::on_write(CallBack handler) {
+    m_on_write = handler;
+}
+
+void SocketServer::on_error(CallBack handler) {
+    m_on_error = handler;
 }
 
 std::optional<std::string>

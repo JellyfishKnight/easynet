@@ -185,10 +185,34 @@ std::optional<std::string> TcpServer::start() {
                     std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
                     return;
                 }
+
+                RemoteTarget remote;
+                remote.m_client_fd = client_fd;
+                remote.m_status = true;
+                m_remotes.insert({ client_fd, remote });
+
                 auto client_event_handler = std::make_shared<EventHandler>();
-                client_event_handler->m_on_read = this->m_on_read;
-                client_event_handler->m_on_write = this->m_on_write;
-                client_event_handler->m_on_error = this->m_on_error;
+                client_event_handler->m_on_read = [this](int client_fd) {
+                    if (this->m_thread_pool) {
+                        this->m_thread_pool->submit(std::bind(this->m_on_read, m_remotes.at(client_fd)));
+                    } else {
+                        this->m_on_read(m_remotes.at(client_fd));
+                    }
+                };
+                client_event_handler->m_on_write = [this](int client_fd) {
+                    if (this->m_thread_pool) {
+                        this->m_thread_pool->submit(std::bind(this->m_on_write, m_remotes.at(client_fd)));
+                    } else {
+                        this->m_on_write(m_remotes.at(client_fd));
+                    }
+                };
+                client_event_handler->m_on_error = [this](int client_fd) {
+                    if (this->m_thread_pool) {
+                        this->m_thread_pool->submit(std::bind(this->m_on_error, m_remotes.at(client_fd)));
+                    } else {
+                        this->m_on_error(m_remotes.at(client_fd));
+                    }
+                };
                 auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
                 m_event_loop->add_event(client_event);
             };
@@ -216,10 +240,16 @@ std::optional<std::string> TcpServer::start() {
                     std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
                     continue;
                 }
+                RemoteTarget remote;
+                remote.m_client_fd = client_fd;
+                remote.m_status = true;
+                m_remotes.insert({ client_fd, remote });
                 if (m_thread_pool) {
-                    m_thread_pool->submit([this, client_fd]() { handle_connection(client_fd); });
+                    m_thread_pool->submit([this, client_fd]() { handle_connection(m_remotes.at(client_fd)); });
                 } else {
-                    auto unused = std::async(std::launch::async, [this, client_fd]() { handle_connection(client_fd); });
+                    auto unused = std::async(std::launch::async, [this, client_fd]() {
+                        handle_connection(m_remotes.at(client_fd));
+                    });
                 }
             }
         });
@@ -227,52 +257,52 @@ std::optional<std::string> TcpServer::start() {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const RemoteTarget& conn) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::recv(conn->m_client_fd, data.data(), data.size(), 0);
+    ssize_t num_bytes = ::recv(conn.m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
         }
-        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
+        const_cast<RemoteTarget&>(conn).m_status = false;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
             NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
+        const_cast<RemoteTarget&>(conn).m_status = false;
         return "RemoteTarget reset by peer while reading";
     }
     data.resize(num_bytes);
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, const RemoteTarget& conn) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::send(conn->m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
+    ssize_t num_bytes = ::send(conn.m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
     if (num_bytes == -1) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
         }
-        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
+        const_cast<RemoteTarget&>(conn).m_status = false;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
             NET_LOG_WARN(m_logger, "RemoteTarget reset by peer while reading");
         }
-        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
+        const_cast<RemoteTarget&>(conn).m_status = false;
         return "RemoteTarget reset by peer while writing";
     }
     return std::nullopt;
 }
 
-void TcpServer::handle_connection(int client_fd) {
+void TcpServer::handle_connection(const RemoteTarget& remote) {
     while (m_status == SocketStatus::LISTENING) {
-        m_accept_handler(client_fd);
+        m_accept_handler(remote);
     }
 }
 
