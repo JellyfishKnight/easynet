@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <string>
 #include <sys/epoll.h>
 #include <sys/poll.h>
 #include <sys/select.h>
@@ -235,7 +236,7 @@ public:
 
     void add_event(const std::shared_ptr<Event>& event) override {
         struct epoll_event ev;
-        ev.events = EPOLLIN | EPOLLOUT;
+        ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
         ev.data.fd = event->get_fd();
         if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, event->get_fd(), &ev) == -1) {
             throw std::runtime_error("Failed to add event to epoll");

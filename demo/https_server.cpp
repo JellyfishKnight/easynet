@@ -28,7 +28,7 @@ int main() {
     auto content = readFileToString("/home/jk/Projects/net/index/index.html");
 
     http_server.enable_thread_pool(96);
-    // http_server.enable_epoll(1024);
+    http_server.enable_event_loop();
     http_server.get("/", [&content](const net::HttpRequest& req) {
         net::HttpResponse res;
         res.set_version(HTTP_VERSION_1_1)

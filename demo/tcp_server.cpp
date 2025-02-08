@@ -24,19 +24,21 @@ int main() {
     }
 
     try {
-        // server->enable_thread_pool(96);
-        server->enable_event_loop(net::EventLoopType::EPOLL);
+        server->enable_thread_pool(96);
+        server->enable_event_loop();
 
         auto handler = [server](const net::RemoteTarget& conn) {
             std::vector<uint8_t> req(1024);
             auto err = server->read(req, conn);
             if (err.has_value()) {
                 std::cerr << std::format("Failed to read from socket {} : {}\n", conn.m_client_fd, err.value());
+                return;
             }
             std::vector<uint8_t> res { req.begin(), req.end() };
             auto err_write = server->write(res, conn);
             if (err_write.has_value()) {
                 std::cerr << std::format("Failed to write to socket {} : {}\n", conn.m_client_fd, err.value());
+                return;
             }
         };
         server->on_read(handler);

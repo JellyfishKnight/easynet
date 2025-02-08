@@ -177,6 +177,9 @@ std::optional<std::string> TcpServer::start() {
     assert(m_accept_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_event_loop) {
+        if (m_thread_pool) {
+            ::fcntl(m_listen_fd, F_SETFL, O_NONBLOCK);
+        }
         m_accept_thread = std::thread([this]() {
             EventHandler::SharedPtr server_event_handler = std::make_shared<EventHandler>();
             server_event_handler->m_on_read = [this](int server_fd) {
@@ -199,9 +202,11 @@ std::optional<std::string> TcpServer::start() {
                         std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
                         RemoteTarget& remote_target = m_remotes.at(client_fd);
                         if (this->m_thread_pool) {
-                            this->m_thread_pool->submit(std::bind(this->m_on_read, remote_target));
+                            this->m_thread_pool->submit([this, &remote_target]() { this->m_on_read(remote_target); });
                         } else {
-                            this->m_on_read(remote_target);
+                            auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                                this->m_on_read(remote_target);
+                            });
                         }
                     }
                 };
@@ -213,9 +218,11 @@ std::optional<std::string> TcpServer::start() {
                         std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
                         RemoteTarget& remote_target = m_remotes.at(client_fd);
                         if (this->m_thread_pool) {
-                            this->m_thread_pool->submit(std::bind(this->m_on_write, remote_target));
+                            this->m_thread_pool->submit([this, &remote_target]() { this->m_on_write(remote_target); });
                         } else {
-                            this->m_on_write(remote_target);
+                            auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                                this->m_on_write(remote_target);
+                            });
                         }
                     }
                 };
@@ -227,9 +234,11 @@ std::optional<std::string> TcpServer::start() {
                         std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
                         RemoteTarget& remote_target = m_remotes.at(client_fd);
                         if (this->m_thread_pool) {
-                            this->m_thread_pool->submit(std::bind(this->m_on_error, remote_target));
+                            this->m_thread_pool->submit([this, &remote_target]() { this->m_on_error(remote_target); });
                         } else {
-                            this->m_on_error(remote_target);
+                            auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                                this->m_on_error(remote_target);
+                            });
                         }
                     }
                 };

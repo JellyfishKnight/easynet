@@ -1,6 +1,7 @@
 #include "enum_parser.hpp"
 #include "print.hpp"
 #include "socket.hpp"
+#include "thread_pool.hpp"
 #include <cstdint>
 #include <ostream>
 #include <string>
