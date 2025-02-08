@@ -115,7 +115,7 @@ void HttpServer::set_handler() {
     auto handler_thread_func = [this](const RemoteTarget& remote) {
         {
             std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
-            if (m_parsers.contains(remote.m_client_fd)) {
+            if (!m_parsers.contains(remote.m_client_fd)) {
                 m_parsers.insert({ remote.m_client_fd, std::make_shared<HttpParser>() });
             }
         }
@@ -189,7 +189,8 @@ void HttpServer::set_handler() {
         }
     };
 
-    m_server->on_accept(std::move(handler_thread_func));
+    m_server->on_accept(handler_thread_func);
+    m_server->on_read(handler_thread_func);
 }
 
 HttpServer::~HttpServer() {

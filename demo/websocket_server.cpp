@@ -1,3 +1,4 @@
+#include "remote_target.hpp"
 #include "tcp.hpp"
 #include "timer.hpp"
 #include "websocket.hpp"
@@ -46,7 +47,7 @@ int main() {
     net::Timer timer;
     timer.set_rate(10);
 
-    server.add_websocket_handler([&server, &res_str, &timer](net::RemoteTarget::ConstSharedPtr conn) {
+    server.add_websocket_handler([&server, &res_str, &timer](const net::RemoteTarget& remote) {
         static uint64_t count = 0;
         res_str = "this is from server " + std::to_string(count++);
         timer.sleep();
@@ -58,7 +59,7 @@ int main() {
             .set_opcode(net::WebSocketOpcode::TEXT)
             .set_payload(res_str);
 
-        auto err = server.write_websocket_frame(frame);
+        auto err = server.write_websocket_frame(frame, remote);
         if (err.has_value()) {
             std::cerr << "Failed to write to socket: " << err.value() << std::endl;
             return;

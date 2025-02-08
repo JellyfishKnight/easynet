@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # set Debug during the competition
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 # set compiler as clang
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_C_COMPILER "/usr/bin/clang")
@@ -62,23 +62,23 @@ add_executable(TcpServerTest ./demo/tcp_server.cpp)
 target_link_libraries(TcpServerTest PUBLIC net::utils net::socket)
 add_executable(TcpClientTest ./demo/tcp_client.cpp)
 target_link_libraries(TcpClientTest PUBLIC net::utils net::socket)
-# add_executable(HttpServerTest ./demo/http_server.cpp)
-# target_link_libraries(HttpServerTest PUBLIC net::utils net::socket net::application)
-# add_executable(HttpClientTest ./demo/http_client.cpp)
-# target_link_libraries(HttpClientTest PUBLIC net::utils net::socket net::application)
-# add_executable(HttpsServerTest ./demo/https_server.cpp)
-# target_link_libraries(HttpsServerTest PUBLIC net::utils net::socket net::application)
-# add_executable(HttpsClientTest ./demo/https_client.cpp)
-# target_link_libraries(HttpsClientTest PUBLIC net::utils net::socket net::application)
-# add_executable(WebSocketServerTest ./demo/websocket_server.cpp)
-# target_link_libraries(WebSocketServerTest PUBLIC net::utils net::socket net::application)
-# add_executable(WebSocketClientTest ./demo/websocket_client.cpp)
-# target_link_libraries(WebSocketClientTest PUBLIC net::utils net::socket net::application)
+add_executable(HttpServerTest ./demo/http_server.cpp)
+target_link_libraries(HttpServerTest PUBLIC net::utils net::socket net::application)
+add_executable(HttpClientTest ./demo/http_client.cpp)
+target_link_libraries(HttpClientTest PUBLIC net::utils net::socket net::application)
+add_executable(HttpsServerTest ./demo/https_server.cpp)
+target_link_libraries(HttpsServerTest PUBLIC net::utils net::socket net::application)
+add_executable(HttpsClientTest ./demo/https_client.cpp)
+target_link_libraries(HttpsClientTest PUBLIC net::utils net::socket net::application)
+add_executable(WebSocketServerTest ./demo/websocket_server.cpp)
+target_link_libraries(WebSocketServerTest PUBLIC net::utils net::socket net::application)
+add_executable(WebSocketClientTest ./demo/websocket_client.cpp)
+target_link_libraries(WebSocketClientTest PUBLIC net::utils net::socket net::application)
 
 # install headers
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/utils/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/utils)
-# install(DIRECTORY ${PROJECT_SOURCE_DIR}/net/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/net)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/net/include/ DESTINATION ${INCLUDE_OUTPUT_PATH}/net/net)
 
 
 # build test
@@ -97,8 +97,8 @@ target_link_libraries(PrintTest GTest::GTest net::utils)
 add_executable(ThreadPoolTest tests/test_thread_pool.cpp)
 target_link_libraries(ThreadPoolTest GTest::GTest net::utils)
 
-# add_executable(ParserTest tests/parser_test.cpp)
-# target_link_libraries(ParserTest PUBLIC net::utils net::socket net::application GTest::GTest)
+add_executable(ParserTest tests/parser_test.cpp)
+target_link_libraries(ParserTest PUBLIC net::utils net::socket net::application GTest::GTest)
 
 
 

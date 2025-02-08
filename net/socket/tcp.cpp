@@ -371,6 +371,7 @@ RemoteTarget TcpServer::create_remote(int remote_fd) {
     RemoteTarget remote;
     remote.m_client_fd = remote_fd;
     remote.m_status = true;
+    return remote;
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {
