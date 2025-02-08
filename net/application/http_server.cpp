@@ -1,5 +1,6 @@
 #include "http_server.hpp"
 #include "enum_parser.hpp"
+#include "event_loop.hpp"
 #include "http_parser.hpp"
 #include "remote_target.hpp"
 #include "timer.hpp"
@@ -101,8 +102,8 @@ void HttpServer::enable_thread_pool(std::size_t worker_num) {
     m_server->enable_thread_pool(worker_num);
 }
 
-std::optional<std::string> HttpServer::enable_epoll(std::size_t event_num) {
-    return m_server->enable_epoll(event_num);
+std::optional<std::string> HttpServer::enable_event_loop(EventLoopType type) {
+    return m_server->enable_event_loop(type);
 }
 
 void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
@@ -110,78 +111,76 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 }
 
 void HttpServer::set_handler() {
-    auto handler_thread_func = [this](RemoteTarget::ConstSharedPtr conn) {
-        while (m_server->status() == net::SocketStatus::LISTENING && conn->m_status == net::SocketStatus::CONNECTED) {
-            m_parsers.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, std::make_shared<HttpParser>());
-            auto& parser = m_parsers.at({ conn->m_client_ip, conn->m_client_service });
-            // parse request
-            std::vector<uint8_t> req(1024);
-            std::vector<uint8_t> res;
-            auto err = m_server->read(req, conn);
-            if (err.has_value()) {
-                std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+    auto handler_thread_func = [this](const RemoteTarget& remote) {
+        m_parsers.insert_or_assign(remote.m_client_fd, std::make_shared<HttpParser>());
+        auto& parser = m_parsers.at(remote.m_client_fd);
+        // parse request
+        std::vector<uint8_t> req(1024);
+        std::vector<uint8_t> res;
+        auto err = m_server->read(req, remote);
+        if (err.has_value()) {
+            std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+            return;
+        }
+        std::optional<HttpRequest> req_opt;
+        parser->add_req_read_buffer(req);
+        while (true) {
+            req_opt = parser->read_req();
+            if (!req_opt.has_value()) {
                 break;
             }
-            std::optional<HttpRequest> req_opt;
-            parser->add_req_read_buffer(req);
-            while (true) {
-                req_opt = parser->read_req();
-                if (!req_opt.has_value()) {
-                    break;
-                }
-                auto& request = req_opt.value();
-                HttpResponse response;
-                auto method = request.method();
-                auto path = request.url();
-                std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator handler;
-                // if method is wrong
-                try {
-                    handler = m_handlers.at(method).find(path);
-                } catch (const std::out_of_range& e) {
-                    if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
-                        response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
-                    } else {
-                        response.set_version(HTTP_VERSION_1_1)
-                            .set_status_code(HttpResponseCode::BAD_REQUEST)
-                            .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
-                            .set_header("Content-Length", "0");
-                    }
-                }
-                // if no handler for the path in this method is not found
-                if (handler == m_handlers.at(method).end()) {
-                    if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
-                        response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
-                    } else {
-                        response.set_version(HTTP_VERSION_1_1)
-                            .set_status_code(HttpResponseCode::NOT_FOUND)
-                            .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
-                            .set_header("Content-Length", "0");
-                    }
+            auto& request = req_opt.value();
+            HttpResponse response;
+            auto method = request.method();
+            auto path = request.url();
+            std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator handler;
+            // if method is wrong
+            try {
+                handler = m_handlers.at(method).find(path);
+            } catch (const std::out_of_range& e) {
+                if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
                 } else {
-                    try {
-                        response = handler->second(request);
-                    } catch (const HttpResponseCode& e) {
-                        if (m_error_handlers.find(e) != m_error_handlers.end()) {
-                            response = m_error_handlers.at(e)(request);
-                        } else {
-                            response.set_version(HTTP_VERSION_1_1)
-                                .set_status_code(e)
-                                .set_reason(std::string(utils::dump_enum(e)))
-                                .set_header("Content-Length", "0");
-                        }
-                    }
-                }
-                // write response to socket
-                auto res = parser->write_res(response);
-                auto err = m_server->write(res, conn);
-                if (err.has_value()) {
-                    std::cerr << "Failed to write to socket: " << err.value() << std::endl;
-                    break;
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(HttpResponseCode::BAD_REQUEST)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
+                        .set_header("Content-Length", "0");
                 }
             }
+            // if no handler for the path in this method is not found
+            if (handler == m_handlers.at(method).end()) {
+                if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
+                } else {
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(HttpResponseCode::NOT_FOUND)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                        .set_header("Content-Length", "0");
+                }
+            } else {
+                try {
+                    response = handler->second(request);
+                } catch (const HttpResponseCode& e) {
+                    if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                        response = m_error_handlers.at(e)(request);
+                    } else {
+                        response.set_version(HTTP_VERSION_1_1)
+                            .set_status_code(e)
+                            .set_reason(std::string(utils::dump_enum(e)))
+                            .set_header("Content-Length", "0");
+                    }
+                }
+            }
+            // write response to socket
+            auto res = parser->write_res(response);
+            auto err = m_server->write(res, remote);
+            if (err.has_value()) {
+                std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                break;
+            }
         }
-        m_parsers.erase({ conn->m_client_ip, conn->m_client_service });
-        std::const_pointer_cast<RemoteTarget>(conn)->m_status = SocketStatus::DISCONNECTED;
+        m_parsers.erase(remote.m_client_fd);
+        const_cast<RemoteTarget&>(remote).m_status = false;
     };
 
     m_server->on_accept(std::move(handler_thread_func));

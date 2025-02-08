@@ -97,7 +97,7 @@ protected:
     RemoteTarget create_remote(int remote_fd) override;
 
     std::shared_ptr<SSLContext> m_ctx;
-    std::unordered_map<int, std::shared_ptr<SSL>> m_ssls;
+    std::map<int, std::shared_ptr<SSL>> m_ssls;
 };
 
 } // namespace net

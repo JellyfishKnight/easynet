@@ -70,7 +70,7 @@ void SocketServer::enable_thread_pool(std::size_t worker_num) {
     m_thread_pool = std::make_shared<utils::ThreadPool>(worker_num);
 }
 
-void SocketServer::enable_event_loop(EventLoopType type) {
+std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type) {
     assert(
         m_status == SocketStatus::DISCONNECTED || m_status == SocketStatus::LISTENING && "Server is already connected"
     );
@@ -84,8 +84,9 @@ void SocketServer::enable_event_loop(EventLoopType type) {
     } else if (type == EventLoopType::POLL) {
         m_event_loop = std::make_shared<PollEventLoop>();
     } else {
-        throw std::runtime_error("Unsupported event loop type");
+        return "Invalid event loop type";
     }
+    return std::nullopt;
 }
 
 void SocketServer::on_accept(std::function<void(const RemoteTarget&)> handler) {

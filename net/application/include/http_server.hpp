@@ -1,5 +1,6 @@
 #pragma once
 
+#include "event_loop.hpp"
 #include "http_parser.hpp"
 #include "remote_target.hpp"
 #include "ssl.hpp"
@@ -62,9 +63,9 @@ public:
 
     std::optional<std::string> start();
 
-    void enable_thread_pool(std::size_t worker_num);
+    std::optional<std::string> enable_event_loop(EventLoopType type = EventLoopType::EPOLL);
 
-    std::optional<std::string> enable_epoll(std::size_t event_num);
+    void enable_thread_pool(std::size_t worker_num);
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
@@ -98,7 +99,7 @@ protected:
 
     const std::unordered_map<HttpMethod, MethodHandlers&> m_handlers;
 
-    std::unordered_map<ConnectionKey, std::shared_ptr<HttpParser>> m_parsers;
+    std::map<int, std::shared_ptr<HttpParser>> m_parsers;
 
     std::unordered_map<HttpResponseCode, std::function<HttpResponse(const HttpRequest&)>> m_error_handlers;
 
