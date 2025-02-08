@@ -61,6 +61,8 @@ public:
 
 protected:
     void handle_connection(const RemoteTarget& remote) override;
+
+    RemoteTarget create_remote(int remote_fd) override;
 };
 
 } // namespace net

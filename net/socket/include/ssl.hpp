@@ -1,9 +1,11 @@
 #pragma once
 
 #include "defines.hpp"
+#include "remote_target.hpp"
 #include "tcp.hpp"
 #include <cstdint>
 #include <memory>
+#include <openssl/core.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/types.h>
@@ -83,8 +85,6 @@ public:
 
     std::optional<std::string> listen() override;
 
-    std::optional<std::string> start() override;
-
     std::shared_ptr<SSLServer> get_shared();
 
     std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) override;
@@ -93,6 +93,8 @@ public:
 
 protected:
     void handle_connection(const RemoteTarget& remote) override;
+
+    RemoteTarget create_remote(int remote_fd) override;
 
     std::shared_ptr<SSLContext> m_ctx;
     std::unordered_map<int, std::shared_ptr<SSL>> m_ssls;

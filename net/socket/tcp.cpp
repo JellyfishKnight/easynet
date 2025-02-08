@@ -234,9 +234,7 @@ std::optional<std::string> TcpServer::start() {
                     }
                 };
                 auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
-                RemoteTarget remote;
-                remote.m_client_fd = client_fd;
-                remote.m_status = true;
+                auto remote = create_remote(client_fd);
                 {
                     std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
                     m_remotes.insert({ client_fd, remote });
@@ -286,9 +284,7 @@ std::optional<std::string> TcpServer::start() {
                     std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
                     continue;
                 }
-                RemoteTarget remote;
-                remote.m_client_fd = client_fd;
-                remote.m_status = true;
+                auto remote = create_remote(client_fd);
                 {
                     std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
                     m_remotes.insert({ client_fd, remote });
@@ -369,6 +365,12 @@ void TcpServer::handle_connection(const RemoteTarget& remote) {
         std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
         m_remotes.erase(remote.m_client_fd);
     }
+}
+
+RemoteTarget TcpServer::create_remote(int remote_fd) {
+    RemoteTarget remote;
+    remote.m_client_fd = remote_fd;
+    remote.m_status = true;
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {

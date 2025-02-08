@@ -149,173 +149,6 @@ std::optional<std::string> SSLServer::close() {
     return TcpServer::close();
 }
 
-std::optional<std::string> SSLServer::start() {
-    if (m_status != SocketStatus::LISTENING) {
-        return "Server is not listening";
-    }
-    if (m_accept_handler == nullptr) {
-        return "No handler set";
-    }
-    // m_stop = false;
-    // if (m_epoll_enabled) {
-    //     m_accept_thread = std::thread([this]() {
-    //         while (!m_stop) {
-    //             std::vector<struct ::epoll_event> events(m_events.size());
-    //             int num_events = ::epoll_wait(m_epoll_fd, events.data(), m_events.size(), -1);
-    //             if (num_events == -1) {
-    //                 if (m_logger_set) {
-    //                     NET_LOG_ERROR(m_logger, "Failed to wait for events: {}", get_error_msg());
-    //                 }
-    //                 continue;
-    //             }
-    //             for (int i = 0; i < num_events; ++i) {
-    //                 if (events[i].data.fd == m_listen_fd) {
-    //                     addressResolver::address client_addr;
-    //                     socklen_t len;
-    //                     int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &len);
-    //                     if (client_fd == -1) {
-    //                         if (m_logger_set) {
-    //                             NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
-    //                         }
-    //                         std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
-    //                         continue;
-    //                     }
-    //                     struct ::epoll_event event;
-    //                     event.events = EPOLLIN;
-    //                     event.data.fd = client_fd;
-    //                     if (::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1) {
-    //                         if (m_logger_set) {
-    //                             NET_LOG_ERROR(m_logger, "Failed to add client socket to epoll: {}", get_error_msg());
-    //                         }
-    //                         std::cerr << std::format("Failed to add client socket to epoll: {}\n", get_error_msg());
-    //                         continue;
-    //                     }
-    //                     auto ssl_conn = std::make_shared<SSLRemoteTarget>();
-    //                     ssl_conn->m_client_fd = events[i].data.fd;
-    //                     ssl_conn->m_server_fd = m_listen_fd;
-    //                     ssl_conn->m_status = SocketStatus::CONNECTED;
-    //                     ssl_conn->m_server_ip = m_ip;
-    //                     ssl_conn->m_server_service = m_service;
-    //                     ssl_conn->m_ssl =
-    //                         std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
-    //                     if (ssl_conn->m_ssl == nullptr) {
-    //                         if (m_logger_set) {
-    //                             NET_LOG_ERROR(m_logger, "Failed to create SSL object");
-    //                         }
-    //                         std::cerr << "Failed to create SSL object\n";
-    //                         continue;
-    //                     }
-    //                     auto err = get_peer_info(
-    //                         ssl_conn->m_client_fd,
-    //                         ssl_conn->m_client_ip,
-    //                         ssl_conn->m_client_service,
-    //                         ssl_conn->m_addr
-    //                     );
-    //                     if (err.has_value()) {
-    //                         if (m_logger_set) {
-    //                             NET_LOG_ERROR(m_logger, "Failed to get peer info: {}", err.value());
-    //                         }
-    //                         std::cerr << std::format("Failed to get peer info: {}\n", err.value());
-    //                         continue;
-    //                     } else {
-    //                         m_remotes.insert_or_assign(
-    //                             { ssl_conn->m_client_ip, ssl_conn->m_client_service },
-    //                             std::move(ssl_conn)
-    //                         );
-    //                     }
-    //                     SSL_set_fd(ssl_conn->m_ssl.get(), client_fd);
-    //                 } else {
-    //                     std::string ip, service;
-    //                     addressResolver::address info;
-    //                     auto err = get_peer_info(events[i].data.fd, ip, service, info);
-    //                     if (err.has_value()) {
-    //                         if (m_logger_set) {
-    //                             NET_LOG_ERROR(m_logger, "Failed to get peer info: {}", err.value());
-    //                         }
-    //                         std::cerr << std::format("Failed to get peer info: {}\n", err.value());
-    //                         continue;
-    //                     }
-    //                     auto& conn = m_remotes.at({ ip, service });
-    //                     if (m_thread_pool) {
-    //                         m_thread_pool->submit([this, conn]() {
-    //                             handle_connection(conn);
-    //                             m_remotes.erase({ conn->m_client_ip, conn->m_client_service });
-    //                         });
-    //                     } else {
-    //                         auto unused_future = std::async(std::launch::async, [this, conn]() {
-    //                             handle_connection(conn);
-    //                             m_remotes.erase({ conn->m_client_ip, conn->m_client_service });
-    //                         });
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     });
-    // } else {
-    //     m_accept_thread = std::thread([this]() {
-    //         while (!m_stop) {
-    //             // use select to avoid blocking on accept
-    //             ::fd_set readfds;
-    //             FD_ZERO(&readfds);
-    //             FD_SET(m_listen_fd, &readfds);
-    //             struct timeval timeout = { 1, 0 };
-    //             int ret = ::select(m_listen_fd + 1, &readfds, nullptr, nullptr, &timeout);
-    //             if (ret == -1) {
-    //                 if (m_logger_set) {
-    //                     NET_LOG_ERROR(m_logger, "Failed to wait for events: {}", get_error_msg());
-    //                 }
-    //                 std::cerr << std::format("Failed to wait for events: {}\n", get_error_msg());
-    //                 continue;
-    //             }
-    //             if (ret == 0) {
-    //                 continue;
-    //             }
-    //             if (FD_ISSET(m_listen_fd, &readfds)) {
-    //                 addressResolver::address client_addr;
-    //                 int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
-    //                 if (client_fd == -1) {
-    //                     if (m_logger_set) {
-    //                         NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
-    //                     }
-    //                     std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
-    //                     continue;
-    //                 }
-    //                 std::string client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
-    //                 std::string client_service =
-    //                     std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
-    //                 auto ssl_conn = std::make_shared<SSLRemoteTarget>();
-    //                 ssl_conn->m_client_fd = client_fd;
-    //                 ssl_conn->m_server_fd = m_listen_fd;
-    //                 ssl_conn->m_status = SocketStatus::CONNECTED;
-    //                 ssl_conn->m_server_ip = m_ip;
-    //                 ssl_conn->m_server_service = m_service;
-    //                 ssl_conn->m_client_ip = client_ip;
-    //                 ssl_conn->m_client_service = client_service;
-    //                 ssl_conn->m_addr = client_addr;
-    //                 ssl_conn->m_ssl =
-    //                     std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
-    //                 if (ssl_conn->m_ssl == nullptr) {
-    //                     if (m_logger_set) {
-    //                         NET_LOG_ERROR(m_logger, "Failed to create SSL object");
-    //                     }
-    //                     std::cerr << "Failed to create SSL object\n";
-    //                     continue;
-    //                 }
-    //                 SSL_set_fd(ssl_conn->m_ssl.get(), client_fd);
-    //                 if (m_thread_pool) {
-    //                     m_thread_pool->submit([this, conn = std::move(ssl_conn)]() { handle_connection(conn); });
-    //                 } else {
-    //                     auto unused_future = std::async(std::launch::async, [this, conn = std::move(ssl_conn)]() {
-    //                         handle_connection(conn);
-    //                     });
-    //                 }
-    //             }
-    //         }
-    //     });
-    // }
-    // return std::nullopt;
-}
-
 void SSLServer::handle_connection(const RemoteTarget& conn) {
     auto& ssl = m_ssls.at(conn.m_client_fd);
     if (SSL_accept(ssl.get()) <= 0) {
@@ -326,6 +159,12 @@ void SSLServer::handle_connection(const RemoteTarget& conn) {
         return;
     }
     TcpServer::handle_connection(conn);
+}
+
+RemoteTarget SSLServer::create_remote(int remote_fd) {
+    m_ssls[remote_fd] = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
+    SSL_set_fd(m_ssls[remote_fd].get(), remote_fd);
+    return TcpServer::create_remote(remote_fd);
 }
 
 std::shared_ptr<SSLServer> SSLServer::get_shared() {

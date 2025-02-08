@@ -139,6 +139,8 @@ public:
 protected:
     virtual void handle_connection(const RemoteTarget& remote) = 0;
 
+    virtual RemoteTarget create_remote(int remote_fd) = 0;
+
     std::optional<std::string>
     get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info);
 
