@@ -9,6 +9,7 @@
 #include <future>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -112,7 +113,10 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 
 void HttpServer::set_handler() {
     auto handler_thread_func = [this](const RemoteTarget& remote) {
-        m_parsers.insert_or_assign(remote.m_client_fd, std::make_shared<HttpParser>());
+        {
+            std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
+            m_parsers.insert_or_assign(remote.m_client_fd, std::make_shared<HttpParser>());
+        }
         auto& parser = m_parsers.at(remote.m_client_fd);
         // parse request
         std::vector<uint8_t> req(1024);
@@ -179,8 +183,10 @@ void HttpServer::set_handler() {
                 break;
             }
         }
-        m_parsers.erase(remote.m_client_fd);
-        const_cast<RemoteTarget&>(remote).m_status = false;
+        if (remote.m_status == false) {
+            std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
+            m_parsers.erase(remote.m_client_fd);
+        }
     };
 
     m_server->on_accept(std::move(handler_thread_func));

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <queue>
 #include <string>
@@ -31,7 +32,7 @@ public:
 
     HttpServer(const HttpServer&) = delete;
 
-    HttpServer(HttpServer&&) = default;
+    HttpServer(HttpServer&&) = delete;
 
     HttpServer& operator=(const HttpServer&) = delete;
 
@@ -100,6 +101,7 @@ protected:
     const std::unordered_map<HttpMethod, MethodHandlers&> m_handlers;
 
     std::map<int, std::shared_ptr<HttpParser>> m_parsers;
+    std::mutex m_parsers_mutex;
 
     std::unordered_map<HttpResponseCode, std::function<HttpResponse(const HttpRequest&)>> m_error_handlers;
 
