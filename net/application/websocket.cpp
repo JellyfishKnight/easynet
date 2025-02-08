@@ -319,7 +319,7 @@ std::optional<std::string> WebSocketServer::accept_ws_connection(const HttpReque
         .set_status_code(HttpResponseCode::SWITCHING_PROTOCOLS)
         .set_reason(std::string(utils::dump_enum(HttpResponseCode::SWITCHING_PROTOCOLS)))
         .set_header("Upgrade", "websocket")
-        .set_header("RemoteTarget", "Upgrade")
+        .set_header("Connection", "Upgrade")
         .set_header("Sec-WebSocket-Accept", accept_key)
         .set_header("Sec-WebSocket-Version", "13");
     HttpParser parser;
@@ -445,6 +445,7 @@ void WebSocketServer::set_handler() {
             http_handler(remote);
         }
     };
+
     m_server->on_accept(std::move(handler));
 }
 

@@ -43,7 +43,7 @@ int main() {
         .set_method(net::HttpMethod::GET)
         .set_url("/")
         .set_header("Upgrade", "websocket")
-        .set_header("RemoteTarget", "Upgrade")
+        .set_header("Connection", "Upgrade")
         .set_header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
         .set_header("Sec-WebSocket-Version", "13")
         .set_header("Sec-WebSocket-Protocol", "chat")
