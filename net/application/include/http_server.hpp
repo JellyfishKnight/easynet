@@ -87,6 +87,8 @@ public:
 protected:
     virtual void set_handler();
 
+    virtual void erase_parser(int remote_fd);
+
     using MethodHandlers = std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;
     MethodHandlers m_get_handlers;
     MethodHandlers m_post_handlers;

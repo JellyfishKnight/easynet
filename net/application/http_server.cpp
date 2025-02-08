@@ -115,7 +115,9 @@ void HttpServer::set_handler() {
     auto handler_thread_func = [this](const RemoteTarget& remote) {
         {
             std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
-            m_parsers.insert_or_assign(remote.m_client_fd, std::make_shared<HttpParser>());
+            if (m_parsers.contains(remote.m_client_fd)) {
+                m_parsers.insert({ remote.m_client_fd, std::make_shared<HttpParser>() });
+            }
         }
         auto& parser = m_parsers.at(remote.m_client_fd);
         // parse request
@@ -124,6 +126,7 @@ void HttpServer::set_handler() {
         auto err = m_server->read(req, remote);
         if (err.has_value()) {
             std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+            erase_parser(remote.m_client_fd);
             return;
         }
         std::optional<HttpRequest> req_opt;
@@ -180,12 +183,9 @@ void HttpServer::set_handler() {
             auto err = m_server->write(res, remote);
             if (err.has_value()) {
                 std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                erase_parser(remote.m_client_fd);
                 break;
             }
-        }
-        if (remote.m_status == false) {
-            std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
-            m_parsers.erase(remote.m_client_fd);
         }
     };
 
@@ -219,6 +219,11 @@ std::shared_ptr<TcpServer> HttpServer::convert2tcp() {
 
 std::shared_ptr<HttpServer> HttpServer::get_shared() {
     return shared_from_this();
+}
+
+void HttpServer::erase_parser(int remote_fd) {
+    std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
+    m_parsers.erase(remote_fd);
 }
 
 } // namespace net
