@@ -40,9 +40,9 @@ public:
 
     SocketClient& operator=(const SocketClient&) = delete;
 
-    SocketClient(SocketClient&&) = default;
+    SocketClient(SocketClient&&) = delete;
 
-    SocketClient& operator=(SocketClient&&) = default;
+    SocketClient& operator=(SocketClient&&) = delete;
 
     virtual ~SocketClient() = default;
 
@@ -94,9 +94,9 @@ public:
 
     SocketServer& operator=(const SocketServer&) = delete;
 
-    SocketServer(SocketServer&&) = default;
+    SocketServer(SocketServer&&) = delete;
 
-    SocketServer& operator=(SocketServer&&) = default;
+    SocketServer& operator=(SocketServer&&) = delete;
 
     virtual ~SocketServer() = default;
 

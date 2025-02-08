@@ -318,44 +318,44 @@ std::optional<std::string> TcpServer::start() {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const RemoteTarget& conn) {
+std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const RemoteTarget& remote) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::recv(conn.m_client_fd, data.data(), data.size(), 0);
+    ssize_t num_bytes = ::recv(remote.m_client_fd, data.data(), data.size(), 0);
     if (num_bytes == -1) {
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", conn.m_client_fd, get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote.m_client_fd, get_error_msg());
         }
-        const_cast<RemoteTarget&>(conn).m_status = false;
+        const_cast<RemoteTarget&>(remote).m_status = false;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
             NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
         }
-        const_cast<RemoteTarget&>(conn).m_status = false;
+        const_cast<RemoteTarget&>(remote).m_status = false;
         return "Connection reset by peer while reading";
     }
     data.resize(num_bytes);
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, const RemoteTarget& conn) {
+std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, const RemoteTarget& remote) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::send(conn.m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
+    ssize_t num_bytes = ::send(remote.m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
     if (num_bytes == -1) {
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", conn.m_client_fd, get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());
         }
-        const_cast<RemoteTarget&>(conn).m_status = false;
+        const_cast<RemoteTarget&>(remote).m_status = false;
         return get_error_msg();
     }
     if (num_bytes == 0) {
         if (m_logger_set) {
             NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
         }
-        const_cast<RemoteTarget&>(conn).m_status = false;
+        const_cast<RemoteTarget&>(remote).m_status = false;
         return "Connection reset by peer while writing";
     }
     return std::nullopt;

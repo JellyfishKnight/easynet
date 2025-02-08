@@ -12,11 +12,11 @@ public:
 
     TcpClient(const TcpClient&) = delete;
 
-    TcpClient(TcpClient&&) = default;
+    TcpClient(TcpClient&&) = delete;
 
     TcpClient& operator=(const TcpClient&) = delete;
 
-    TcpClient& operator=(TcpClient&&) = default;
+    TcpClient& operator=(TcpClient&&) = delete;
 
     ~TcpClient();
 
@@ -39,11 +39,11 @@ public:
 
     TcpServer(const TcpServer&) = delete;
 
-    TcpServer(TcpServer&&) = default;
+    TcpServer(TcpServer&&) = delete;
 
     TcpServer& operator=(const TcpServer&) = delete;
 
-    TcpServer& operator=(TcpServer&&) = default;
+    TcpServer& operator=(TcpServer&&) = delete;
 
     ~TcpServer();
 
@@ -55,12 +55,12 @@ public:
 
     std::shared_ptr<TcpServer> get_shared();
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& client_fd) override;
+    std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& client_fd) override;
+    std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) override;
 
 protected:
-    void handle_connection(const RemoteTarget&) override;
+    void handle_connection(const RemoteTarget& remote) override;
 };
 
 } // namespace net

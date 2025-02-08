@@ -106,6 +106,11 @@ public:
     virtual void wait_for_events() = 0;
 };
 
+/**
+ * @brief Event loop implementation using select system call
+ *        But this is NOT IN USE now, cause when socket value comes to
+ *        1024, it will cause error, need further investigation
+ */
 class SelectEventLoop: public EventLoop {
 public:
     NET_DECLARE_PTRS(SelectEventLoop)
@@ -126,10 +131,6 @@ public:
             FD_SET(event->get_fd(), &error_fds);
         }
 
-        if (event->get_fd() == 1024) {
-            int a = 0;
-        }
-
         m_events[event->get_fd()] = event;
     }
 
@@ -138,10 +139,6 @@ public:
         FD_CLR(event_fd, &write_fds);
         FD_CLR(event_fd, &error_fds);
 
-        if (m_max_fd == 1024) {
-            int a = 0;
-        }
-
         m_events.erase(event_fd);
     }
 
@@ -149,10 +146,6 @@ public:
         fd_set temp_read_fds = read_fds;
         fd_set temp_write_fds = write_fds;
         fd_set temp_error_fds = error_fds;
-
-        if (m_max_fd == 1024) {
-            int a = 0;
-        }
 
         int result = select(m_max_fd + 1, &temp_read_fds, &temp_write_fds, &temp_error_fds, nullptr);
         if (result < 0) {

@@ -1,106 +1,101 @@
-// #pragma once
+#pragma once
 
-// #include "defines.hpp"
-// #include "tcp.hpp"
-// #include <cstdint>
-// #include <memory>
-// #include <openssl/err.h>
-// #include <openssl/ssl.h>
-// #include <openssl/types.h>
-// #include <optional>
-// #include <string>
-// #include <vector>
+#include "defines.hpp"
+#include "tcp.hpp"
+#include <cstdint>
+#include <memory>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/types.h>
+#include <optional>
+#include <string>
+#include <vector>
 
-// namespace net {
+namespace net {
 
-// struct SSLConnection: public RemoteTarget {
-//     SSLConnection(): RemoteTarget() {}
+class SSLContext: std::enable_shared_from_this<SSLContext> {
+public:
+    NET_DECLARE_PTRS(SSLContext)
 
-//     std::shared_ptr<SSL> m_ssl;
-// };
+    SSLContext();
 
-// class SSLContext: std::enable_shared_from_this<SSLContext> {
-// public:
-//     NET_DECLARE_PTRS(SSLContext)
+    ~SSLContext();
 
-//     SSLContext();
+    SSLContext(const SSLContext&) = delete;
+    SSLContext(SSLContext&&) = default;
+    SSLContext& operator=(const SSLContext&) = delete;
+    SSLContext& operator=(SSLContext&&) = default;
 
-//     ~SSLContext();
+    void set_certificates(const std::string& cert_file, const std::string& key_file);
 
-//     SSLContext(const SSLContext&) = delete;
-//     SSLContext(SSLContext&&) = default;
-//     SSLContext& operator=(const SSLContext&) = delete;
-//     SSLContext& operator=(SSLContext&&) = default;
+    std::shared_ptr<SSL_CTX> get();
 
-//     void set_certificates(const std::string& cert_file, const std::string& key_file);
+    static std::shared_ptr<SSLContext> create() {
+        return std::make_shared<SSLContext>();
+    }
 
-//     std::shared_ptr<SSL_CTX> get();
+private:
+    std::shared_ptr<SSL_CTX> m_ctx;
+};
 
-//     static std::shared_ptr<SSLContext> create() {
-//         return std::make_shared<SSLContext>();
-//     }
+class SSLClient: public TcpClient {
+public:
+    NET_DECLARE_PTRS(SSLClient)
 
-// private:
-//     std::shared_ptr<SSL_CTX> m_ctx;
-// };
+    SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
-// class SSLClient: public TcpClient {
-// public:
-//     NET_DECLARE_PTRS(SSLClient)
+    ~SSLClient() = default;
 
-//     SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
+    SSLClient(const SSLClient&) = delete;
+    SSLClient(SSLClient&&) = delete;
+    SSLClient& operator=(const SSLClient&) = delete;
+    SSLClient& operator=(SSLClient&&) = delete;
 
-//     ~SSLClient() = default;
+    std::optional<std::string> write(const std::vector<uint8_t>& data) override;
 
-//     SSLClient(const SSLClient&) = delete;
-//     SSLClient(SSLClient&&) = default;
-//     SSLClient& operator=(const SSLClient&) = delete;
-//     SSLClient& operator=(SSLClient&&) = default;
+    std::optional<std::string> read(std::vector<uint8_t>& data) override;
 
-//     std::optional<std::string> write(const std::vector<uint8_t>& data) override;
+    std::optional<std::string> connect() override;
 
-//     std::optional<std::string> read(std::vector<uint8_t>& data) override;
+    std::optional<std::string> close() override;
 
-//     std::optional<std::string> connect() override;
+    std::shared_ptr<SSLClient> get_shared();
 
-//     std::optional<std::string> close() override;
+protected:
+    std::shared_ptr<SSL> m_ssl;
+    std::shared_ptr<SSLContext> m_ctx;
+};
 
-//     std::shared_ptr<SSLClient> get_shared();
+class SSLServer: public TcpServer {
+public:
+    NET_DECLARE_PTRS(SSLServer)
 
-// protected:
-//     std::shared_ptr<SSL> m_ssl;
-//     std::shared_ptr<SSLContext> m_ctx;
-// };
+    SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
 
-// class SSLServer: public TcpServer {
-// public:
-//     NET_DECLARE_PTRS(SSLServer)
+    ~SSLServer() = default;
 
-//     SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service);
+    SSLServer(const SSLServer&) = delete;
+    SSLServer(SSLServer&&) = delete;
+    SSLServer& operator=(const SSLServer&) = delete;
+    SSLServer& operator=(SSLServer&&) = delete;
 
-//     ~SSLServer() = default;
+    std::optional<std::string> close() override;
 
-//     SSLServer(const SSLServer&) = delete;
-//     SSLServer(SSLServer&&) = default;
-//     SSLServer& operator=(const SSLServer&) = delete;
-//     SSLServer& operator=(SSLServer&&) = default;
+    std::optional<std::string> listen() override;
 
-//     std::optional<std::string> close() override;
+    std::optional<std::string> start() override;
 
-//     std::optional<std::string> listen() override;
+    std::shared_ptr<SSLServer> get_shared();
 
-//     std::optional<std::string> start() override;
+    std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) override;
 
-//     std::shared_ptr<SSLServer> get_shared();
+    std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) override;
 
-//     std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
+protected:
+    void handle_connection(const RemoteTarget& remote) override;
 
-//     std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
+    std::shared_ptr<SSLContext> m_ctx;
+    std::unordered_map<int, std::shared_ptr<SSL>> m_ssls;
+};
 
-// protected:
-//     void handle_connection(RemoteTarget::SharedPtr conn) override;
-
-//     std::shared_ptr<SSLContext> m_ctx;
-// };
-
-// } // namespace net
+} // namespace net
