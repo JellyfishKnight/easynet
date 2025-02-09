@@ -88,7 +88,7 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type) {
     } else {
         return "Invalid event loop type";
     }
-    return set_non_blocking_socket(m_listen_fd);
+    return std::nullopt;
 }
 
 void SocketServer::on_accept(std::function<void(const RemoteTarget&)> handler) {

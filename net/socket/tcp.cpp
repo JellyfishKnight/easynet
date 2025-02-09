@@ -357,7 +357,7 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
             read_buffer.resize(num_bytes);
             std::copy(read_buffer.begin(), read_buffer.begin() + num_bytes, std::back_inserter(data));
         }
-    } while (num_bytes > 0);
+    } while (num_bytes > 0 && m_event_loop);
     return std::nullopt;
 }
 
