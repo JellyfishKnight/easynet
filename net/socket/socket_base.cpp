@@ -1,10 +1,12 @@
 #include "socket_base.hpp"
 #include "address_resolver.hpp"
+#include "defines.hpp"
 #include "event_loop.hpp"
 #include "logger.hpp"
 #include "remote_target.hpp"
 #include <cassert>
 #include <cstddef>
+#include <fcntl.h>
 #include <format>
 #include <iostream>
 #include <memory>
@@ -86,7 +88,7 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type) {
     } else {
         return "Invalid event loop type";
     }
-    return std::nullopt;
+    return set_non_blocking_socket(m_listen_fd);
 }
 
 void SocketServer::on_accept(std::function<void(const RemoteTarget&)> handler) {
@@ -129,6 +131,17 @@ SocketStatus SocketServer::status() const {
 
 std::shared_ptr<SocketServer> SocketServer::get_shared() {
     return shared_from_this();
+}
+
+std::optional<std::string> SocketServer::set_non_blocking_socket(int fd) {
+    int flag = ::fcntl(fd, F_GETFL, 0);
+    if (flag == -1) {
+        return get_error_msg();
+    }
+    if (::fcntl(fd, F_SETFL, flag | O_NONBLOCK) == -1) {
+        return get_error_msg();
+    }
+    return std::nullopt;
 }
 
 } // namespace net

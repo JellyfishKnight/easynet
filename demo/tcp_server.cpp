@@ -3,6 +3,7 @@
 #include "socket.hpp"
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -11,21 +12,24 @@ int main() {
     std::shared_ptr<net::TcpServer> server;
     try {
         server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
-    } catch (std::system_error const& e) {
+    } catch (std::exception const& e) {
         std::cerr << "Failed to create server: " << e.what() << std::endl;
         return 1;
     }
 
-    try {
-        server->listen();
-    } catch (std::system_error const& e) {
-        std::cerr << "Failed to listen on socket: " << e.what() << std::endl;
+    auto err = server->listen();
+    if (err.has_value()) {
+        std::cerr << "Failed to listen: " << err.value() << std::endl;
         return 1;
     }
 
     try {
         server->enable_thread_pool(96);
-        server->enable_event_loop();
+        auto err = server->enable_event_loop();
+        if (err.has_value()) {
+            std::cerr << "Failed to enable event loop: " << err.value() << std::endl;
+            return 1;
+        }
 
         auto handler = [server](const net::RemoteTarget& conn) {
             std::vector<uint8_t> req(1024);

@@ -5,16 +5,20 @@
 #include "socket_base.hpp"
 #include "timer.hpp"
 #include <cassert>
+#include <cerrno>
 #include <csignal>
+#include <cstdint>
 #include <exception>
 #include <memory>
 #include <mutex>
 #include <netdb.h>
+#include <optional>
 #include <shared_mutex>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <thread>
 #include <utility>
+#include <vector>
 
 namespace net {
 
@@ -72,6 +76,7 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
         }
         return "Connection reset by peer while reading";
     }
+    std::cout << num_bytes << std::endl;
     data.resize(num_bytes);
     return std::nullopt;
 }
@@ -177,9 +182,6 @@ std::optional<std::string> TcpServer::start() {
     assert(m_accept_handler != nullptr && "No handler set");
     m_stop = false;
     if (m_event_loop) {
-        if (m_thread_pool) {
-            ::fcntl(m_listen_fd, F_SETFL, O_NONBLOCK);
-        }
         m_accept_thread = std::thread([this]() {
             EventHandler::SharedPtr server_event_handler = std::make_shared<EventHandler>();
             server_event_handler->m_on_read = [this](int server_fd) {
@@ -190,6 +192,14 @@ std::optional<std::string> TcpServer::start() {
                         NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
                     }
                     std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
+                    return;
+                }
+                auto err = set_non_blocking_socket(client_fd);
+                if (err.has_value()) {
+                    if (m_logger_set) {
+                        NET_LOG_ERROR(m_logger, "Failed to set non-blocking socket: {}", err.value());
+                    }
+                    std::cerr << std::format("Failed to set non-blocking socket: {}\n", err.value());
                     return;
                 }
 
@@ -324,45 +334,54 @@ std::optional<std::string> TcpServer::start() {
 }
 
 std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const RemoteTarget& remote) {
-    assert(m_status == SocketStatus::LISTENING && "Server is not listening");
-    assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::recv(remote.m_client_fd, data.data(), data.size(), 0);
-    if (num_bytes == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote.m_client_fd, get_error_msg());
+    ssize_t num_bytes;
+    do {
+        std::vector<uint8_t> read_buffer(1024);
+        num_bytes = ::recv(remote.m_client_fd, read_buffer.data(), read_buffer.size(), MSG_NOSIGNAL);
+        if (num_bytes == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());
+            }
+            const_cast<RemoteTarget&>(remote).m_status = false;
+            return get_error_msg();
         }
-        const_cast<RemoteTarget&>(remote).m_status = false;
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+        if (num_bytes == 0) {
+            if (m_logger_set) {
+                NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            }
+            const_cast<RemoteTarget&>(remote).m_status = false;
+            return "Connection reset by peer while reading";
         }
-        const_cast<RemoteTarget&>(remote).m_status = false;
-        return "Connection reset by peer while reading";
-    }
-    data.resize(num_bytes);
+        if (num_bytes > 0) {
+            data.insert(data.end(), read_buffer.begin(), read_buffer.begin() + num_bytes);
+        }
+    } while (num_bytes > 0);
     return std::nullopt;
 }
 
 std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, const RemoteTarget& remote) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::send(remote.m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
-    if (num_bytes == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());
+    ssize_t num_bytes;
+    std::size_t bytes_has_send = 0;
+    do {
+        num_bytes = ::send(remote.m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
+        if (num_bytes == -1) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());
+            }
+            const_cast<RemoteTarget&>(remote).m_status = false;
+            return get_error_msg();
         }
-        const_cast<RemoteTarget&>(remote).m_status = false;
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+        if (num_bytes == 0) {
+            if (m_logger_set) {
+                NET_LOG_WARN(m_logger, "Connection reset by peer while writting");
+            }
+            const_cast<RemoteTarget&>(remote).m_status = false;
+            return "Connection reset by peer while writting";
         }
-        const_cast<RemoteTarget&>(remote).m_status = false;
-        return "Connection reset by peer while writing";
-    }
+        bytes_has_send += num_bytes;
+    } while (num_bytes > 0 && m_event_loop && bytes_has_send < data.size());
     return std::nullopt;
 }
 

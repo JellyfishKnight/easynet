@@ -144,6 +144,8 @@ protected:
     std::optional<std::string>
     get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info);
 
+    std::optional<std::string> set_non_blocking_socket(int fd);
+
     int m_listen_fd;
     addressResolver m_addr_resolver;
     addressResolver::address_info m_addr_info;
