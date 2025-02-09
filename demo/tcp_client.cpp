@@ -25,9 +25,6 @@ int main() {
         std::vector<uint8_t> res(1024);
         client.read(res);
         std::string res_str { res.begin(), res.end() };
-        for (auto c: res) {
-            printf("%x ", c);
-        }
         std::cout << res_str << std::endl;
         if (input == "exit") {
             break;

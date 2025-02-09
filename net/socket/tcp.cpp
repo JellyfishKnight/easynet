@@ -4,6 +4,7 @@
 #include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "timer.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cerrno>
 #include <csignal>
@@ -76,7 +77,6 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
         }
         return "Connection reset by peer while reading";
     }
-    std::cout << num_bytes << std::endl;
     data.resize(num_bytes);
     return std::nullopt;
 }
@@ -335,6 +335,7 @@ std::optional<std::string> TcpServer::start() {
 
 std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const RemoteTarget& remote) {
     ssize_t num_bytes;
+    data.clear();
     do {
         std::vector<uint8_t> read_buffer(1024);
         num_bytes = ::recv(remote.m_client_fd, read_buffer.data(), read_buffer.size(), MSG_NOSIGNAL);
@@ -353,7 +354,8 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
             return "Connection reset by peer while reading";
         }
         if (num_bytes > 0) {
-            data.insert(data.end(), read_buffer.begin(), read_buffer.begin() + num_bytes);
+            read_buffer.resize(num_bytes);
+            std::copy(read_buffer.begin(), read_buffer.begin() + num_bytes, std::back_inserter(data));
         }
     } while (num_bytes > 0);
     return std::nullopt;
@@ -365,7 +367,8 @@ std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, co
     ssize_t num_bytes;
     std::size_t bytes_has_send = 0;
     do {
-        num_bytes = ::send(remote.m_client_fd, data.data(), data.size(), MSG_NOSIGNAL);
+        num_bytes =
+            ::send(remote.m_client_fd, data.data() + bytes_has_send, data.size() - bytes_has_send, MSG_NOSIGNAL);
         if (num_bytes == -1) {
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());

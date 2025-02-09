@@ -32,7 +32,7 @@ int main() {
         }
 
         auto handler = [server](const net::RemoteTarget& conn) {
-            std::vector<uint8_t> req(1024);
+            std::vector<uint8_t> req;
             auto err = server->read(req, conn);
             if (err.has_value()) {
                 std::cerr << std::format("Failed to read from socket {} : {}\n", conn.m_client_fd, err.value());
