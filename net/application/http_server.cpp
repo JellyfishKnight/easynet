@@ -125,7 +125,7 @@ void HttpServer::set_handler() {
         std::vector<uint8_t> res;
         auto err = m_server->read(req, remote);
         if (err.has_value()) {
-            std::cerr << "Failed to read from socket: " << err.value() << std::endl;
+            std::cerr << std::format("Failed to read from socket: {}\n", err.value()) << std::endl;
             erase_parser(remote.m_client_fd);
             return;
         }
@@ -182,7 +182,7 @@ void HttpServer::set_handler() {
             auto res = parser->write_res(response);
             auto err = m_server->write(res, remote);
             if (err.has_value()) {
-                std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+                std::cerr << std::format("Failed to write to socket: {}\n", err.value());
                 erase_parser(remote.m_client_fd);
                 break;
             }

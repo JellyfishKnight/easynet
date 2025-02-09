@@ -287,7 +287,7 @@ std::optional<std::string> TcpServer::start() {
                 try {
                     m_event_loop->wait_for_events();
                 } catch (std::runtime_error& e) {
-                    std::cerr << "Failed to waiting for events: " + get_error_msg() << std::endl;
+                    std::cerr << std::format("Failed to waiting for events: {}\n", get_error_msg()) << std::endl;
                 }
             }
         });

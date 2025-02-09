@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <shared_mutex>
 #include <string>
 #include <sys/epoll.h>
@@ -159,7 +160,7 @@ protected:
 
     std::map<int, RemoteTarget> m_remotes;
     std::shared_mutex m_remotes_mutex;
-    std::unordered_set<Event::SharedPtr> m_events;
+    std::set<Event::SharedPtr> m_events;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     EventLoop::SharedPtr m_event_loop;

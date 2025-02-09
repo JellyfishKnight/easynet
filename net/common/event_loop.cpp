@@ -1,4 +1,6 @@
 #include "event_loop.hpp"
+#include "defines.hpp"
+#include <format>
 
 namespace net {
 
@@ -171,7 +173,8 @@ void EpollEventLoop::remove_event(int event_fd) {
 }
 
 void EpollEventLoop::wait_for_events() {
-    std::vector<struct epoll_event> events(10);
+    std::vector<struct epoll_event> events(1024);
+
     int num_events = epoll_wait(m_epoll_fd, events.data(), events.size(), -1);
     if (num_events < 0) {
         throw std::runtime_error(get_error_msg());
