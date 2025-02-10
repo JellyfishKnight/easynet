@@ -113,7 +113,7 @@ public:
 
     void enable_thread_pool(std::size_t worker_num);
 
-    std::optional<std::string> enable_event_loop(EventLoopType type = EventLoopType::EPOLL);
+    std::optional<std::string> enable_event_loop(EventLoopType type = EventLoopType::EPOLL, int time_out = -1);
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 

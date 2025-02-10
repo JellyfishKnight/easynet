@@ -77,7 +77,7 @@ class SelectEventLoop: public EventLoop {
 public:
     NET_DECLARE_PTRS(SelectEventLoop)
 
-    SelectEventLoop();
+    SelectEventLoop(int time_out = -1);
 
     void add_event(const std::shared_ptr<Event>& event) override;
 
@@ -89,11 +89,14 @@ private:
     fd_set read_fds, write_fds, error_fds;
     std::unordered_map<int, std::shared_ptr<Event>> m_events;
     int m_max_fd;
+    int time_out;
 };
 
 class PollEventLoop: public EventLoop {
 public:
     NET_DECLARE_PTRS(PollEventLoop)
+
+    PollEventLoop(int time_out = -1);
 
     void add_event(const std::shared_ptr<Event>& event) override;
 
@@ -104,13 +107,14 @@ public:
 private:
     std::vector<pollfd> m_poll_fds;
     std::unordered_map<int, std::shared_ptr<Event>> m_events;
+    int time_out;
 };
 
 class EpollEventLoop: public EventLoop {
 public:
     NET_DECLARE_PTRS(EpollEventLoop)
 
-    EpollEventLoop();
+    EpollEventLoop(int time_out = -1);
 
     ~EpollEventLoop();
 
@@ -123,6 +127,7 @@ public:
 private:
     int m_epoll_fd;
     std::unordered_map<int, std::shared_ptr<Event>> m_events;
+    int time_out;
 };
 
 } // namespace net

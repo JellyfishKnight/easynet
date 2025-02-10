@@ -72,7 +72,7 @@ void SocketServer::enable_thread_pool(std::size_t worker_num) {
     m_thread_pool = std::make_shared<utils::ThreadPool>(worker_num);
 }
 
-std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type) {
+std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type, int time_out) {
     assert(
         m_status == SocketStatus::DISCONNECTED || m_status == SocketStatus::LISTENING && "Server is already connected"
     );
@@ -80,14 +80,15 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type) {
         std::cerr
             << "Select way is not stable for it can't handle more than 1024 connections even if the value of socket_fd\
              is more than 1024\n";
-        m_event_loop = std::make_shared<SelectEventLoop>();
+        m_event_loop = std::make_shared<SelectEventLoop>(time_out);
     } else if (type == EventLoopType::EPOLL) {
-        m_event_loop = std::make_shared<EpollEventLoop>();
+        m_event_loop = std::make_shared<EpollEventLoop>(time_out);
     } else if (type == EventLoopType::POLL) {
-        m_event_loop = std::make_shared<PollEventLoop>();
+        m_event_loop = std::make_shared<PollEventLoop>(time_out);
     } else {
         return "Invalid event loop type";
     }
+    set_non_blocking_socket(m_listen_fd);
     return std::nullopt;
 }
 

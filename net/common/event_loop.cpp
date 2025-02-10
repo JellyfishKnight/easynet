@@ -1,6 +1,7 @@
 #include "event_loop.hpp"
 #include "defines.hpp"
 #include <format>
+#include <sys/epoll.h>
 
 namespace net {
 
@@ -56,7 +57,7 @@ void Event::on_trigger() {
     }
 }
 
-SelectEventLoop::SelectEventLoop(): m_max_fd(0) {}
+SelectEventLoop::SelectEventLoop(int time_out): m_max_fd(0), time_out(time_out) {}
 
 void SelectEventLoop::add_event(const std::shared_ptr<Event>& event) {
     m_max_fd = std::max(m_max_fd, event->get_fd());
@@ -88,7 +89,11 @@ void SelectEventLoop::wait_for_events() {
     fd_set temp_write_fds = write_fds;
     fd_set temp_error_fds = error_fds;
 
-    int result = select(m_max_fd + 1, &temp_read_fds, &temp_write_fds, &temp_error_fds, nullptr);
+    struct timeval tv {
+        .tv_sec = time_out / 1000, .tv_usec = (time_out % 1000) * 1000
+    };
+
+    int result = select(m_max_fd + 1, &temp_read_fds, &temp_write_fds, &temp_error_fds, &tv);
     if (result < 0) {
         throw std::runtime_error(get_error_msg());
     }
@@ -105,6 +110,8 @@ void SelectEventLoop::wait_for_events() {
         }
     }
 }
+
+PollEventLoop::PollEventLoop(int time_out): time_out(time_out) {}
 
 void PollEventLoop::add_event(const std::shared_ptr<Event>& event) {
     m_poll_fds.push_back({ event->get_fd(), POLLIN | POLLOUT | POLLERR | POLLHUP, 0 });
@@ -123,7 +130,7 @@ void PollEventLoop::remove_event(int event_fd) {
 }
 
 void PollEventLoop::wait_for_events() {
-    int result = ::poll(m_poll_fds.data(), m_poll_fds.size(), -1);
+    int result = ::poll(m_poll_fds.data(), m_poll_fds.size(), time_out);
     if (result < 0) {
         throw std::runtime_error(get_error_msg());
     }
@@ -145,7 +152,7 @@ void PollEventLoop::wait_for_events() {
     }
 }
 
-EpollEventLoop::EpollEventLoop(): m_epoll_fd(epoll_create1(0)) {
+EpollEventLoop::EpollEventLoop(int time_out): m_epoll_fd(epoll_create1(0)), time_out(time_out) {
     if (m_epoll_fd == -1) {
         throw std::runtime_error("Failed to create epoll instance");
     }
@@ -157,7 +164,7 @@ EpollEventLoop::~EpollEventLoop() {
 
 void EpollEventLoop::add_event(const std::shared_ptr<Event>& event) {
     struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
+    ev.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLET;
     ev.data.fd = event->get_fd();
     if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, event->get_fd(), &ev) == -1) {
         throw std::runtime_error("Failed to add event to epoll");
@@ -175,7 +182,7 @@ void EpollEventLoop::remove_event(int event_fd) {
 void EpollEventLoop::wait_for_events() {
     std::vector<struct epoll_event> events(1024);
 
-    int num_events = epoll_wait(m_epoll_fd, events.data(), events.size(), -1);
+    int num_events = epoll_wait(m_epoll_fd, events.data(), events.size(), time_out);
     if (num_events < 0) {
         throw std::runtime_error(get_error_msg());
     }

@@ -1,7 +1,9 @@
 #include "event_loop.hpp"
 #include "remote_target.hpp"
 #include "socket.hpp"
+#include "timer.hpp"
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <memory>
@@ -24,8 +26,8 @@ int main() {
     }
 
     try {
-        server->enable_thread_pool(96);
-        // auto err = server->enable_event_loop();
+        server->enable_thread_pool(1);
+        auto err = server->enable_event_loop(net::EventLoopType::EPOLL, 100);
         if (err.has_value()) {
             std::cerr << "Failed to enable event loop: " << err.value() << std::endl;
             return 1;
@@ -38,6 +40,7 @@ int main() {
                 std::cerr << std::format("Failed to read from socket {} : {}\n", conn.m_client_fd, err.value());
                 return;
             }
+            assert(req.size() > 0);
             std::vector<uint8_t> res { req.begin(), req.end() };
             auto err_write = server->write(res, conn);
             if (err_write.has_value()) {
@@ -58,14 +61,18 @@ int main() {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         return 1;
     }
+
+    net::Timer timer;
+    timer.set_rate(10);
     while (true) {
-        std::string input;
-        std::cin >> input;
-        std::cout << "Received input: " << input << std::endl;
-        if (input == "exit") {
-            server->close();
-            break;
-        }
+        // timer.sleep();
+        // std::string input;
+        // std::cin >> input;
+        // std::cout << "Received input: " << input << std::endl;
+        // if (input == "exit") {
+        //     server->close();
+        //     break;
+        // }
     };
 
     std::cout << "Server stopped" << std::endl;
