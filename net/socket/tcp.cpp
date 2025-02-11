@@ -269,6 +269,17 @@ std::optional<std::string> TcpServer::start() {
                         m_remotes.insert({ client_fd, remote });
                         m_events.insert(client_event);
                     }
+                    if (m_on_accept) {
+                        try {
+                            m_on_accept(m_remotes.at(client_fd));
+                        } catch (const std::exception& e) {
+                            if (m_logger_set) {
+                                NET_LOG_ERROR(m_logger, "Failed to execute on accept: {}", e.what());
+                            }
+                            std::cerr << std::format("Failed to execute on accept: {}\n", e.what());
+                            continue;
+                        }
+                    }
                     m_event_loop->add_event(client_event);
                 }
             };

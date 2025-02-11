@@ -446,7 +446,7 @@ void WebSocketServer::set_handler() {
         }
     };
 
-    m_server->on_accept(std::move(handler));
+    m_server->on_start(std::move(handler));
 }
 
 void WebSocketServer::erase_parser(int remote_fd) {

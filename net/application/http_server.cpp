@@ -189,7 +189,7 @@ void HttpServer::set_handler() {
         }
     };
 
-    m_server->on_accept(handler_thread_func);
+    m_server->on_start(handler_thread_func);
     m_server->on_read(handler_thread_func);
 }
 

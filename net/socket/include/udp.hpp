@@ -80,7 +80,7 @@
 
 // protected:
 //     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-//     on_accept(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) override;
+//     on_start(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) override;
 
 //     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
 //     handle_connection(RemoteTarget::SharedPtr conn) override;

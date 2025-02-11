@@ -307,7 +307,7 @@
 // }
 
 // [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-// UdpServer::on_accept(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) {}
+// UdpServer::on_start(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) {}
 
 // void UdpServer::on_message(
 //     std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, RemoteTarget::ConstSharedPtr)> handler

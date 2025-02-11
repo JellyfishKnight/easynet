@@ -49,7 +49,7 @@ int main() {
             }
         };
         server->on_read(handler);
-        server->on_accept(handler);
+        server->on_start(handler);
     } catch (std::system_error const& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         return 1;

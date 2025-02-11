@@ -91,7 +91,7 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type, i
     return std::nullopt;
 }
 
-void SocketServer::on_accept(std::function<void(const RemoteTarget&)> handler) {
+void SocketServer::on_start(std::function<void(const RemoteTarget&)> handler) {
     m_accept_handler = handler;
 }
 
@@ -105,6 +105,10 @@ void SocketServer::on_write(CallBack handler) {
 
 void SocketServer::on_error(CallBack handler) {
     m_on_error = handler;
+}
+
+void SocketServer::on_accept(CallBack handler) {
+    m_on_accept = handler;
 }
 
 std::optional<std::string>

@@ -133,6 +133,8 @@ public:
 
     void on_accept(CallBack handler);
 
+    void on_start(CallBack handler);
+
     virtual std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
 
     virtual std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
@@ -157,6 +159,7 @@ protected:
     CallBack m_on_read;
     CallBack m_on_write;
     CallBack m_on_error;
+    CallBack m_on_accept;
 
     std::map<int, RemoteTarget> m_remotes;
     std::shared_mutex m_remotes_mutex;

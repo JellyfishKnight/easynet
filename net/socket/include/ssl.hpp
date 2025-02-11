@@ -37,6 +37,8 @@ public:
     }
 
 private:
+    inline static bool inited = false;
+
     std::shared_ptr<SSL_CTX> m_ctx;
 };
 
