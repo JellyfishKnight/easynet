@@ -352,10 +352,22 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
         num_bytes = ::recv(remote.m_client_fd, read_buffer.data(), read_buffer.size(), MSG_NOSIGNAL);
         if (num_bytes == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (data.size() <= 0) {
+                    if (m_logger_set) {
+                        NET_LOG_ERROR(
+                            m_logger,
+                            "Failed to read from socket {} (Epoll) : {}",
+                            remote.m_client_fd,
+                            get_error_msg()
+                        );
+                    }
+                    const_cast<RemoteTarget&>(remote).m_status = false;
+                    return get_error_msg();
+                }
                 break;
             } else {
                 if (m_logger_set) {
-                    NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());
+                    NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote.m_client_fd, get_error_msg());
                 }
                 const_cast<RemoteTarget&>(remote).m_status = false;
                 return get_error_msg();
@@ -373,7 +385,6 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
             std::copy(read_buffer.begin(), read_buffer.end(), std::back_inserter(data));
         }
     } while (num_bytes > 0 && m_event_loop);
-
     return std::nullopt;
 }
 
