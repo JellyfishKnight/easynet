@@ -3,9 +3,14 @@
 #include "socket_base.hpp"
 #include "tcp.hpp"
 #include <algorithm>
+#include <asm-generic/errno-base.h>
+#include <asm-generic/errno.h>
+#include <cstdint>
 #include <memory>
+#include <openssl/ssl.h>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace net {
 
@@ -103,42 +108,76 @@ std::optional<std::string> SSLServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const RemoteTarget& conn) {
-    auto& ssl = m_ssls.at(conn.m_client_fd);
-
-    int num_bytes = SSL_read(ssl.get(), data.data(), data.size());
-    if (num_bytes < 0) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const RemoteTarget& remote) {
+    auto& ssl = m_ssls.at(remote.m_client_fd);
+    int num_bytes;
+    data.clear();
+    do {
+        std::vector<uint8_t> read_buffer(1024);
+        num_bytes = SSL_read(ssl.get(), read_buffer.data(), read_buffer.size());
+        if (num_bytes == -1) {
+            int ssl_error = SSL_get_error(ssl.get(), num_bytes);
+            std::cout << ssl_error << std::endl;
+            if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
+                // if (data.size() <= 0) {
+                //     if (m_logger_set) {
+                //         NET_LOG_ERROR(
+                //             m_logger,
+                //             "Failed to read from socket {} (Epoll) : {}",
+                //             remote.m_client_fd,
+                //             get_error_msg()
+                //         );
+                //     }
+                //     const_cast<RemoteTarget&>(remote).m_status = false;
+                //     return get_error_msg();
+                // }
+                break;
+            } else {
+                if (m_logger_set) {
+                    NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote.m_client_fd, get_error_msg());
+                }
+                const_cast<RemoteTarget&>(remote).m_status = false;
+                return get_error_msg();
+            }
         }
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
+        if (num_bytes == 0) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
+            }
+            return "Connection reset by peer while reading";
         }
-        return "Connection reset by peer while reading";
-    }
-    data.resize(num_bytes);
+        if (num_bytes > 0) {
+            read_buffer.resize(num_bytes);
+            std::copy(read_buffer.begin(), read_buffer.end(), std::back_inserter(data));
+        }
+    } while (num_bytes > 0 && m_event_loop);
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, const RemoteTarget& conn) {
-    auto& ssl = m_ssls.at(conn.m_client_fd);
-
-    auto num_bytes = SSL_write(ssl.get(), data.data(), data.size());
-    if (num_bytes < 0) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, const RemoteTarget& remote) {
+    assert(m_status == SocketStatus::LISTENING && "Server is not listening");
+    assert(data.size() > 0 && "Data buffer is empty");
+    auto& ssl = m_ssls.at(remote.m_client_fd);
+    int num_bytes;
+    std::size_t bytes_has_send = 0;
+    do {
+        num_bytes = SSL_write(ssl.get(), data.data(), data.size());
+        if (num_bytes == -1) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+            }
+            const_cast<RemoteTarget&>(remote).m_status = false;
+            return get_error_msg();
         }
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Connection reset by peer while writing");
+        if (num_bytes == 0) {
+            if (m_logger_set) {
+                NET_LOG_WARN(m_logger, "Connection reset by peer while writting");
+            }
+            const_cast<RemoteTarget&>(remote).m_status = false;
+            return "Connection reset by peer while writting";
         }
-        return "Connection reset by peer while writing";
-    }
+        bytes_has_send += num_bytes;
+    } while (num_bytes > 0 && m_event_loop && bytes_has_send < data.size());
     return std::nullopt;
 }
 
@@ -168,7 +207,7 @@ RemoteTarget SSLServer::create_remote(int remote_fd) {
 }
 
 std::shared_ptr<SSLServer> SSLServer::get_shared() {
-    return std::static_pointer_cast<SSLServer>(TcpServer::get_shared());
+    return std::dynamic_pointer_cast<SSLServer>(TcpServer::get_shared());
 }
 
 } // namespace net
