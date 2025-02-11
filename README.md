@@ -1,4 +1,3 @@
-Here is the English version of your README:
 
 ---
 
