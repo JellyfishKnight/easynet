@@ -14,9 +14,3 @@ cmake-build-debug/*
 
 .idea/
 .idea/*
-
-index/*
-index/
-
-keys/*
-keys/

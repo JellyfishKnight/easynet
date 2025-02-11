@@ -1,5 +1,6 @@
 #include "http_server.hpp"
 #include "ssl.hpp"
+#include <filesystem>
 #include <fstream>
 #include <memory>
 
@@ -15,9 +16,22 @@ std::string readFileToString(const std::string& filePath) {
     return content.str(); // 返回文件内容作为 string
 }
 
+std::string getExecutablePath() {
+    char result[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+    if (count != -1) {
+        result[count] = '\0';
+        return std::string(result);
+    }
+    return "";
+}
+
 int main() {
     net::SSLContext::SharedPtr ctx = net::SSLContext::create();
-    ctx->set_certificates("/home/jk/Projects/net/keys/certificate.crt", "/home/jk/Projects/net/keys/private.key");
+    auto exe_path = getExecutablePath();
+    auto execDir = std::filesystem::path(exe_path).parent_path().string();
+
+    ctx->set_certificates(execDir + "/template/keys/certificate.crt", execDir + "/template/keys/private.key");
 
     net::SSLServer::SharedPtr server = std::make_shared<net::SSLServer>(ctx, "127.0.0.1", "8080");
 
@@ -25,7 +39,7 @@ int main() {
 
     http_server.listen();
 
-    auto content = readFileToString("/home/jk/Projects/net/index/index.html");
+    auto content = readFileToString(execDir + "/template/index/index.html");
 
     http_server.enable_thread_pool(96);
     http_server.enable_event_loop();

@@ -1,5 +1,6 @@
 #include "http_server.hpp"
 #include "tcp.hpp"
+#include <filesystem>
 #include <fstream>
 #include <memory>
 
@@ -15,6 +16,16 @@ std::string readFileToString(const std::string& filePath) {
     return content.str(); // 返回文件内容作为 string
 }
 
+std::string getExecutablePath() {
+    char result[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+    if (count != -1) {
+        result[count] = '\0';
+        return std::string(result);
+    }
+    return "";
+}
+
 int main() {
     net::TcpServer::SharedPtr tcp_server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
     net::HttpServer server(tcp_server);
@@ -25,10 +36,12 @@ int main() {
         return 1;
     }
 
-    auto content = readFileToString("/home/jk/Projects/net/index/index.html");
+    auto exe_path = getExecutablePath();
+    auto execDir = std::filesystem::path(exe_path).parent_path().string();
+    auto content = readFileToString(execDir + "/template/index/index.html");
 
     server.enable_thread_pool(96);
-    server.enable_event_loop();
+    // server.enable_event_loop();
     server.get("/", [&content](const net::HttpRequest& req) {
         net::HttpResponse res;
         res.set_version(HTTP_VERSION_1_1)
