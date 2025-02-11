@@ -27,7 +27,7 @@ int main() {
 
     try {
         server->enable_thread_pool(1);
-        auto err = server->enable_event_loop(net::EventLoopType::EPOLL, 100);
+        auto err = server->enable_event_loop(net::EventLoopType::EPOLL);
         if (err.has_value()) {
             std::cerr << "Failed to enable event loop: " << err.value() << std::endl;
             return 1;

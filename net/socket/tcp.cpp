@@ -183,11 +183,11 @@ std::optional<std::string> TcpServer::start() {
     m_stop = false;
     if (m_event_loop) {
         m_accept_thread = std::thread([this]() {
+            set_non_blocking_socket(m_listen_fd);
             EventHandler::SharedPtr server_event_handler = std::make_shared<EventHandler>();
             server_event_handler->m_on_read = [this](int server_fd) {
                 while (true) {
                     addressResolver::address client_addr;
-                    errno = 0;
                     int client_fd = ::accept(server_fd, &client_addr.m_addr, &client_addr.m_addr_len);
                     if (client_fd == -1) {
                         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -349,21 +349,16 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
     data.clear();
     do {
         std::vector<uint8_t> read_buffer(1024);
-        errno = 0;
         num_bytes = ::recv(remote.m_client_fd, read_buffer.data(), read_buffer.size(), MSG_NOSIGNAL);
         if (num_bytes == -1) {
-            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());
                 }
                 const_cast<RemoteTarget&>(remote).m_status = false;
                 return get_error_msg();
-            } else {
-                if (m_logger_set) {
-                    NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
-                }
-                const_cast<RemoteTarget&>(remote).m_status = false;
-                return "Connection reset by peer while reading";
             }
         }
         if (num_bytes == 0) {

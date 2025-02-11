@@ -88,7 +88,6 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type, i
     } else {
         return "Invalid event loop type";
     }
-    set_non_blocking_socket(m_listen_fd);
     return std::nullopt;
 }
 
