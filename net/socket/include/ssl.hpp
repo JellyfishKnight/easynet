@@ -94,12 +94,19 @@ public:
     std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) override;
 
 protected:
+    bool handle_ssl_handshake(const RemoteTarget& remote);
+
     void handle_connection(const RemoteTarget& remote) override;
+
+    void erase_remote() override;
 
     RemoteTarget create_remote(int remote_fd) override;
 
+    void add_remote_event(int fd) override;
+
     std::shared_ptr<SSLContext> m_ctx;
     std::map<int, std::shared_ptr<SSL>> m_ssls;
+    std::map<int, bool> m_ssl_handshakes;
 };
 
 } // namespace net

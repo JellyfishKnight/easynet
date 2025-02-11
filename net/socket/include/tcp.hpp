@@ -63,6 +63,10 @@ protected:
     void handle_connection(const RemoteTarget& remote) override;
 
     RemoteTarget create_remote(int remote_fd) override;
+
+    void erase_remote() override;
+
+    void add_remote_event(int fd) override;
 };
 
 } // namespace net

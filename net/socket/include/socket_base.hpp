@@ -144,6 +144,10 @@ protected:
 
     virtual RemoteTarget create_remote(int remote_fd) = 0;
 
+    virtual void erase_remote() = 0;
+
+    virtual void add_remote_event(int fd) = 0;
+
     std::optional<std::string>
     get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info);
 

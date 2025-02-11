@@ -207,80 +207,7 @@ std::optional<std::string> TcpServer::start() {
                         std::cerr << std::format("Failed to set non-blocking socket: {}\n", err.value());
                         return;
                     }
-
-                    auto client_event_handler = std::make_shared<EventHandler>();
-                    client_event_handler->m_on_read = [this](int client_fd) {
-                        if (!this->m_on_read) {
-                            return;
-                        }
-                        {
-                            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                            RemoteTarget& remote_target = m_remotes.at(client_fd);
-                            if (this->m_thread_pool) {
-                                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_read(remote_target); }
-                                );
-                            } else {
-                                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                                    this->m_on_read(remote_target);
-                                });
-                            }
-                        }
-                    };
-                    client_event_handler->m_on_write = [this](int client_fd) {
-                        if (!this->m_on_write) {
-                            return;
-                        }
-                        {
-                            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                            RemoteTarget& remote_target = m_remotes.at(client_fd);
-                            if (this->m_thread_pool) {
-                                this->m_thread_pool->submit([this, &remote_target]() {
-                                    this->m_on_write(remote_target);
-                                });
-                            } else {
-                                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                                    this->m_on_write(remote_target);
-                                });
-                            }
-                        }
-                    };
-                    client_event_handler->m_on_error = [this](int client_fd) {
-                        if (!this->m_on_error) {
-                            return;
-                        };
-                        {
-                            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                            RemoteTarget& remote_target = m_remotes.at(client_fd);
-                            if (this->m_thread_pool) {
-                                this->m_thread_pool->submit([this, &remote_target]() {
-                                    this->m_on_error(remote_target);
-                                });
-                            } else {
-                                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                                    this->m_on_error(remote_target);
-                                });
-                            }
-                        }
-                    };
-                    auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
-                    auto remote = create_remote(client_fd);
-                    {
-                        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-                        m_remotes.insert({ client_fd, remote });
-                        m_events.insert(client_event);
-                    }
-                    if (m_on_accept) {
-                        try {
-                            m_on_accept(m_remotes.at(client_fd));
-                        } catch (const std::exception& e) {
-                            if (m_logger_set) {
-                                NET_LOG_ERROR(m_logger, "Failed to execute on accept: {}", e.what());
-                            }
-                            std::cerr << std::format("Failed to execute on accept: {}\n", e.what());
-                            continue;
-                        }
-                    }
-                    m_event_loop->add_event(client_event);
+                    add_remote_event(client_fd);
                 }
             };
             server_event_handler->m_on_error = [this](int server_fd) {
@@ -293,19 +220,7 @@ std::optional<std::string> TcpServer::start() {
             auto server_event = std::make_shared<Event>(m_listen_fd, server_event_handler);
             m_event_loop->add_event(server_event);
             while (!m_stop) {
-                // erase expired remotes
-                for (auto it = m_events.begin(); it != m_events.end();) {
-                    if (m_remotes.at((*it)->get_fd()).m_status == false) {
-                        m_event_loop->remove_event((*it)->get_fd());
-                        {
-                            std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-                            m_remotes.erase((*it)->get_fd());
-                            it = m_events.erase(it);
-                        }
-                    } else {
-                        ++it;
-                    }
-                }
+                erase_remote();
                 try {
                     m_event_loop->wait_for_events();
                 } catch (std::runtime_error& e) {
@@ -443,8 +358,92 @@ RemoteTarget TcpServer::create_remote(int remote_fd) {
     return remote;
 }
 
+void TcpServer::erase_remote() {
+    // erase expired remotes
+    for (auto it = m_events.begin(); it != m_events.end();) {
+        if (m_remotes.at((*it)->get_fd()).m_status == false) {
+            m_event_loop->remove_event((*it)->get_fd());
+            {
+                std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+                m_remotes.erase((*it)->get_fd());
+                it = m_events.erase(it);
+            }
+        } else {
+            ++it;
+        }
+    }
+}
+
 std::shared_ptr<TcpServer> TcpServer::get_shared() {
     return std::static_pointer_cast<TcpServer>(SocketServer::get_shared());
+}
+
+void TcpServer::add_remote_event(int client_fd) {
+    auto client_event_handler = std::make_shared<EventHandler>();
+    client_event_handler->m_on_read = [this](int client_fd) {
+        if (!this->m_on_read) {
+            return;
+        }
+        {
+            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            if (this->m_thread_pool) {
+                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_read(remote_target); });
+            } else {
+                auto unused =
+                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_read(remote_target); });
+            }
+        }
+    };
+    client_event_handler->m_on_write = [this](int client_fd) {
+        if (!this->m_on_write) {
+            return;
+        }
+        {
+            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            if (this->m_thread_pool) {
+                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_write(remote_target); });
+            } else {
+                auto unused =
+                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_write(remote_target); });
+            }
+        }
+    };
+    client_event_handler->m_on_error = [this](int client_fd) {
+        if (!this->m_on_error) {
+            return;
+        };
+        {
+            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            if (this->m_thread_pool) {
+                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_error(remote_target); });
+            } else {
+                auto unused =
+                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_error(remote_target); });
+            }
+        }
+    };
+    auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
+    auto remote = create_remote(client_fd);
+    {
+        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+        m_remotes.insert({ client_fd, remote });
+        m_events.insert(client_event);
+    }
+    if (m_on_accept) {
+        try {
+            m_on_accept(m_remotes.at(client_fd));
+        } catch (const std::exception& e) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to execute on accept: {}", e.what());
+            }
+            std::cerr << std::format("Failed to execute on accept: {}\n", e.what());
+            return;
+        }
+    }
+    m_event_loop->add_event(client_event);
 }
 
 } // namespace net

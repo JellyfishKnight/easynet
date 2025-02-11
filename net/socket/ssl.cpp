@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <asm-generic/errno-base.h>
 #include <asm-generic/errno.h>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/types.h>
 #include <optional>
@@ -103,29 +105,7 @@ std::shared_ptr<SSLClient> SSLClient::get_shared() {
 
 SSLServer::SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service):
     TcpServer(ip, service),
-    m_ctx(std::move(ctx)) {
-    this->on_accept([this](const RemoteTarget& remote) {
-        this->m_thread_pool->submit([this, &remote]() {
-            auto& ssl = m_ssls.at(remote.m_client_fd);
-            int err = SSL_accept(ssl.get());
-            if (err <= 0) {
-                err = SSL_get_error(ssl.get(), err);
-                if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-                    // int count = 0;
-                    while ((SSL_accept(ssl.get()) <= 0))
-                        ;
-                } else {
-                    if (m_logger_set) {
-                        NET_LOG_ERROR(m_logger, "Failed to establish SSL connection");
-                    }
-                    std::cerr << std::format("Failed to establish SSL connection\n");
-                    const_cast<RemoteTarget&>(remote).m_status = false;
-                    return;
-                }
-            }
-        });
-    });
-}
+    m_ctx(std::move(ctx)) {}
 
 std::optional<std::string> SSLServer::listen() {
     auto opt = TcpServer::listen();
@@ -137,8 +117,6 @@ std::optional<std::string> SSLServer::listen() {
 
 std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const RemoteTarget& remote) {
     auto& ssl = m_ssls.at(remote.m_client_fd);
-    while (SSL_get_state(ssl.get()) != TLS_ST_OK)
-        ;
     int num_bytes;
     data.clear();
     do {
@@ -147,31 +125,36 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
         if (num_bytes == -1) {
             int ssl_error = SSL_get_error(ssl.get(), num_bytes);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
-                if (data.size() <= 0) {
-                    if (m_logger_set) {
-                        NET_LOG_ERROR(
-                            m_logger,
-                            "Failed to read from socket {} (Epoll) : {}",
-                            remote.m_client_fd,
-                            get_error_msg()
-                        );
-                    }
-                    const_cast<RemoteTarget&>(remote).m_status = false;
-                    return get_error_msg();
-                }
                 break;
-            } else {
+            } else if (ssl_error == SSL_ERROR_SYSCALL) {
                 if (m_logger_set) {
-                    NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote.m_client_fd, get_error_msg());
+                    NET_LOG_ERROR(
+                        m_logger,
+                        "Connection reset by peer while reading",
+                        remote.m_client_fd,
+                        ERR_error_string(ssl_error, nullptr)
+                    );
                 }
                 const_cast<RemoteTarget&>(remote).m_status = false;
-                return get_error_msg();
+                return "Connection reset by peer while reading";
+            } else {
+                if (m_logger_set) {
+                    NET_LOG_ERROR(
+                        m_logger,
+                        "Failed to read from socket {} : {}",
+                        remote.m_client_fd,
+                        ERR_error_string(ssl_error, nullptr)
+                    );
+                }
+                // const_cast<RemoteTarget&>(remote).m_status = false;
+                return ERR_error_string(ssl_error, nullptr);
             }
         }
         if (num_bytes == 0) {
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
             }
+            const_cast<RemoteTarget&>(remote).m_status = false;
             return "Connection reset by peer while reading";
         }
         if (num_bytes > 0) {
@@ -186,18 +169,27 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, co
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     auto& ssl = m_ssls.at(remote.m_client_fd);
-    while (SSL_get_state(ssl.get()) != TLS_ST_OK)
-        ;
     int num_bytes;
     std::size_t bytes_has_send = 0;
     do {
         num_bytes = SSL_write(ssl.get(), data.data(), data.size());
         if (num_bytes == -1) {
-            if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+            auto err = SSL_get_error(ssl.get(), num_bytes);
+            if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+                break;
+            } else if (err == SSL_ERROR_SYSCALL) {
+                if (m_logger_set) {
+                    NET_LOG_ERROR(m_logger, "Connection reset by peer while writting");
+                }
+                const_cast<RemoteTarget&>(remote).m_status = false;
+                return "Connection reset by peer while writting";
+            } else {
+                if (m_logger_set) {
+                    NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", ERR_error_string(err, nullptr));
+                }
+                const_cast<RemoteTarget&>(remote).m_status = false;
+                return ERR_error_string(err, nullptr);
             }
-            const_cast<RemoteTarget&>(remote).m_status = false;
-            return get_error_msg();
         }
         if (num_bytes == 0) {
             if (m_logger_set) {
@@ -232,6 +224,7 @@ void SSLServer::handle_connection(const RemoteTarget& conn) {
 
 RemoteTarget SSLServer::create_remote(int remote_fd) {
     m_ssls[remote_fd] = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
+    m_ssl_handshakes[remote_fd] = false;
     SSL_set_fd(m_ssls[remote_fd].get(), remote_fd);
     SSL_set_accept_state(m_ssls[remote_fd].get());
     return TcpServer::create_remote(remote_fd);
@@ -239,6 +232,117 @@ RemoteTarget SSLServer::create_remote(int remote_fd) {
 
 std::shared_ptr<SSLServer> SSLServer::get_shared() {
     return std::dynamic_pointer_cast<SSLServer>(TcpServer::get_shared());
+}
+
+bool SSLServer::handle_ssl_handshake(const RemoteTarget& remote) {
+    auto& ssl = m_ssls.at(remote.m_client_fd);
+    if (m_ssl_handshakes.at(remote.m_client_fd)) {
+        return true;
+    }
+    int err_code = SSL_accept(ssl.get());
+    if (err_code <= 0) {
+        err_code = SSL_get_error(ssl.get(), err_code);
+        if (err_code == SSL_ERROR_WANT_READ || err_code == SSL_ERROR_WANT_WRITE) {
+            return false;
+        }
+        const_cast<RemoteTarget&>(remote).m_status = false;
+        return false;
+    } else {
+        m_ssl_handshakes[remote.m_client_fd] = true;
+        return false;
+    }
+}
+
+void SSLServer::erase_remote() {
+    // erase expired remotes
+    for (auto it = m_events.begin(); it != m_events.end();) {
+        if (m_remotes.at((*it)->get_fd()).m_status == false) {
+            m_event_loop->remove_event((*it)->get_fd());
+            {
+                std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+                m_remotes.erase((*it)->get_fd());
+                m_ssls.erase((*it)->get_fd());
+                m_ssl_handshakes.erase((*it)->get_fd());
+                it = m_events.erase(it);
+            }
+        } else {
+            ++it;
+        }
+    }
+}
+
+void SSLServer::add_remote_event(int client_fd) {
+    auto client_event_handler = std::make_shared<EventHandler>();
+    client_event_handler->m_on_read = [this](int client_fd) {
+        if (!this->m_on_read) {
+            return;
+        }
+        {
+            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            if (!handle_ssl_handshake(remote_target)) {
+                return;
+            }
+            if (this->m_thread_pool) {
+                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_read(remote_target); });
+            } else {
+                auto unused =
+                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_read(remote_target); });
+            }
+        }
+    };
+    client_event_handler->m_on_write = [this](int client_fd) {
+        if (!this->m_on_write) {
+            return;
+        }
+        {
+            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            if (!handle_ssl_handshake(remote_target)) {
+                return;
+            }
+            if (this->m_thread_pool) {
+                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_write(remote_target); });
+            } else {
+                auto unused =
+                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_write(remote_target); });
+            }
+        }
+    };
+    client_event_handler->m_on_error = [this](int client_fd) {
+        if (!this->m_on_error) {
+            return;
+        };
+        {
+            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
+            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            if (this->m_thread_pool) {
+                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_error(remote_target); });
+            } else {
+                auto unused =
+                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_error(remote_target); });
+            }
+        }
+    };
+    auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
+    auto remote = create_remote(client_fd);
+    {
+        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+        m_remotes.insert({ client_fd, remote });
+        m_events.insert(client_event);
+    }
+    if (m_on_accept) {
+        try {
+            m_on_accept(m_remotes.at(client_fd));
+        } catch (const std::exception& e) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to execute on accept: {}", e.what());
+            }
+            std::cerr << std::format("Failed to execute on accept: {}\n", e.what());
+            return;
+        }
+    }
+    m_event_loop->add_event(client_event);
 }
 
 } // namespace net
