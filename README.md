@@ -4,6 +4,8 @@ Here is the English version of your README:
 
 # easynet - Lightweight C++ Network Library (Ongoing Development) 🌐🚀
 
+[English](README.md) | [中文](README_zh.md)
+
 ## Introduction
 
 **easynet** is a lightweight C++ network library designed specifically for Linux systems, aimed at helping developers quickly implement common network functionalities in their code through simple interfaces. It supports protocols such as **TCP**, **UDP** (in development), **HTTP**, **WebSocket**, and also features **SSL/TLS** encryption, **EventLoop-based non-blocking I/O**, **I/O multiplexing**, **simple timers** (in progress), and **small logging utilities**. 🔒⚡
