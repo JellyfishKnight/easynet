@@ -3,6 +3,7 @@
 #include "defines.hpp"
 #include "remote_target.hpp"
 #include "tcp.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <openssl/core.h>
@@ -55,17 +56,21 @@ public:
     SSLClient& operator=(const SSLClient&) = delete;
     SSLClient& operator=(SSLClient&&) = delete;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data) override;
+    std::optional<std::string> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) override;
 
-    std::optional<std::string> read(std::vector<uint8_t>& data) override;
+    std::optional<std::string> read(std::vector<uint8_t>& data, std::size_t time_out = 0) override;
 
-    std::optional<std::string> connect() override;
+    std::optional<std::string> connect(std::size_t time_out = 0) override;
+
+    std::optional<std::string> connect_with_retry(std::size_t time_out, std::size_t retry_time_limit = 0) override;
 
     std::optional<std::string> close() override;
 
     std::shared_ptr<SSLClient> get_shared();
 
 protected:
+    std::optional<std::string> ssl_connect(std::size_t time_out = 0);
+
     std::shared_ptr<SSL> m_ssl;
     std::shared_ptr<SSLContext> m_ctx;
 };

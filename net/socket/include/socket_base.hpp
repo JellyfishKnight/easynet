@@ -49,12 +49,10 @@ public:
 
     virtual ~SocketClient() = default;
 
-    virtual std::optional<std::string> connect() = 0;
-
-    virtual std::optional<std::string> connect_with_time_out(std::size_t time_out = 0) = 0;
+    virtual std::optional<std::string> connect(std::size_t time_out = 0) = 0;
 
     virtual std::optional<std::string>
-    connect_with_time_out(std::size_t time_out, std::size_t retry_time_limit = 0) = 0;
+    connect_with_retry(std::size_t time_out = 0, std::size_t retry_time_limit = 0) = 0;
 
     std::optional<std::string> start_event_loop();
 
@@ -74,9 +72,9 @@ public:
 
     SocketStatus status() const;
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
 
 protected:
     std::optional<std::string> set_non_blocking_socket(int fd);

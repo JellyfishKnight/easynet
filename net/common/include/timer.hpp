@@ -45,7 +45,7 @@ public:
         auto time_has_passed = std::chrono::nanoseconds(0);
         auto start_time = std::chrono::high_resolution_clock::now();
         while (time_has_passed < m_timeout) {
-            if (m_status == TimerStatus::PAUSED) {
+            if (m_status == TimerStatus::PAUSED || m_status == TimerStatus::STOPPED) {
                 break;
             }
             auto end_time = std::chrono::high_resolution_clock::now();

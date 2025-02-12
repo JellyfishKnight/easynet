@@ -66,12 +66,66 @@ SSLClient::SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, con
     SSL_set_fd(m_ssl.get(), m_fd);
 }
 
-std::optional<std::string> SSLClient::connect() {
-    if (TcpClient::connect().has_value()) {
-        return "Failed to connect to server";
+std::optional<std::string> SSLClient::ssl_connect(std::size_t time_out) {
+    if (time_out == 0) {
+        while (true) {
+            int err = SSL_connect(m_ssl.get());
+            if (err == 1) {
+                return std::nullopt;
+            }
+            if (err == 0) {
+                return "Failed to connect to server";
+            }
+            int ssl_error = SSL_get_error(m_ssl.get(), err);
+            if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
+                continue;
+            }
+            return ERR_error_string(ssl_error, nullptr);
+        }
     }
-    if (SSL_connect(m_ssl.get()) <= 0) {
-        return "Failed to establish SSL connection";
+    Timer timer;
+    timer.set_timeout(std::chrono::milliseconds(time_out));
+    timer.async_start_timing();
+    while (true) {
+        if (timer.timeout()) {
+            return "Timeout to connect to server";
+        }
+        int err = SSL_connect(m_ssl.get());
+        if (err == 1) {
+            return std::nullopt;
+        }
+        if (err == 0) {
+            return "Failed to connect to server";
+        }
+        int ssl_error = SSL_get_error(m_ssl.get(), err);
+        if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
+            continue;
+        }
+    }
+}
+
+std::optional<std::string> SSLClient::connect(std::size_t time_out) {
+    auto opt = TcpClient::connect(time_out);
+    if (opt.has_value()) {
+        return opt.value();
+    }
+    return ssl_connect(time_out);
+}
+
+std::optional<std::string> SSLClient::connect_with_retry(std::size_t time_out, std::size_t retry_time_limit) {
+    auto opt = TcpClient::connect_with_retry(time_out, retry_time_limit);
+    if (opt.has_value()) {
+        return opt.value();
+    }
+    std::size_t tried_time = 0;
+    while (true) {
+        if (tried_time++ >= retry_time_limit) {
+            return "Failed to connect to server";
+        }
+        auto ret = ssl_connect(time_out);
+        if (!ret.has_value()) {
+            return std::nullopt;
+        }
     }
     return std::nullopt;
 }

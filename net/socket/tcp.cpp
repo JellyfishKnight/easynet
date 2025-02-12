@@ -45,55 +45,53 @@ TcpClient::TcpClient(const std::string& ip, const std::string& service) {
     set_non_blocking_socket(m_fd);
 }
 
-std::optional<std::string> TcpClient::connect() {
-    while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
-        continue;
-    }
-    m_status = SocketStatus::CONNECTED;
-    return std::nullopt;
-}
-
-std::optional<std::string> TcpClient::connect_with_time_out(std::size_t time_out) {
+std::optional<std::string> TcpClient::connect(std::size_t time_out) {
     if (time_out == 0) {
-        return TcpClient::connect();
-    }
-    Timer timer;
-    timer.set_timeout(std::chrono::milliseconds(time_out));
-    timer.async_start_timing();
-    while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
-        if (timer.timeout()) {
-            if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Timeout to connect to socket: {}", get_error_msg());
-            }
-            return get_error_msg();
-        }
-    }
-    m_status = SocketStatus::CONNECTED;
-    return std::nullopt;
-}
-
-std::optional<std::string> TcpClient::connect_with_time_out(std::size_t time_out, std::size_t retry_time_limit) {
-    if (time_out == 0) {
-        return TcpClient::connect();
-    }
-    Timer timer;
-    timer.set_timeout(std::chrono::milliseconds(time_out));
-    timer.async_start_timing();
-    std::size_t retry_times = 0;
-    while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
-        if (timer.timeout()) {
-            if (retry_times++ < retry_time_limit) {
-                timer.reset();
-                timer.async_start_timing();
+        while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
+            if (errno == EALREADY || errno == EINPROGRESS) {
                 continue;
+            } else {
+                return get_error_msg();
             }
+        }
+        m_status = SocketStatus::CONNECTED;
+        return std::nullopt;
+    }
+    Timer timer;
+    timer.set_timeout(std::chrono::milliseconds(time_out));
+    timer.async_start_timing();
+    while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
+        if (errno != EALREADY && errno != EINPROGRESS) {
             if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Timeout to connect to socket: {}", get_error_msg());
+                NET_LOG_ERROR(m_logger, "Failed to connect to socket: {}", get_error_msg());
             }
             return get_error_msg();
         }
+        if (timer.timeout()) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Timeout to connect to socket, last error: {}", get_error_msg());
+            }
+            return std::format("Timeout to connect to socket, last error: {}", get_error_msg());
+        }
     }
     m_status = SocketStatus::CONNECTED;
+    return std::nullopt;
+}
+
+std::optional<std::string> TcpClient::connect_with_retry(std::size_t time_out, std::size_t retry_time_limit) {
+    std::size_t tried_time = 0;
+    while (true) {
+        if (tried_time++ >= retry_time_limit) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to connect to socket: {}", get_error_msg());
+            }
+            return get_error_msg();
+        }
+        auto ret = connect(time_out);
+        if (!ret.has_value()) {
+            return std::nullopt;
+        }
+    }
     return std::nullopt;
 }
 
@@ -108,9 +106,9 @@ std::optional<std::string> TcpClient::close() {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
+std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size_t time_out) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
-    assert(data.size() > 0 && "Data buffer is empty");
+    data.clear();
     ssize_t num_bytes;
     do {
         std::vector<uint8_t> buffer(1024);
@@ -142,7 +140,7 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data) {
+std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data, std::size_t time_out) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
     size_t bytes_has_send = 0;

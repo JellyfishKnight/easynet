@@ -22,8 +22,11 @@ int main() {
         std::cin >> input;
         std::vector<uint8_t> req { input.begin(), input.end() };
         client.write(req);
-        std::vector<uint8_t> res(1024);
+        std::vector<uint8_t> res;
         client.read(res);
+        if (res.empty()) {
+            continue;
+        }
         std::string res_str { res.begin(), res.end() };
         std::cout << res_str << std::endl;
         if (input == "exit") {
