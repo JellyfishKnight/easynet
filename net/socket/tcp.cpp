@@ -110,16 +110,21 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     data.clear();
     ssize_t num_bytes;
+    Timer timer;
+    timer.set_timeout(std::chrono::milliseconds(time_out));
     do {
+        if (timer.timeout()) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Timeout to read from socket");
+            }
+            return "Timeout to read from socket";
+        }
         std::vector<uint8_t> buffer(1024);
         num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
         if (num_bytes == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if (data.size() <= 0) {
-                    if (m_logger_set) {
-                        NET_LOG_WARN(m_logger, "Failed to read from socket: {}", get_error_msg());
-                    }
-                    return get_error_msg();
+                    continue;
                 }
                 break;
             }
@@ -144,9 +149,31 @@ std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data, st
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
     size_t bytes_has_send = 0;
+    Timer timer;
+    if (time_out != 0) {
+        timer.set_timeout(std::chrono::milliseconds(time_out));
+        timer.async_start_timing();
+    }
     do {
+        if (timer.timeout() && bytes_has_send <= 0 && time_out != 0) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Timeout to write to socket");
+            }
+            return "Timeout to write to socket";
+        }
         ssize_t num_bytes = ::send(m_fd, data.data() + bytes_has_send, data.size() - bytes_has_send, 0);
         if (num_bytes == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (bytes_has_send <= 0) {
+                    continue;
+                }
+                if (bytes_has_send != data.size()) {
+                    if (m_logger_set) {
+                        NET_LOG_WARN(m_logger, "early end of socket");
+                    }
+                    return "early end of socket";
+                }
+            }
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
             }
