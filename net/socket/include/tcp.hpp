@@ -22,6 +22,10 @@ public:
 
     std::optional<std::string> connect() override;
 
+    std::optional<std::string> connect_with_time_out(std::size_t time_out = 0) override;
+
+    std::optional<std::string> connect_with_time_out(std::size_t time_out, std::size_t retry_time_limit = 0) override;
+
     std::optional<std::string> close() override;
 
     std::optional<std::string> read(std::vector<uint8_t>& data) override;

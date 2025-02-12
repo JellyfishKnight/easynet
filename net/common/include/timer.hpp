@@ -104,6 +104,10 @@ public:
         m_status = TimerStatus::STOPPED;
     }
 
+    void reset() {
+        m_timeout_flag = false;
+    }
+
 private:
     std::chrono::nanoseconds m_interval;
     std::chrono::nanoseconds m_timeout;

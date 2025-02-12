@@ -1,22 +1,27 @@
 #include "tcp.hpp"
 #include "defines.hpp"
 #include "event_loop.hpp"
+#include "logger.hpp"
 #include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "timer.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cerrno>
+#include <chrono>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <memory>
 #include <mutex>
 #include <netdb.h>
 #include <optional>
+#include <ratio>
 #include <shared_mutex>
 #include <stdexcept>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -37,14 +42,56 @@ TcpClient::TcpClient(const std::string& ip, const std::string& service) {
     m_logger_set = false;
     m_status = SocketStatus::DISCONNECTED;
     m_socket_type = SocketType::TCP;
+    set_non_blocking_socket(m_fd);
 }
 
 std::optional<std::string> TcpClient::connect() {
-    if (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to connect to server: {}", get_error_msg());
+    while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
+        continue;
+    }
+    m_status = SocketStatus::CONNECTED;
+    return std::nullopt;
+}
+
+std::optional<std::string> TcpClient::connect_with_time_out(std::size_t time_out) {
+    if (time_out == 0) {
+        return TcpClient::connect();
+    }
+    Timer timer;
+    timer.set_timeout(std::chrono::milliseconds(time_out));
+    timer.async_start_timing();
+    while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
+        if (timer.timeout()) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Timeout to connect to socket: {}", get_error_msg());
+            }
+            return get_error_msg();
         }
-        return get_error_msg();
+    }
+    m_status = SocketStatus::CONNECTED;
+    return std::nullopt;
+}
+
+std::optional<std::string> TcpClient::connect_with_time_out(std::size_t time_out, std::size_t retry_time_limit) {
+    if (time_out == 0) {
+        return TcpClient::connect();
+    }
+    Timer timer;
+    timer.set_timeout(std::chrono::milliseconds(time_out));
+    timer.async_start_timing();
+    std::size_t retry_times = 0;
+    while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
+        if (timer.timeout()) {
+            if (retry_times++ < retry_time_limit) {
+                timer.reset();
+                timer.async_start_timing();
+                continue;
+            }
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Timeout to connect to socket: {}", get_error_msg());
+            }
+            return get_error_msg();
+        }
     }
     m_status = SocketStatus::CONNECTED;
     return std::nullopt;
@@ -64,39 +111,57 @@ std::optional<std::string> TcpClient::close() {
 std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::recv(m_fd, data.data(), data.size(), 0);
-    if (num_bytes == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+    ssize_t num_bytes;
+    do {
+        std::vector<uint8_t> buffer(1024);
+        num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
+        if (num_bytes == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (data.size() <= 0) {
+                    if (m_logger_set) {
+                        NET_LOG_WARN(m_logger, "Failed to read from socket: {}", get_error_msg());
+                    }
+                    return get_error_msg();
+                }
+                break;
+            }
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+            }
+            return get_error_msg();
         }
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+        if (num_bytes == 0) {
+            if (m_logger_set) {
+                NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            }
+            return "Connection reset by peer while reading";
         }
-        return "Connection reset by peer while reading";
-    }
-    data.resize(num_bytes);
+        buffer.resize(num_bytes);
+        std::copy(buffer.begin(), buffer.end(), std::back_inserter(data));
+    } while (num_bytes > 0);
     return std::nullopt;
 }
 
 std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
-    ssize_t num_bytes = ::send(m_fd, data.data(), data.size(), 0);
-    if (num_bytes == -1) {
-        if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+    size_t bytes_has_send = 0;
+    do {
+        ssize_t num_bytes = ::send(m_fd, data.data() + bytes_has_send, data.size() - bytes_has_send, 0);
+        if (num_bytes == -1) {
+            if (m_logger_set) {
+                NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+            }
+            return get_error_msg();
         }
-        return get_error_msg();
-    }
-    if (num_bytes == 0) {
-        if (m_logger_set) {
-            NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+        if (num_bytes == 0) {
+            if (m_logger_set) {
+                NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            }
+            return "Connection reset by peer while writing";
         }
-        return "Connection reset by peer while writing";
-    }
+        bytes_has_send += num_bytes;
+    } while (bytes_has_send < data.size());
     return std::nullopt;
 }
 

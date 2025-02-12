@@ -5,6 +5,8 @@
 #include "logger.hpp"
 #include "remote_target.hpp"
 #include "thread_pool.hpp"
+#include "timer.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <future>
@@ -49,6 +51,13 @@ public:
 
     virtual std::optional<std::string> connect() = 0;
 
+    virtual std::optional<std::string> connect_with_time_out(std::size_t time_out = 0) = 0;
+
+    virtual std::optional<std::string>
+    connect_with_time_out(std::size_t time_out, std::size_t retry_time_limit = 0) = 0;
+
+    std::optional<std::string> start_event_loop();
+
     virtual std::optional<std::string> close() = 0;
 
     std::shared_ptr<SocketClient> get_shared();
@@ -70,6 +79,8 @@ public:
     virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
 
 protected:
+    std::optional<std::string> set_non_blocking_socket(int fd);
+
     int m_fd;
     addressResolver m_addr_resolver;
     addressResolver::address_info m_addr_info;
