@@ -87,7 +87,7 @@ std::optional<std::string> TcpClient::connect_with_retry(std::size_t time_out, s
             }
             return get_error_msg();
         }
-        auto ret = connect(time_out);
+        auto ret = this->connect(time_out);
         if (!ret.has_value()) {
             return std::nullopt;
         }
@@ -111,8 +111,12 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size
     data.clear();
     ssize_t num_bytes;
     Timer timer;
-    timer.set_timeout(std::chrono::milliseconds(time_out));
-    do {
+    timer.reset();
+    if (time_out != 0) {
+        timer.set_timeout(std::chrono::milliseconds(time_out));
+        timer.async_start_timing();
+    }
+    while (true) {
         if (timer.timeout()) {
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Timeout to read from socket");
@@ -141,7 +145,7 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size
         }
         buffer.resize(num_bytes);
         std::copy(buffer.begin(), buffer.end(), std::back_inserter(data));
-    } while (num_bytes > 0);
+    };
     return std::nullopt;
 }
 
@@ -150,12 +154,13 @@ std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data, st
     assert(data.size() > 0 && "Data buffer is empty");
     size_t bytes_has_send = 0;
     Timer timer;
+    timer.reset();
     if (time_out != 0) {
         timer.set_timeout(std::chrono::milliseconds(time_out));
         timer.async_start_timing();
     }
-    do {
-        if (timer.timeout() && bytes_has_send <= 0 && time_out != 0) {
+    while (true) {
+        if (timer.timeout() && bytes_has_send <= 0) {
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Timeout to write to socket");
             }
@@ -186,7 +191,10 @@ std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data, st
             return "Connection reset by peer while writing";
         }
         bytes_has_send += num_bytes;
-    } while (bytes_has_send < data.size());
+        if (bytes_has_send >= data.size()) {
+            return std::nullopt;
+        }
+    };
     return std::nullopt;
 }
 

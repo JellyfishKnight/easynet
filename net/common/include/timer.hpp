@@ -112,7 +112,7 @@ private:
     std::chrono::nanoseconds m_interval;
     std::chrono::nanoseconds m_timeout;
 
-    bool m_timeout_flag = true;
+    bool m_timeout_flag = false;
     bool m_timeout_set = false;
     std::function<void()> m_timeout_action;
     std::function<void()> m_interval_action;

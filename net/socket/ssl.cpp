@@ -2,6 +2,7 @@
 #include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "tcp.hpp"
+#include "timer.hpp"
 #include <algorithm>
 #include <asm-generic/errno-base.h>
 #include <asm-generic/errno.h>
@@ -131,18 +132,62 @@ std::optional<std::string> SSLClient::connect_with_retry(std::size_t time_out, s
 }
 
 std::optional<std::string> SSLClient::write(const std::vector<uint8_t>& data, std::size_t time_out) {
-    if (SSL_write(m_ssl.get(), data.data(), data.size()) <= 0) {
-        return "Failed to write data";
+    assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
+    assert(data.size() > 0 && "Data buffer is empty");
+    Timer timer;
+    std::size_t bytes_has_send = 0;
+    timer.reset();
+    if (time_out != 0) {
+        timer.set_timeout(std::chrono::milliseconds(time_out));
+        timer.async_start_timing();
     }
-    return std::nullopt;
+    while (true) {
+        if (timer.timeout()) {
+            return "Timeout to write data";
+        }
+        auto err = SSL_write(m_ssl.get(), data.data(), data.size());
+        if (err > 0) {
+            bytes_has_send += err;
+            if (bytes_has_send == data.size()) {
+                return std::nullopt;
+            }
+        } else if (err == 0) {
+            return "Connection reset by peer while writing";
+        } else {
+            int ssl_error = SSL_get_error(m_ssl.get(), err);
+            if ((ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE)) {
+                if (bytes_has_send == 0) {
+                    break;
+                }
+                continue;
+            }
+            return ERR_error_string(ssl_error, nullptr);
+        }
+        return std::nullopt;
+    }
 }
 
 std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size_t time_out) {
-    int num_bytes = SSL_read(m_ssl.get(), data.data(), data.size());
-    if (num_bytes <= 0) {
-        return "Failed to read data";
+    assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
+    data.clear();
+    int num_bytes;
+    Timer timer;
+    timer.reset();
+    if (time_out != 0) {
+        timer.set_timeout(std::chrono::milliseconds(time_out));
+        timer.async_start_timing();
     }
-    data.resize(num_bytes);
+    while (true) {
+        if (timer.timeout()) {
+            return "Timeout to read data";
+        }
+        num_bytes = SSL_read(m_ssl.get(), data.data(), data.size());
+        if (num_bytes <= 0) {
+            return "Failed to read data";
+        }
+        data.resize(num_bytes);
+    }
+
     return std::nullopt;
 }
 
@@ -179,6 +224,9 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
         if (num_bytes == -1) {
             int ssl_error = SSL_get_error(ssl.get(), num_bytes);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
+                if (data.size() <= 0) {
+                    continue;
+                }
                 break;
             } else if (ssl_error == SSL_ERROR_SYSCALL) {
                 if (m_logger_set) {
