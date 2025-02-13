@@ -182,7 +182,8 @@ std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size
         if (timer.timeout()) {
             return "Timeout to read data";
         }
-        num_bytes = SSL_read(m_ssl.get(), data.data(), data.size());
+        std::vector<uint8_t> buffer(1024);
+        num_bytes = SSL_read(m_ssl.get(), buffer.data(), buffer.size());
         if (num_bytes <= 0) {
             auto ssl_err = SSL_get_error(m_ssl.get(), num_bytes);
             if (ssl_err == SSL_ERROR_WANT_READ || ssl_err == SSL_ERROR_WANT_WRITE) {
@@ -196,7 +197,8 @@ std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size
                 return ERR_error_string(ssl_err, nullptr);
             }
         }
-        data.resize(num_bytes);
+        buffer.resize(num_bytes);
+        std::copy(buffer.begin(), buffer.end(), std::back_inserter(data));
     }
 
     return std::nullopt;
@@ -259,7 +261,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
                         ERR_error_string(ssl_error, nullptr)
                     );
                 }
-                // const_cast<RemoteTarget&>(remote).m_status = false;
+                const_cast<RemoteTarget&>(remote).m_status = false;
                 return ERR_error_string(ssl_error, nullptr);
             }
         }
