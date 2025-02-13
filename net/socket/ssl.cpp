@@ -165,6 +165,7 @@ std::optional<std::string> SSLClient::write(const std::vector<uint8_t>& data, st
         }
         return std::nullopt;
     }
+    return std::nullopt;
 }
 
 std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size_t time_out) {
@@ -183,7 +184,17 @@ std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size
         }
         num_bytes = SSL_read(m_ssl.get(), data.data(), data.size());
         if (num_bytes <= 0) {
-            return "Failed to read data";
+            auto ssl_err = SSL_get_error(m_ssl.get(), num_bytes);
+            if (ssl_err == SSL_ERROR_WANT_READ || ssl_err == SSL_ERROR_WANT_WRITE) {
+                if (data.size() <= 0) {
+                    continue;
+                }
+                break;
+            } else if (ssl_err == SSL_ERROR_SYSCALL) {
+                return "Connection reset by peer while reading";
+            } else {
+                return ERR_error_string(ssl_err, nullptr);
+            }
         }
         data.resize(num_bytes);
     }
