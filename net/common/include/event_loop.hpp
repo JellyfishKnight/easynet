@@ -65,9 +65,9 @@ public:
 
     virtual void wait_for_events() = 0;
 
-protected:
     std::shared_ptr<Event> get_event(int event_fd);
 
+protected:
     RemotePool m_remote_pool;
 };
 

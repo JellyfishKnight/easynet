@@ -57,14 +57,14 @@ public:
 
     std::shared_ptr<TcpServer> get_shared();
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) override;
+    std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) override;
+    std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 
 protected:
-    void handle_connection(const RemoteTarget& remote) override;
+    void handle_connection(RemoteTarget::SharedPtr remote) override;
 
-    RemoteTarget create_remote(int remote_fd) override;
+    RemoteTarget::SharedPtr create_remote(int remote_fd) override;
 
     void try_erase_remote(int remote_fd) override;
 

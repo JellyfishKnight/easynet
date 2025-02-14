@@ -93,7 +93,7 @@ protected:
 };
 
 class SocketServer: std::enable_shared_from_this<SocketServer> {
-    using CallBack = std::function<void(const RemoteTarget& remote)>;
+    using CallBack = std::function<void(RemoteTarget::SharedPtr remote)>;
 
 public:
     NET_DECLARE_PTRS(SocketServer)
@@ -144,14 +144,14 @@ public:
 
     void on_start(CallBack handler);
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
 
 protected:
-    virtual void handle_connection(const RemoteTarget& remote) = 0;
+    virtual void handle_connection(RemoteTarget::SharedPtr remote) = 0;
 
-    virtual RemoteTarget create_remote(int remote_fd) = 0;
+    virtual RemoteTarget::SharedPtr create_remote(int remote_fd) = 0;
 
     virtual void try_erase_remote(int remote_fd) = 0;
 
@@ -174,8 +174,7 @@ protected:
     CallBack m_on_error;
     CallBack m_on_accept;
 
-    std::map<int, RemoteTarget> m_remotes;
-    std::shared_mutex m_remotes_mutex;
+    RemotePool m_remotes;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     EventLoop::SharedPtr m_event_loop;

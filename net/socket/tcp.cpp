@@ -351,28 +351,12 @@ std::optional<std::string> TcpServer::start() {
                     std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
                     continue;
                 }
-                auto remote = create_remote(client_fd);
-                {
-                    std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-                    m_remotes.insert({ client_fd, remote });
-                }
+                m_remotes.add_remote(create_remote(client_fd));
                 if (m_thread_pool) {
-                    m_thread_pool->submit([this, client_fd]() {
-                        RemoteTarget remote;
-                        {
-                            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                            remote = m_remotes.at(client_fd);
-                        }
-                        handle_connection(remote);
-                    });
+                    m_thread_pool->submit([this, client_fd]() { handle_connection(m_remotes.get_remote(client_fd)); });
                 } else {
                     auto unused = std::async(std::launch::async, [this, client_fd]() {
-                        RemoteTarget remote;
-                        {
-                            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-                            remote = m_remotes.at(client_fd);
-                        }
-                        handle_connection(remote);
+                        handle_connection(m_remotes.get_remote(client_fd));
                     });
                 }
             }
@@ -381,12 +365,12 @@ std::optional<std::string> TcpServer::start() {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const RemoteTarget& remote) {
+std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
     ssize_t num_bytes;
     data.clear();
     do {
         std::vector<uint8_t> read_buffer(1024);
-        num_bytes = ::recv(remote.m_client_fd, read_buffer.data(), read_buffer.size(), MSG_NOSIGNAL);
+        num_bytes = ::recv(remote->fd(), read_buffer.data(), read_buffer.size(), MSG_NOSIGNAL);
         if (num_bytes == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if (data.size() <= 0) {
@@ -394,19 +378,19 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
                         NET_LOG_ERROR(
                             m_logger,
                             "Failed to read from socket {} (Epoll) : {}",
-                            remote.m_client_fd,
+                            remote->fd(),
                             get_error_msg()
                         );
                     }
-                    const_cast<RemoteTarget&>(remote).m_status = false;
+                    remote->close_remote();
                     return get_error_msg();
                 }
                 break;
             } else {
                 if (m_logger_set) {
-                    NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote.m_client_fd, get_error_msg());
+                    NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote->fd(), get_error_msg());
                 }
-                const_cast<RemoteTarget&>(remote).m_status = false;
+                remote->close_remote();
                 return get_error_msg();
             }
         }
@@ -414,7 +398,7 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
             }
-            const_cast<RemoteTarget&>(remote).m_status = false;
+            remote->close_remote();
             return "Connection reset by peer while reading";
         }
         if (num_bytes > 0) {
@@ -425,26 +409,25 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, const Rem
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, const RemoteTarget& remote) {
+std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes;
     std::size_t bytes_has_send = 0;
     do {
-        num_bytes =
-            ::send(remote.m_client_fd, data.data() + bytes_has_send, data.size() - bytes_has_send, MSG_NOSIGNAL);
+        num_bytes = ::send(remote->fd(), data.data() + bytes_has_send, data.size() - bytes_has_send, MSG_NOSIGNAL);
         if (num_bytes == -1) {
             if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote.m_client_fd, get_error_msg());
+                NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote->fd(), get_error_msg());
             }
-            const_cast<RemoteTarget&>(remote).m_status = false;
+            remote->close_remote();
             return get_error_msg();
         }
         if (num_bytes == 0) {
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while writting");
             }
-            const_cast<RemoteTarget&>(remote).m_status = false;
+            remote->close_remote();
             return "Connection reset by peer while writting";
         }
         bytes_has_send += num_bytes;
@@ -452,36 +435,30 @@ std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, co
     return std::nullopt;
 }
 
-void TcpServer::handle_connection(const RemoteTarget& remote) {
-    while (m_status == SocketStatus::LISTENING && remote.m_status) {
+void TcpServer::handle_connection(RemoteTarget::SharedPtr remote) {
+    while (m_status == SocketStatus::LISTENING && remote->is_active()) {
         m_accept_handler(remote);
     }
-    {
-        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-        m_remotes.erase(remote.m_client_fd);
-    }
+    remote->close_remote();
 }
 
-RemoteTarget TcpServer::create_remote(int remote_fd) {
-    RemoteTarget remote;
-    remote.m_client_fd = remote_fd;
-    remote.m_status = true;
-    return remote;
+RemoteTarget::SharedPtr TcpServer::create_remote(int remote_fd) {
+    return std::make_shared<RemoteTarget>(remote_fd);
 }
 
 void TcpServer::try_erase_remote(int remote_fd) {
     // erase expired remotes
-    auto& remote = m_remotes.at(remote_fd);
-    if (remote.m_ref_count != 0 || remote.m_status == true) {
-        return;
-    }
-    {
-        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-        m_event_loop->remove_event(remote_fd);
-        if (m_remotes.at(remote_fd).m_ref_count <= 0) {
-            m_remotes.erase(remote_fd);
-        }
-    }
+    // auto& remote = m_remotes.at(remote_fd);
+    // if (remote.m_ref_count != 0 || remote.m_status == true) {
+    //     return;
+    // }
+    // {
+    //     std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+    //     m_event_loop->remove_event(remote_fd);
+    //     if (m_remotes.at(remote_fd).m_ref_count <= 0) {
+    //         m_remotes.erase(remote_fd);
+    //     }
+    // }
 }
 
 std::shared_ptr<TcpServer> TcpServer::get_shared() {
@@ -495,22 +472,14 @@ void TcpServer::add_remote_event(int client_fd) {
             return;
         }
         {
-            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            auto event = m_event_loop->get_event(client_fd);
+            if (event == nullptr) {
+                return;
+            }
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() {
-                    remote_target.m_ref_count += 1;
-                    this->m_on_read(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
+                this->m_thread_pool->submit([this, event]() { this->m_on_read(std::move(event)); });
             } else {
-                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                    remote_target.m_ref_count += 1;
-                    this->m_on_read(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
+                auto unused = std::async(std::launch::async, [this, event]() { this->m_on_read(std::move(event)); });
             }
         }
     };
@@ -519,22 +488,14 @@ void TcpServer::add_remote_event(int client_fd) {
             return;
         }
         {
-            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            auto event = m_event_loop->get_event(client_fd);
+            if (event == nullptr) {
+                return;
+            }
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() {
-                    remote_target.m_ref_count += 1;
-                    this->m_on_write(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
+                this->m_thread_pool->submit([this, event]() { this->m_on_write(std::move(event)); });
             } else {
-                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                    remote_target.m_ref_count += 1;
-                    this->m_on_write(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
+                auto unused = std::async(std::launch::async, [this, event]() { this->m_on_write(std::move(event)); });
             }
         }
     };
@@ -543,35 +504,22 @@ void TcpServer::add_remote_event(int client_fd) {
             return;
         };
         {
-            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            auto event = m_event_loop->get_event(client_fd);
+            if (event == nullptr) {
+                return;
+            }
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() {
-                    remote_target.m_ref_count += 1;
-                    this->m_on_error(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
+                this->m_thread_pool->submit([this, event]() { this->m_on_error(std::move(event)); });
             } else {
-                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                    remote_target.m_ref_count += 1;
-                    this->m_on_error(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
+                auto unused = std::async(std::launch::async, [this, event]() { this->m_on_error(std::move(event)); });
             }
         }
     };
     auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
-    auto remote = create_remote(client_fd);
-    {
-        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-        m_remotes.insert({ client_fd, remote });
-        m_event_loop->add_event(client_event);
-    }
+    m_event_loop->add_event(client_event);
     if (m_on_accept) {
         try {
-            m_on_accept(m_remotes.at(client_fd));
+            m_on_accept(m_event_loop->get_event(client_fd));
         } catch (const std::exception& e) {
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Failed to execute on accept: {}", e.what());
