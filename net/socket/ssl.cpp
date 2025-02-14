@@ -232,9 +232,11 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
     auto& ssl = m_ssls.at(remote.m_client_fd);
     int num_bytes;
     data.clear();
+    int i = 0;
     do {
         std::vector<uint8_t> read_buffer(1024);
         num_bytes = SSL_read(ssl.get(), read_buffer.data(), read_buffer.size());
+        std::cout << std::format("Reading fd {}, times {} \n", remote.m_client_fd, i++) << std::endl;
         if (num_bytes == -1) {
             int ssl_error = SSL_get_error(ssl.get(), num_bytes);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
@@ -369,22 +371,28 @@ bool SSLServer::handle_ssl_handshake(const RemoteTarget& remote) {
     }
 }
 
-void SSLServer::erase_remote() {
+void SSLServer::try_erase_remote(int remote_fd) {
     // erase expired remotes
-    for (auto it = m_events.begin(); it != m_events.end();) {
-        if (m_remotes.at((*it)->get_fd()).m_status == false) {
-            m_event_loop->remove_event((*it)->get_fd());
-            {
-                std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-                m_remotes.erase((*it)->get_fd());
-                m_ssls.erase((*it)->get_fd());
-                m_ssl_handshakes.erase((*it)->get_fd());
-                it = m_events.erase(it);
-            }
-        } else {
-            ++it;
+    auto& remote = m_remotes.at(remote_fd);
+    if (remote.m_ref_count != 0 || remote.m_status == true) {
+        std::cout << std::format(
+            "Erase {} Failed Ref count: {}, status: {}\n",
+            remote_fd,
+            remote.m_ref_count,
+            remote.m_status
+        );
+        return;
+    }
+    m_event_loop->remove_event(remote_fd);
+    {
+        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+        m_ssls.erase(remote_fd);
+        m_ssl_handshakes.erase(remote_fd);
+        if (m_remotes.at(remote_fd).m_ref_count <= 0) {
+            m_remotes.erase(remote_fd);
         }
     }
+    std::cout << std::format("Erase {} Success\n", remote_fd);
 }
 
 void SSLServer::add_remote_event(int client_fd) {
@@ -400,10 +408,19 @@ void SSLServer::add_remote_event(int client_fd) {
                 return;
             }
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_read(remote_target); });
+                remote_target.m_ref_count += 1;
+                this->m_thread_pool->submit([this, &remote_target]() {
+                    this->m_on_read(remote_target);
+                    remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
+                });
             } else {
-                auto unused =
-                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_read(remote_target); });
+                remote_target.m_ref_count += 1;
+                auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                    this->m_on_read(remote_target);
+                    remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
+                });
             }
         }
     };
@@ -418,10 +435,19 @@ void SSLServer::add_remote_event(int client_fd) {
                 return;
             }
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_write(remote_target); });
+                remote_target.m_ref_count += 1;
+                this->m_thread_pool->submit([this, &remote_target]() {
+                    this->m_on_write(remote_target);
+                    remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
+                });
             } else {
-                auto unused =
-                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_write(remote_target); });
+                remote_target.m_ref_count += 1;
+                auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                    this->m_on_write(remote_target);
+                    remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
+                });
             }
         }
     };
@@ -433,10 +459,19 @@ void SSLServer::add_remote_event(int client_fd) {
             std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
             RemoteTarget& remote_target = m_remotes.at(client_fd);
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_error(remote_target); });
+                remote_target.m_ref_count += 1;
+                this->m_thread_pool->submit([this, &remote_target]() {
+                    this->m_on_error(remote_target);
+                    remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
+                });
             } else {
-                auto unused =
-                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_error(remote_target); });
+                remote_target.m_ref_count += 1;
+                auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                    this->m_on_error(remote_target);
+                    remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
+                });
             }
         }
     };
@@ -445,7 +480,6 @@ void SSLServer::add_remote_event(int client_fd) {
     {
         std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
         m_remotes.insert({ client_fd, remote });
-        m_events.insert(client_event);
     }
     if (m_on_accept) {
         try {

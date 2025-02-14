@@ -332,7 +332,6 @@ std::optional<std::string> TcpServer::start() {
             auto server_event = std::make_shared<Event>(m_listen_fd, server_event_handler);
             m_event_loop->add_event(server_event);
             while (!m_stop) {
-                erase_remote();
                 try {
                     m_event_loop->wait_for_events();
                 } catch (std::runtime_error& e) {
@@ -470,19 +469,17 @@ RemoteTarget TcpServer::create_remote(int remote_fd) {
     return remote;
 }
 
-void TcpServer::erase_remote() {
+void TcpServer::try_erase_remote(int remote_fd) {
     // erase expired remotes
-    for (auto it = m_events.begin(); it != m_events.end();) {
-        auto& remote = m_remotes.at((*it)->get_fd());
-        if (remote.m_status == false && remote.m_ref_count == 0) {
-            m_event_loop->remove_event((*it)->get_fd());
-            {
-                std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-                m_remotes.erase((*it)->get_fd());
-                it = m_events.erase(it);
-            }
-        } else {
-            ++it;
+    auto& remote = m_remotes.at(remote_fd);
+    if (remote.m_ref_count != 0 || remote.m_status == true) {
+        return;
+    }
+    m_event_loop->remove_event(remote_fd);
+    {
+        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+        if (m_remotes.at(remote_fd).m_ref_count <= 0) {
+            m_remotes.erase(remote_fd);
         }
     }
 }
@@ -505,12 +502,14 @@ void TcpServer::add_remote_event(int client_fd) {
                     remote_target.m_ref_count += 1;
                     this->m_on_read(remote_target);
                     remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
                 });
             } else {
                 auto unused = std::async(std::launch::async, [this, &remote_target]() {
                     remote_target.m_ref_count += 1;
                     this->m_on_read(remote_target);
                     remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
                 });
             }
         }
@@ -527,13 +526,14 @@ void TcpServer::add_remote_event(int client_fd) {
                     remote_target.m_ref_count += 1;
                     this->m_on_write(remote_target);
                     remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
                 });
             } else {
-                auto unused =
-                    std::async(std::launch::async, [this, &remote_target]() {
+                auto unused = std::async(std::launch::async, [this, &remote_target]() {
                     remote_target.m_ref_count += 1;
-                    this->m_on_write(remote_target); 
+                    this->m_on_write(remote_target);
                     remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
                 });
             }
         }
@@ -550,12 +550,14 @@ void TcpServer::add_remote_event(int client_fd) {
                     remote_target.m_ref_count += 1;
                     this->m_on_error(remote_target);
                     remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
                 });
             } else {
                 auto unused = std::async(std::launch::async, [this, &remote_target]() {
                     remote_target.m_ref_count += 1;
                     this->m_on_error(remote_target);
                     remote_target.m_ref_count -= 1;
+                    try_erase_remote(remote_target.m_client_fd);
                 });
             }
         }
@@ -565,7 +567,6 @@ void TcpServer::add_remote_event(int client_fd) {
     {
         std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
         m_remotes.insert({ client_fd, remote });
-        m_events.insert(client_event);
     }
     if (m_on_accept) {
         try {

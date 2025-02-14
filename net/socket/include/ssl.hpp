@@ -103,7 +103,7 @@ protected:
 
     void handle_connection(const RemoteTarget& remote) override;
 
-    void erase_remote() override;
+    void try_erase_remote(int remote_fd) override;
 
     RemoteTarget create_remote(int remote_fd) override;
 

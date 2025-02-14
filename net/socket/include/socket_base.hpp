@@ -153,7 +153,7 @@ protected:
 
     virtual RemoteTarget create_remote(int remote_fd) = 0;
 
-    virtual void erase_remote() = 0;
+    virtual void try_erase_remote(int remote_fd) = 0;
 
     virtual void add_remote_event(int fd) = 0;
 
@@ -176,7 +176,6 @@ protected:
 
     std::map<int, RemoteTarget> m_remotes;
     std::shared_mutex m_remotes_mutex;
-    std::set<Event::SharedPtr> m_events;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     EventLoop::SharedPtr m_event_loop;
