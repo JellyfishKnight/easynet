@@ -1,6 +1,7 @@
 #include "event_loop.hpp"
 #include "defines.hpp"
 #include <format>
+#include <stdexcept>
 #include <sys/epoll.h>
 
 namespace net {
@@ -188,14 +189,18 @@ void EpollEventLoop::wait_for_events() {
     }
 
     for (int i = 0; i < num_events; ++i) {
-        if (events[i].events & EPOLLIN) {
-            m_events.at(events[i].data.fd)->on_read();
-        }
-        if (events[i].events & EPOLLOUT) {
-            m_events.at(events[i].data.fd)->on_write();
-        }
-        if (events[i].events & (EPOLLERR | EPOLLHUP)) {
-            m_events.at(events[i].data.fd)->on_error();
+        try {
+            if (events[i].events & EPOLLIN) {
+                m_events.at(events[i].data.fd)->on_read();
+            }
+            if (events[i].events & EPOLLOUT) {
+                m_events.at(events[i].data.fd)->on_write();
+            }
+            if (events[i].events & (EPOLLERR | EPOLLHUP)) {
+                m_events.at(events[i].data.fd)->on_error();
+            }
+        } catch (std::out_of_range& e) {
+            // Ignore the event if it's not in the map
         }
     }
 }

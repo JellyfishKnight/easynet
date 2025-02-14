@@ -475,9 +475,9 @@ void TcpServer::try_erase_remote(int remote_fd) {
     if (remote.m_ref_count != 0 || remote.m_status == true) {
         return;
     }
-    m_event_loop->remove_event(remote_fd);
     {
         std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+        m_event_loop->remove_event(remote_fd);
         if (m_remotes.at(remote_fd).m_ref_count <= 0) {
             m_remotes.erase(remote_fd);
         }
@@ -567,6 +567,7 @@ void TcpServer::add_remote_event(int client_fd) {
     {
         std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
         m_remotes.insert({ client_fd, remote });
+        m_event_loop->add_event(client_event);
     }
     if (m_on_accept) {
         try {
@@ -579,7 +580,6 @@ void TcpServer::add_remote_event(int client_fd) {
             return;
         }
     }
-    m_event_loop->add_event(client_event);
 }
 
 } // namespace net
