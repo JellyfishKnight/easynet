@@ -1,10 +1,10 @@
 #pragma once
 
-#include "address_resolver.hpp"
 #include "defines.hpp"
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -41,7 +41,7 @@ public:
         return m_client_fd;
     }
 
-private:
+protected:
     int m_client_fd;
     std::atomic<bool> m_status = false;
     std::mutex m_mutex;
@@ -51,9 +51,9 @@ class RemotePool {
 public:
     RemotePool() = default;
 
-    void add_remote(int fd) {
+    void add_remote(std::shared_ptr<RemoteTarget> remote) {
         std::lock_guard<std::mutex> lock(m_mtx);
-        remotes[fd] = std::make_shared<RemoteTarget>(fd);
+        remotes[remote->fd()] = std::make_shared<RemoteTarget>(std::move(remote));
     }
 
     void remove_remote(int fd) {
@@ -72,6 +72,13 @@ public:
             return it->second;
         }
         return nullptr;
+    }
+
+    void iterate(std::function<void(RemoteTarget::SharedPtr)> func) {
+        std::lock_guard<std::mutex> lock(m_mtx);
+        for (auto& [_, remote]: remotes) {
+            func(remote);
+        }
     }
 
 private:

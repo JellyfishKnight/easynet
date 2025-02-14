@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.hpp"
+#include "remote_target.hpp"
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -29,7 +30,7 @@ struct EventHandler {
     Callback m_on_error = nullptr;
 };
 
-class Event {
+class Event: public RemoteTarget {
 public:
     NET_DECLARE_PTRS(Event)
 
@@ -37,9 +38,7 @@ public:
 
     virtual ~Event() = default;
 
-    EventType get_type() const;
-
-    int get_fd() const;
+    EventType type() const;
 
     void on_read();
 
@@ -51,7 +50,6 @@ public:
 
 private:
     EventType m_type;
-    int m_fd;
     std::shared_ptr<EventHandler> m_handler;
 };
 
@@ -66,6 +64,11 @@ public:
     virtual void remove_event(int event_fd) = 0;
 
     virtual void wait_for_events() = 0;
+
+protected:
+    std::shared_ptr<Event> get_event(int event_fd);
+
+    RemotePool m_remote_pool;
 };
 
 /**
@@ -87,7 +90,6 @@ public:
 
 private:
     fd_set read_fds, write_fds, error_fds;
-    std::unordered_map<int, std::shared_ptr<Event>> m_events;
     int m_max_fd;
     int time_out;
 };
@@ -106,7 +108,6 @@ public:
 
 private:
     std::vector<pollfd> m_poll_fds;
-    std::unordered_map<int, std::shared_ptr<Event>> m_events;
     int time_out;
 };
 
@@ -126,7 +127,6 @@ public:
 
 private:
     int m_epoll_fd;
-    std::unordered_map<int, std::shared_ptr<Event>> m_events;
     int time_out;
 };
 
