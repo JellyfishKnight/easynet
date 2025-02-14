@@ -281,7 +281,21 @@ std::optional<std::string> TcpServer::start() {
     m_stop = false;
     if (m_event_loop) {
         m_accept_thread = std::thread([this]() {
-            set_non_blocking_socket(m_listen_fd);
+            auto err = set_non_blocking_socket(m_listen_fd);
+            if (err.has_value()) {
+                if (m_logger_set) {
+                    NET_LOG_ERROR(
+                        m_logger,
+                        "Failed to set non-blocking socket to listen fd, server will not start: {}",
+                        err.value()
+                    );
+                }
+                std::cerr << std::format(
+                    "Failed to set non-blocking socket to listen fd, server will not start: {}\n",
+                    err.value()
+                );
+                return;
+            }
             EventHandler::SharedPtr server_event_handler = std::make_shared<EventHandler>();
             server_event_handler->m_on_read = [this](int server_fd) {
                 while (true) {
@@ -459,7 +473,8 @@ RemoteTarget TcpServer::create_remote(int remote_fd) {
 void TcpServer::erase_remote() {
     // erase expired remotes
     for (auto it = m_events.begin(); it != m_events.end();) {
-        if (m_remotes.at((*it)->get_fd()).m_status == false) {
+        auto& remote = m_remotes.at((*it)->get_fd());
+        if (remote.m_status == false && remote.m_ref_count == 0) {
             m_event_loop->remove_event((*it)->get_fd());
             {
                 std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
@@ -486,10 +501,17 @@ void TcpServer::add_remote_event(int client_fd) {
             std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
             RemoteTarget& remote_target = m_remotes.at(client_fd);
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_read(remote_target); });
+                this->m_thread_pool->submit([this, &remote_target]() {
+                    remote_target.m_ref_count += 1;
+                    this->m_on_read(remote_target);
+                    remote_target.m_ref_count -= 1;
+                });
             } else {
-                auto unused =
-                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_read(remote_target); });
+                auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                    remote_target.m_ref_count += 1;
+                    this->m_on_read(remote_target);
+                    remote_target.m_ref_count -= 1;
+                });
             }
         }
     };
@@ -501,10 +523,18 @@ void TcpServer::add_remote_event(int client_fd) {
             std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
             RemoteTarget& remote_target = m_remotes.at(client_fd);
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_write(remote_target); });
+                this->m_thread_pool->submit([this, &remote_target]() {
+                    remote_target.m_ref_count += 1;
+                    this->m_on_write(remote_target);
+                    remote_target.m_ref_count -= 1;
+                });
             } else {
                 auto unused =
-                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_write(remote_target); });
+                    std::async(std::launch::async, [this, &remote_target]() {
+                    remote_target.m_ref_count += 1;
+                    this->m_on_write(remote_target); 
+                    remote_target.m_ref_count -= 1;
+                });
             }
         }
     };
@@ -516,10 +546,17 @@ void TcpServer::add_remote_event(int client_fd) {
             std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
             RemoteTarget& remote_target = m_remotes.at(client_fd);
             if (this->m_thread_pool) {
-                this->m_thread_pool->submit([this, &remote_target]() { this->m_on_error(remote_target); });
+                this->m_thread_pool->submit([this, &remote_target]() {
+                    remote_target.m_ref_count += 1;
+                    this->m_on_error(remote_target);
+                    remote_target.m_ref_count -= 1;
+                });
             } else {
-                auto unused =
-                    std::async(std::launch::async, [this, &remote_target]() { this->m_on_error(remote_target); });
+                auto unused = std::async(std::launch::async, [this, &remote_target]() {
+                    remote_target.m_ref_count += 1;
+                    this->m_on_error(remote_target);
+                    remote_target.m_ref_count -= 1;
+                });
             }
         }
     };

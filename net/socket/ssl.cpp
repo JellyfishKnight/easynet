@@ -1,4 +1,5 @@
 #include "ssl.hpp"
+#include "defines.hpp"
 #include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "tcp.hpp"
@@ -156,10 +157,10 @@ std::optional<std::string> SSLClient::write(const std::vector<uint8_t>& data, st
         } else {
             int ssl_error = SSL_get_error(m_ssl.get(), err);
             if ((ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE)) {
-                if (bytes_has_send == 0) {
-                    break;
+                if (bytes_has_send <= 0) {
+                    continue;
                 }
-                continue;
+                break;
             }
             return ERR_error_string(ssl_error, nullptr);
         }
@@ -238,7 +239,8 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
             int ssl_error = SSL_get_error(ssl.get(), num_bytes);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
                 if (data.size() <= 0) {
-                    continue;
+                    const_cast<RemoteTarget&>(remote).m_status = false;
+                    return get_error_msg();
                 }
                 break;
             } else if (ssl_error == SSL_ERROR_SYSCALL) {
@@ -341,7 +343,6 @@ RemoteTarget SSLServer::create_remote(int remote_fd) {
     m_ssls[remote_fd] = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
     m_ssl_handshakes[remote_fd] = false;
     SSL_set_fd(m_ssls[remote_fd].get(), remote_fd);
-    SSL_set_accept_state(m_ssls[remote_fd].get());
     return TcpServer::create_remote(remote_fd);
 }
 
