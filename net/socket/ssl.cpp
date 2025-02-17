@@ -318,7 +318,7 @@ std::shared_ptr<SSLServer> SSLServer::get_shared() {
 }
 
 bool SSLServer::handle_ssl_handshake(RemoteTarget::SharedPtr remote) {
-    auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
+    auto ssl_remote = std::dynamic_pointer_cast<SSLEvent>(remote);
     if (ssl_remote->is_ssl_handshaked()) {
         return true;
     }
@@ -336,122 +336,62 @@ bool SSLServer::handle_ssl_handshake(RemoteTarget::SharedPtr remote) {
     }
 }
 
-void SSLServer::try_erase_remote(int remote_fd) {
-    // erase expired remotes
-    // auto& remote = m_remotes.at(remote_fd);
-    // if (remote.m_ref_count != 0 || remote.m_status == true) {
-    //     std::cout << std::format(
-    //         "Erase {} Failed Ref count: {}, status: {}\n",
-    //         remote_fd,
-    //         remote.m_ref_count,
-    //         remote.m_status
-    //     );
-    //     return;
-    // }
-    // {
-    //     std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-    //     m_event_loop->remove_event(remote_fd);
-    //     m_ssls.erase(remote_fd);
-    //     m_ssl_handshakes.erase(remote_fd);
-    //     if (m_remotes.at(remote_fd).m_ref_count <= 0) {
-    //         m_remotes.erase(remote_fd);
-    //     }
-    // }
-    // std::cout << std::format("Erase {} Success\n", remote_fd);
-}
-
 void SSLServer::add_remote_event(int client_fd) {
     auto client_event_handler = std::make_shared<EventHandler>();
     client_event_handler->m_on_read = [this](int client_fd) {
         if (!this->m_on_read) {
             return;
         }
-        {
-            auto event = m_event_loop->get_event(client_fd);
-            if (event == nullptr) {
-                return;
-            }
-            if (!handle_ssl_handshake(remote_target)) {
-                return;
-            }
-            if (this->m_thread_pool) {
-                remote_target.m_ref_count += 1;
-                this->m_thread_pool->submit([this, &remote_target]() {
-                    this->m_on_read(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
-            } else {
-                remote_target.m_ref_count += 1;
-                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                    this->m_on_read(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
-            }
+
+        auto event = m_event_loop->get_event(client_fd);
+        if (event == nullptr) {
+            return;
+        }
+        if (!handle_ssl_handshake(event)) {
+            return;
+        }
+        if (this->m_thread_pool) {
+            this->m_thread_pool->submit([this, event]() { this->m_on_read(event); });
+        } else {
+            auto unused = std::async(std::launch::async, [this, event]() { this->m_on_read(event); });
         }
     };
     client_event_handler->m_on_write = [this](int client_fd) {
         if (!this->m_on_write) {
             return;
         }
-        {
-            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-            RemoteTarget& remote_target = m_remotes.at(client_fd);
-            if (!handle_ssl_handshake(remote_target)) {
-                return;
-            }
-            if (this->m_thread_pool) {
-                remote_target.m_ref_count += 1;
-                this->m_thread_pool->submit([this, &remote_target]() {
-                    this->m_on_write(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
-            } else {
-                remote_target.m_ref_count += 1;
-                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                    this->m_on_write(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
-            }
+        auto event = m_event_loop->get_event(client_fd);
+        if (event == nullptr) {
+            return;
+        }
+        if (!handle_ssl_handshake(event)) {
+            return;
+        }
+        if (this->m_thread_pool) {
+            this->m_thread_pool->submit([this, event]() { this->m_on_write(event); });
+        } else {
+            auto unused = std::async(std::launch::async, [this, event]() { this->m_on_write(event); });
         }
     };
     client_event_handler->m_on_error = [this](int client_fd) {
         if (!this->m_on_error) {
             return;
         };
-        {
-            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-            RemoteTarget& remote_target = m_remotes.at(client_fd);
-            if (this->m_thread_pool) {
-                remote_target.m_ref_count += 1;
-                this->m_thread_pool->submit([this, &remote_target]() {
-                    this->m_on_error(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
-            } else {
-                remote_target.m_ref_count += 1;
-                auto unused = std::async(std::launch::async, [this, &remote_target]() {
-                    this->m_on_error(remote_target);
-                    remote_target.m_ref_count -= 1;
-                    try_erase_remote(remote_target.m_client_fd);
-                });
-            }
+        auto event = m_event_loop->get_event(client_fd);
+        if (event == nullptr) {
+            return;
+        }
+        if (this->m_thread_pool) {
+            this->m_thread_pool->submit([this, event]() { this->m_on_error(event); });
+        } else {
+            auto unused = std::async(std::launch::async, [this, event]() { this->m_on_error(event); });
         }
     };
-    auto client_event = std::make_shared<Event>(client_fd, client_event_handler);
-    auto remote = create_remote(client_fd);
-    {
-        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-        m_remotes.insert({ client_fd, remote });
-        m_event_loop->add_event(client_event);
-    }
+    auto client_event = std::make_shared<SSLEvent>(client_fd, client_event_handler, m_ctx);
+    m_event_loop->add_event(client_event);
     if (m_on_accept) {
         try {
-            m_on_accept(m_remotes.at(client_fd));
+            m_on_accept(m_event_loop->get_event(client_fd));
         } catch (const std::exception& e) {
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Failed to execute on accept: {}", e.what());
