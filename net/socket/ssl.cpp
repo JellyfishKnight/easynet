@@ -2,6 +2,7 @@
 #include "defines.hpp"
 #include "remote_target.hpp"
 #include "socket_base.hpp"
+#include "ssl_utils.hpp"
 #include "tcp.hpp"
 #include "timer.hpp"
 #include <algorithm>
@@ -19,44 +20,6 @@
 #include <vector>
 
 namespace net {
-
-enum class SSLMethod : uint8_t {
-
-};
-
-SSLContext::SSLContext() {
-    if (!inited) [[unlikely]] {
-        inited = true;
-        SSL_library_init();
-        OpenSSL_add_all_algorithms();
-        SSL_load_error_strings();
-    }
-    m_ctx = std::shared_ptr<SSL_CTX>(SSL_CTX_new(TLS_method()), [](SSL_CTX* ctx) { SSL_CTX_free(ctx); });
-    if (m_ctx == nullptr) {
-        throw std::runtime_error("Failed to create SSL context");
-    }
-}
-
-SSLContext::~SSLContext() {
-    ERR_free_strings();
-    EVP_cleanup();
-}
-
-void SSLContext::set_certificates(const std::string& cert_file, const std::string& key_file) {
-    if (SSL_CTX_use_certificate_file(m_ctx.get(), cert_file.c_str(), SSL_FILETYPE_PEM) <= 0) {
-        throw std::runtime_error("Failed to load certificate file");
-    }
-    if (SSL_CTX_use_PrivateKey_file(m_ctx.get(), key_file.c_str(), SSL_FILETYPE_PEM) <= 0) {
-        throw std::runtime_error("Failed to load key file");
-    }
-    if (!SSL_CTX_check_private_key(m_ctx.get())) {
-        throw std::runtime_error("Private key does not match the certificate public key");
-    }
-}
-
-std::shared_ptr<SSL_CTX> SSLContext::get() {
-    return m_ctx;
-}
 
 SSLClient::SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service):
     TcpClient(ip, service),
@@ -228,20 +191,20 @@ std::optional<std::string> SSLServer::listen() {
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const RemoteTarget& remote) {
-    auto& ssl = m_ssls.at(remote.m_client_fd);
+std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+    auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
     int num_bytes;
     data.clear();
     int i = 0;
     do {
         std::vector<uint8_t> read_buffer(1024);
-        num_bytes = SSL_read(ssl.get(), read_buffer.data(), read_buffer.size());
-        std::cout << std::format("Reading fd {}, times {} \n", remote.m_client_fd, i++) << std::endl;
+        num_bytes = SSL_read(ssl_remote->get_ssl().get(), read_buffer.data(), read_buffer.size());
+        std::cout << std::format("Reading fd {}, times {} \n", remote->fd(), i++) << std::endl;
         if (num_bytes == -1) {
-            int ssl_error = SSL_get_error(ssl.get(), num_bytes);
+            int ssl_error = SSL_get_error(ssl_remote->get_ssl().get(), num_bytes);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
                 if (data.size() <= 0) {
-                    const_cast<RemoteTarget&>(remote).m_status = false;
+                    remote->close_remote();
                     return get_error_msg();
                 }
                 break;
@@ -250,22 +213,22 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
                     NET_LOG_ERROR(
                         m_logger,
                         "Connection reset by peer while reading",
-                        remote.m_client_fd,
+                        remote->fd(),
                         ERR_error_string(ssl_error, nullptr)
                     );
                 }
-                const_cast<RemoteTarget&>(remote).m_status = false;
+                remote->close_remote();
                 return "Connection reset by peer while reading";
             } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(
                         m_logger,
                         "Failed to read from socket {} : {}",
-                        remote.m_client_fd,
+                        remote->fd(),
                         ERR_error_string(ssl_error, nullptr)
                     );
                 }
-                const_cast<RemoteTarget&>(remote).m_status = false;
+                remote->close_remote();
                 return ERR_error_string(ssl_error, nullptr);
             }
         }
@@ -273,7 +236,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
             }
-            const_cast<RemoteTarget&>(remote).m_status = false;
+            remote->close_remote();
             return "Connection reset by peer while reading";
         }
         if (num_bytes > 0) {
@@ -284,29 +247,29 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, const Rem
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, const RemoteTarget& remote) {
+std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
-    auto& ssl = m_ssls.at(remote.m_client_fd);
+    auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
     int num_bytes;
     std::size_t bytes_has_send = 0;
     do {
-        num_bytes = SSL_write(ssl.get(), data.data(), data.size());
+        num_bytes = SSL_write(ssl_remote->get_ssl().get(), data.data(), data.size());
         if (num_bytes == -1) {
-            auto err = SSL_get_error(ssl.get(), num_bytes);
+            auto err = SSL_get_error(ssl_remote->get_ssl().get(), num_bytes);
             if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
                 break;
             } else if (err == SSL_ERROR_SYSCALL) {
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Connection reset by peer while writting");
                 }
-                const_cast<RemoteTarget&>(remote).m_status = false;
+                remote->close_remote();
                 return "Connection reset by peer while writting";
             } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", ERR_error_string(err, nullptr));
                 }
-                const_cast<RemoteTarget&>(remote).m_status = false;
+                remote->close_remote();
                 return ERR_error_string(err, nullptr);
             }
         }
@@ -314,7 +277,7 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, co
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while writting");
             }
-            const_cast<RemoteTarget&>(remote).m_status = false;
+            remote->close_remote();
             return "Connection reset by peer while writting";
         }
         bytes_has_send += num_bytes;
@@ -323,76 +286,78 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, co
 }
 
 std::optional<std::string> SSLServer::close() {
-    std::for_each(m_remotes.begin(), m_remotes.end(), [this](auto& conn) {
-        SSL_shutdown(m_ssls.at(conn.second.m_client_fd).get());
+    m_remotes.iterate([](auto remote) {
+        auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
+        SSL_shutdown(ssl_remote->get_ssl().get());
     });
     return TcpServer::close();
 }
 
-void SSLServer::handle_connection(const RemoteTarget& conn) {
-    auto& ssl = m_ssls.at(conn.m_client_fd);
-    if (SSL_accept(ssl.get()) <= 0) {
+void SSLServer::handle_connection(RemoteTarget::SharedPtr remote) {
+    auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
+
+    if (SSL_accept(ssl_remote->get_ssl().get()) <= 0) {
         if (m_logger_set) {
             NET_LOG_ERROR(m_logger, "Failed to establish SSL connection");
         }
         std::cerr << std::format("Failed to establish SSL connection\n");
         return;
     }
-    TcpServer::handle_connection(conn);
+    TcpServer::handle_connection(ssl_remote);
 }
 
-RemoteTarget SSLServer::create_remote(int remote_fd) {
-    m_ssls[remote_fd] = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
-    m_ssl_handshakes[remote_fd] = false;
-    SSL_set_fd(m_ssls[remote_fd].get(), remote_fd);
-    return TcpServer::create_remote(remote_fd);
+RemoteTarget::SharedPtr SSLServer::create_remote(int remote_fd) {
+    auto ssl = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
+    SSLRemoteTarget::SharedPtr remote = std::make_shared<SSLRemoteTarget>(remote_fd, ssl);
+    SSL_set_fd(ssl.get(), remote_fd);
+    return remote;
 }
 
 std::shared_ptr<SSLServer> SSLServer::get_shared() {
     return std::dynamic_pointer_cast<SSLServer>(TcpServer::get_shared());
 }
 
-bool SSLServer::handle_ssl_handshake(const RemoteTarget& remote) {
-    auto& ssl = m_ssls.at(remote.m_client_fd);
-    if (m_ssl_handshakes.at(remote.m_client_fd)) {
+bool SSLServer::handle_ssl_handshake(RemoteTarget::SharedPtr remote) {
+    auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
+    if (ssl_remote->is_ssl_handshaked()) {
         return true;
     }
-    int err_code = SSL_accept(ssl.get());
+    int err_code = SSL_accept(ssl_remote->get_ssl().get());
     if (err_code <= 0) {
-        err_code = SSL_get_error(ssl.get(), err_code);
+        err_code = SSL_get_error(ssl_remote->get_ssl().get(), err_code);
         if (err_code == SSL_ERROR_WANT_READ || err_code == SSL_ERROR_WANT_WRITE) {
             return false;
         }
-        const_cast<RemoteTarget&>(remote).m_status = false;
+        remote->close_remote();
         return false;
     } else {
-        m_ssl_handshakes[remote.m_client_fd] = true;
+        ssl_remote->set_ssl_handshaked(true);
         return false;
     }
 }
 
 void SSLServer::try_erase_remote(int remote_fd) {
     // erase expired remotes
-    auto& remote = m_remotes.at(remote_fd);
-    if (remote.m_ref_count != 0 || remote.m_status == true) {
-        std::cout << std::format(
-            "Erase {} Failed Ref count: {}, status: {}\n",
-            remote_fd,
-            remote.m_ref_count,
-            remote.m_status
-        );
-        return;
-    }
-    {
-        std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-        m_event_loop->remove_event(remote_fd);
-        m_ssls.erase(remote_fd);
-        m_ssl_handshakes.erase(remote_fd);
-        if (m_remotes.at(remote_fd).m_ref_count <= 0) {
-            m_remotes.erase(remote_fd);
-        }
-    }
-    std::cout << std::format("Erase {} Success\n", remote_fd);
+    // auto& remote = m_remotes.at(remote_fd);
+    // if (remote.m_ref_count != 0 || remote.m_status == true) {
+    //     std::cout << std::format(
+    //         "Erase {} Failed Ref count: {}, status: {}\n",
+    //         remote_fd,
+    //         remote.m_ref_count,
+    //         remote.m_status
+    //     );
+    //     return;
+    // }
+    // {
+    //     std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
+    //     m_event_loop->remove_event(remote_fd);
+    //     m_ssls.erase(remote_fd);
+    //     m_ssl_handshakes.erase(remote_fd);
+    //     if (m_remotes.at(remote_fd).m_ref_count <= 0) {
+    //         m_remotes.erase(remote_fd);
+    //     }
+    // }
+    // std::cout << std::format("Erase {} Success\n", remote_fd);
 }
 
 void SSLServer::add_remote_event(int client_fd) {
@@ -402,8 +367,10 @@ void SSLServer::add_remote_event(int client_fd) {
             return;
         }
         {
-            std::shared_lock<std::shared_mutex> lock(m_remotes_mutex);
-            RemoteTarget& remote_target = m_remotes.at(client_fd);
+            auto event = m_event_loop->get_event(client_fd);
+            if (event == nullptr) {
+                return;
+            }
             if (!handle_ssl_handshake(remote_target)) {
                 return;
             }

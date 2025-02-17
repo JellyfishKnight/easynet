@@ -21,7 +21,7 @@ public:
 
     virtual ~RemoteTarget() {
         if (m_status.load()) {
-            ::close(m_client_fd);
+            close_remote();
         }
     }
 
@@ -29,7 +29,7 @@ public:
         return m_status.load();
     }
 
-    void close_remote() {
+    virtual void close_remote() {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_status.load()) {
             m_status.store(false);
