@@ -69,7 +69,7 @@ class SSLRemoteTarget: public RemoteTarget {
 public:
     NET_DECLARE_PTRS(SSLRemoteTarget)
 
-    SSLRemoteTarget(int fd, std::shared_ptr<SSL> ssl): RemoteTarget(fd), m_ssl(ssl) {}
+    explicit SSLRemoteTarget(int fd, std::shared_ptr<SSL> ssl): RemoteTarget(fd), m_ssl(ssl) {}
 
     std::shared_ptr<SSL> get_ssl() {
         return m_ssl;
@@ -101,7 +101,9 @@ class SSLEvent: public Event {
 public:
     NET_DECLARE_PTRS(SSLRemoteTarget)
 
-    SSLEvent(int fd, std::shared_ptr<EventHandler> handler, std::shared_ptr<SSL> ssl): Event(fd, handler), m_ssl(ssl) {}
+    explicit SSLEvent(int fd, std::shared_ptr<EventHandler> handler, std::shared_ptr<SSL> ssl):
+        Event(fd, handler),
+        m_ssl(ssl) {}
 
     std::shared_ptr<SSL> get_ssl() {
         return m_ssl;

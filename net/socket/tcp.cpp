@@ -446,21 +446,6 @@ RemoteTarget::SharedPtr TcpServer::create_remote(int remote_fd) {
     return std::make_shared<RemoteTarget>(remote_fd);
 }
 
-void TcpServer::try_erase_remote(int remote_fd) {
-    // erase expired remotes
-    // auto& remote = m_remotes.at(remote_fd);
-    // if (remote.m_ref_count != 0 || remote.m_status == true) {
-    //     return;
-    // }
-    // {
-    //     std::unique_lock<std::shared_mutex> lock(m_remotes_mutex);
-    //     m_event_loop->remove_event(remote_fd);
-    //     if (m_remotes.at(remote_fd).m_ref_count <= 0) {
-    //         m_remotes.erase(remote_fd);
-    //     }
-    // }
-}
-
 std::shared_ptr<TcpServer> TcpServer::get_shared() {
     return std::static_pointer_cast<TcpServer>(SocketServer::get_shared());
 }

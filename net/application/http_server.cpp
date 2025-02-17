@@ -112,21 +112,21 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
 }
 
 void HttpServer::set_handler() {
-    auto handler_thread_func = [this](const RemoteTarget& remote) {
+    auto handler_thread_func = [this](RemoteTarget::SharedPtr remote) {
         {
             std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
-            if (!m_parsers.contains(remote.m_client_fd)) {
-                m_parsers.insert({ remote.m_client_fd, std::make_shared<HttpParser>() });
+            if (!m_parsers.contains(remote->fd())) {
+                m_parsers.insert({ remote->fd(), std::make_shared<HttpParser>() });
             }
         }
-        auto& parser = m_parsers.at(remote.m_client_fd);
+        auto& parser = m_parsers.at(remote->fd());
         // parse request
         std::vector<uint8_t> req(1024);
         std::vector<uint8_t> res;
         auto err = m_server->read(req, remote);
         if (err.has_value()) {
             std::cerr << std::format("Failed to read from socket: {}\n", err.value()) << std::endl;
-            erase_parser(remote.m_client_fd);
+            erase_parser(remote->fd());
             return;
         }
         std::optional<HttpRequest> req_opt;
@@ -183,7 +183,7 @@ void HttpServer::set_handler() {
             auto err = m_server->write(res, remote);
             if (err.has_value()) {
                 std::cerr << std::format("Failed to write to socket: {}\n", err.value());
-                erase_parser(remote.m_client_fd);
+                erase_parser(remote->fd());
                 break;
             }
         }

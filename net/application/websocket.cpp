@@ -328,22 +328,22 @@ std::optional<std::string> WebSocketServer::accept_ws_connection(const HttpReque
 }
 
 void WebSocketServer::set_handler() {
-    auto http_handler = [this](const RemoteTarget& remote) {
+    auto http_handler = [this](RemoteTarget::SharedPtr remote) {
         std::vector<uint8_t> req(1024);
         std::vector<uint8_t> res;
         auto err = m_server->read(req, remote);
         if (err.has_value()) {
             std::cerr << "Failed to read from socket: " << err.value() << std::endl;
-            erase_parser(remote.m_client_fd);
+            erase_parser(remote->fd());
             return;
         }
 
         HttpRequest request;
         HttpResponse response;
-        if (!m_parsers.contains(remote.m_client_fd)) {
-            m_parsers.insert({ remote.m_client_fd, std::make_shared<HttpParser>() });
+        if (!m_parsers.contains(remote->fd())) {
+            m_parsers.insert({ remote->fd(), std::make_shared<HttpParser>() });
         }
-        auto& parser = m_parsers.at(remote.m_client_fd);
+        auto& parser = m_parsers.at(remote->fd());
         parser->add_req_read_buffer(req);
         while (true) {
             auto req_opt = parser->read_req();
@@ -361,10 +361,10 @@ void WebSocketServer::set_handler() {
                 if (request.headers().at("upgrade") == "websocket" && request.headers().at("connection") == "Upgrade") {
                     {
                         std::lock_guard<std::mutex> lock_guard(m_ws_parsers_mutex);
-                        if (!m_ws_parsers.contains(remote.m_client_fd)) {
-                            m_ws_parsers.insert({ remote.m_client_fd, std::make_shared<WebSocketParser>() });
+                        if (!m_ws_parsers.contains(remote->fd())) {
+                            m_ws_parsers.insert({ remote->fd(), std::make_shared<WebSocketParser>() });
                         }
-                        m_ws_connections_flag.insert(remote.m_client_fd);
+                        m_ws_connections_flag.insert(remote->fd());
                     }
                     auto err = accept_ws_connection(request, res);
                     if (err.has_value()) {
@@ -384,7 +384,7 @@ void WebSocketServer::set_handler() {
                 err = m_server->write(res, remote);
                 if (err.has_value()) {
                     std::cerr << "Failed to write to socket: " << err.value() << std::endl;
-                    erase_parser(remote.m_client_fd);
+                    erase_parser(remote->fd());
                     return;
                 }
                 break;
@@ -431,15 +431,15 @@ void WebSocketServer::set_handler() {
             err = m_server->write(res, remote);
             if (err.has_value()) {
                 std::cerr << "Failed to write to socket: " << err.value() << std::endl;
-                erase_parser(remote.m_client_fd);
+                erase_parser(remote->fd());
                 return;
             }
         };
     };
 
-    auto handler = [this, http_handler](const RemoteTarget& remote) {
+    auto handler = [this, http_handler](RemoteTarget::SharedPtr remote) {
         // parse request
-        if (m_ws_connections_flag.contains(remote.m_client_fd)) {
+        if (m_ws_connections_flag.contains(remote->fd())) {
             m_ws_handler(remote);
         } else {
             http_handler(remote);
@@ -465,7 +465,7 @@ WebSocketStatus WebSocketServer::ws_status() const {
     return m_websocket_status;
 }
 
-void WebSocketServer::add_websocket_handler(std::function<void(const RemoteTarget& remote)> handler) {
+void WebSocketServer::add_websocket_handler(std::function<void(RemoteTarget::SharedPtr remote)> handler) {
     m_ws_handler = std::move(handler);
 }
 
@@ -478,17 +478,18 @@ std::shared_ptr<WebSocketServer> WebSocketServer::get_shared() {
 }
 
 std::optional<std::string>
-WebSocketServer::write_websocket_frame(const WebSocketFrame& frame, const RemoteTarget& remote) {
-    assert(m_ws_connections_flag.contains(remote.m_client_fd) && "RemoteTarget is not a websocket connection");
+WebSocketServer::write_websocket_frame(const WebSocketFrame& frame, RemoteTarget::SharedPtr remote) {
+    assert(m_ws_connections_flag.contains(remote->fd()) && "RemoteTarget is not a websocket connection");
     std::vector<uint8_t> data;
-    auto parser = m_ws_parsers.at(remote.m_client_fd);
+    auto parser = m_ws_parsers.at(remote->fd());
     data = parser->write_frame(frame);
     return m_server->write(data, remote);
 }
 
-std::optional<std::string> WebSocketServer::read_websocket_frame(WebSocketFrame& frame, const RemoteTarget& remote) {
-    assert(m_ws_connections_flag.contains(remote.m_client_fd) && "RemoteTarget is not a websocket connection");
-    auto parser = m_ws_parsers.at(remote.m_client_fd);
+std::optional<std::string>
+WebSocketServer::read_websocket_frame(WebSocketFrame& frame, RemoteTarget::SharedPtr remote) {
+    assert(m_ws_connections_flag.contains(remote->fd()) && "RemoteTarget is not a websocket connection");
+    auto parser = m_ws_parsers.at(remote->fd());
     std::vector<uint8_t> data(1024);
     auto err = m_server->read(data, remote);
     if (err.has_value()) {

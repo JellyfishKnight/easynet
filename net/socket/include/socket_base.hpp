@@ -153,8 +153,6 @@ protected:
 
     virtual RemoteTarget::SharedPtr create_remote(int remote_fd) = 0;
 
-    virtual void try_erase_remote(int remote_fd) = 0;
-
     virtual void add_remote_event(int fd) = 0;
 
     std::optional<std::string>

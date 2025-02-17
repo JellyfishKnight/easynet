@@ -137,7 +137,7 @@
 //     return std::nullopt;
 // }
 
-// std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn) {
+// std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
 //     addressResolver::address client_addr;
 //     ssize_t num_bytes =
 //         ::recvfrom(m_listen_fd, data.data(), data.size(), 0, &client_addr.m_addr, &client_addr.m_addr_len);
@@ -153,24 +153,24 @@
 //         }
 //         return "Connection reset by peer while reading";
 //     }
-//     if (conn == nullptr) {
-//         conn = std::make_shared<RemoteTarget>();
+//     if (remote == nullptr) {
+//         remote = std::make_shared<RemoteTarget>();
 //     }
-//     conn->m_addr.m_addr = client_addr.m_addr;
-//     conn->m_addr.m_addr_len = client_addr.m_addr_len;
-//     conn->m_server_fd = m_listen_fd;
-//     conn->m_status = SocketStatus::CONNECTED;
-//     conn->m_server_ip = m_ip;
-//     conn->m_server_service = m_service;
-//     conn->m_client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
-//     conn->m_client_service = std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
+//     remote->m_addr.m_addr = client_addr.m_addr;
+//     remote->m_addr.m_addr_len = client_addr.m_addr_len;
+//     remote->m_server_fd = m_listen_fd;
+//     remote->m_status = SocketStatus::CONNECTED;
+//     remote->m_server_ip = m_ip;
+//     remote->m_server_service = m_service;
+//     remote->m_client_ip = ::inet_ntoa(((struct sockaddr_in*)&client_addr.m_addr)->sin_addr);
+//     remote->m_client_service = std::to_string(ntohs(((struct sockaddr_in*)&client_addr.m_addr)->sin_port));
 //     return std::nullopt;
 // }
 
-// std::optional<std::string> UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn) {
-//     assert(conn != nullptr && "RemoteTarget is nullptr");
+// std::optional<std::string> UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+//     assert(remote != nullptr && "RemoteTarget is nullptr");
 //     ssize_t num_bytes =
-//         ::sendto(m_listen_fd, data.data(), data.size(), 0, &conn->m_addr.m_addr, conn->m_addr.m_addr_len);
+//         ::sendto(m_listen_fd, data.data(), data.size(), 0, &remote->m_addr.m_addr, remote->m_addr.m_addr_len);
 //     if (num_bytes == -1) {
 //         if (m_logger_set) {
 //             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
@@ -187,12 +187,12 @@
 // }
 
 // [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-// UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+// UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr remote) {
 //     return std::nullopt;
 // }
 
 // [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-// UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) {
+// UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr remote) {
 //     return std::nullopt;
 // }
 
@@ -223,9 +223,9 @@
 //                 }
 //                 for (int i = 0; i < num_events; ++i) {
 //                     if (m_events[i].events & EPOLLIN) {
-//                         RemoteTarget::SharedPtr conn = std::make_shared<RemoteTarget>();
+//                         RemoteTarget::SharedPtr remote = std::make_shared<RemoteTarget>();
 //                         std::vector<uint8_t> buffer(1024);
-//                         auto err = this->read(buffer, conn);
+//                         auto err = this->read(buffer, remote);
 //                         if (err.has_value()) {
 //                             if (m_logger_set) {
 //                                 NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", err.value());
@@ -233,21 +233,21 @@
 //                             std::cerr << std::format("Failed to read from socket: {}\n", err.value());
 //                             continue;
 //                         }
-//                         m_connections.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, conn);
+//                         m_connections.insert_or_assign({ remote->m_client_ip, remote->m_client_service }, remote);
 
-//                         auto task = [b = std::move(buffer), conn, this]() {
+//                         auto task = [b = std::move(buffer), remote, this]() {
 //                             std::vector<uint8_t> res, req = b;
-//                             m_message_handler(res, req, conn);
+//                             m_message_handler(res, req, remote);
 //                             if (res.empty()) {
 //                                 return;
 //                             }
-//                             auto err = this->write(res, conn);
+//                             auto err = this->write(res, remote);
 //                             if (err.has_value()) {
 //                                 if (m_logger_set) {
 //                                     NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", err.value());
 //                                 }
 //                                 std::cerr << std::format("Failed to write to socket: {}\n", err.value());
-//                                 m_connections.erase({ conn->m_client_ip, conn->m_client_service });
+//                                 m_connections.erase({ remote->m_client_ip, remote->m_client_service });
 //                             }
 //                         };
 
@@ -264,9 +264,9 @@
 //         m_accept_thread = std::thread([this]() {
 //             while (!m_stop) {
 //                 // receive is handled by main thread, and compute is handled by thread pool
-//                 RemoteTarget::SharedPtr conn = std::make_shared<RemoteTarget>();
+//                 RemoteTarget::SharedPtr remote = std::make_shared<RemoteTarget>();
 //                 std::vector<uint8_t> buffer(1024);
-//                 auto err = this->read(buffer, conn);
+//                 auto err = this->read(buffer, remote);
 //                 if (err.has_value()) {
 //                     if (m_logger_set) {
 //                         NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", err.value());
@@ -274,21 +274,21 @@
 //                     std::cerr << std::format("Failed to read from socket: {}\n", err.value());
 //                     continue;
 //                 }
-//                 m_connections.insert_or_assign({ conn->m_client_ip, conn->m_client_service }, conn);
+//                 m_connections.insert_or_assign({ remote->m_client_ip, remote->m_client_service }, remote);
 //                 // handle func of udp server shall only been exeute once
-//                 auto handle_func = [this, buffer_capture = std::move(buffer), conn]() {
+//                 auto handle_func = [this, buffer_capture = std::move(buffer), remote]() {
 //                     std::vector<uint8_t> res, req = buffer_capture;
-//                     m_message_handler(res, req, conn);
+//                     m_message_handler(res, req, remote);
 //                     if (res.empty()) {
 //                         return;
 //                     }
-//                     auto err = this->write(res, conn);
+//                     auto err = this->write(res, remote);
 //                     if (err.has_value()) {
 //                         if (m_logger_set) {
 //                             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", err.value());
 //                         }
 //                         std::cerr << std::format("Failed to write to socket: {}\n", err.value());
-//                         m_connections.erase({ conn->m_client_ip, conn->m_client_service });
+//                         m_connections.erase({ remote->m_client_ip, remote->m_client_service });
 //                     }
 //                 };
 //                 if (m_thread_pool) {
@@ -307,7 +307,7 @@
 // }
 
 // [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-// UdpServer::on_start(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) {}
+// UdpServer::on_start(std::function<void(RemoteTarget::ConstSharedPtr remote)> handler) {}
 
 // void UdpServer::on_message(
 //     std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, RemoteTarget::ConstSharedPtr)> handler

@@ -33,18 +33,18 @@ int main() {
             return 1;
         }
 
-        auto handler = [server](const net::RemoteTarget& conn) {
+        auto handler = [server](net::RemoteTarget::SharedPtr remote) {
             std::vector<uint8_t> req;
-            auto err = server->read(req, conn);
+            auto err = server->read(req, remote);
             if (err.has_value()) {
-                std::cerr << std::format("Failed to read from socket {} : {}\n", conn.m_client_fd, err.value());
+                std::cerr << std::format("Failed to read from socket {} : {}\n", remote->fd(), err.value());
                 return;
             }
             assert(req.size() > 0);
             std::vector<uint8_t> res { req.begin(), req.end() };
-            auto err_write = server->write(res, conn);
+            auto err_write = server->write(res, remote);
             if (err_write.has_value()) {
-                std::cerr << std::format("Failed to write to socket {} : {}\n", conn.m_client_fd, err.value());
+                std::cerr << std::format("Failed to write to socket {} : {}\n", remote->fd(), err.value());
                 return;
             }
         };

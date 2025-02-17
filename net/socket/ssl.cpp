@@ -387,7 +387,8 @@ void SSLServer::add_remote_event(int client_fd) {
             auto unused = std::async(std::launch::async, [this, event]() { this->m_on_error(event); });
         }
     };
-    auto client_event = std::make_shared<SSLEvent>(client_fd, client_event_handler, m_ctx);
+    auto ssl = std::shared_ptr<SSL>(SSL_new(m_ctx->get().get()), [](SSL* ssl) { SSL_free(ssl); });
+    auto client_event = std::make_shared<SSLEvent>(client_fd, client_event_handler, ssl);
     m_event_loop->add_event(client_event);
     if (m_on_accept) {
         try {

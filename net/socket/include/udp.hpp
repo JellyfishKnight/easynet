@@ -67,23 +67,23 @@
 //     /**
 //      * @brief read message from client
 //      * @param data the buffer to store the message
-//      * @param conn the connection object representing the client
+//      * @param remote the connection object representing the client
 //      * @return std::optional<std::string> error message if any
 //      * @note if the 2nd param is null, it's broadcasting to every client saved on this server
 //      */
-//     std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn);
+//     std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote);
 
-//     std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr conn);
+//     std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote);
 
 //     void
 //     on_message(std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, RemoteTarget::ConstSharedPtr)> handler);
 
 // protected:
 //     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-//     on_start(std::function<void(RemoteTarget::ConstSharedPtr conn)> handler) override;
+//     on_start(std::function<void(RemoteTarget::ConstSharedPtr remote)> handler) override;
 
 //     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] void
-//     handle_connection(RemoteTarget::SharedPtr conn) override;
+//     handle_connection(RemoteTarget::SharedPtr remote) override;
 
 //     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
 //     listen() override;
@@ -92,10 +92,10 @@
 //     start() override;
 
 //     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-//     read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
+//     read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr remote) override;
 
 //     [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
-//     write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr conn) override;
+//     write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr remote) override;
 
 //     std::function<void(std::vector<uint8_t>&, std::vector<uint8_t>&, RemoteTarget::ConstSharedPtr)> m_message_handler;
 // };

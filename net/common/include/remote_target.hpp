@@ -17,7 +17,7 @@ class RemoteTarget {
 public:
     NET_DECLARE_PTRS(RemoteTarget)
 
-    RemoteTarget(int fd): m_client_fd(fd) {}
+    explicit RemoteTarget(int fd): m_client_fd(fd) {}
 
     virtual ~RemoteTarget() {
         if (m_status.load()) {
@@ -53,7 +53,7 @@ public:
 
     void add_remote(std::shared_ptr<RemoteTarget> remote) {
         std::lock_guard<std::mutex> lock(m_mtx);
-        remotes[remote->fd()] = std::make_shared<RemoteTarget>(std::move(remote));
+        remotes[remote->fd()] = remote;
     }
 
     void remove_remote(int fd) {

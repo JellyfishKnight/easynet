@@ -67,7 +67,6 @@ std::optional<std::string> SocketClient::set_non_blocking_socket(int fd) {
     return std::nullopt;
 }
 
-
 /********************************************************************************/
 /********************************************************************************/
 /*********************************Socket Server**********************************/
@@ -115,7 +114,7 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type, i
     return std::nullopt;
 }
 
-void SocketServer::on_start(std::function<void(const RemoteTarget&)> handler) {
+void SocketServer::on_start(std::function<void(RemoteTarget::SharedPtr)> handler) {
     m_accept_handler = handler;
 }
 

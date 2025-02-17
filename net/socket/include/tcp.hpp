@@ -66,8 +66,6 @@ protected:
 
     RemoteTarget::SharedPtr create_remote(int remote_fd) override;
 
-    void try_erase_remote(int remote_fd) override;
-
     void add_remote_event(int fd) override;
 };
 
