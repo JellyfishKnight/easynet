@@ -65,14 +65,15 @@ int main() {
     net::Timer timer;
     timer.set_rate(10);
     while (true) {
-        // timer.sleep();
-        // std::string input;
-        // std::cin >> input;
-        // std::cout << "Received input: " << input << std::endl;
-        // if (input == "exit") {
-        //     server->close();
-        //     break;
-        // }
+        timer.sleep();
+        std::string input;
+        std::cin >> input;
+        if (input == "exit") {
+            std::cout << "Close" << std::endl;
+            server->close();
+            std::cout << "Close" << std::endl;
+            break;
+        }
     };
 
     std::cout << "Server stopped" << std::endl;
