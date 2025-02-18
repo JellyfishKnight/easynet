@@ -192,7 +192,6 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
     auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
     int num_bytes;
     data.clear();
-    int i = 0;
     do {
         std::vector<uint8_t> read_buffer(1024);
         num_bytes = SSL_read(ssl_remote->get_ssl().get(), read_buffer.data(), read_buffer.size());

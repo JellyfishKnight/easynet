@@ -192,6 +192,9 @@ void EpollEventLoop::wait_for_events() {
 
     for (int i = 0; i < num_events; ++i) {
         auto event = get_event(events[i].data.fd);
+        if (event == nullptr) {
+            continue;
+        }
         if (events[i].events & EPOLLIN) {
             event->on_read();
         }
