@@ -30,7 +30,7 @@ int main() {
 
     auto err = client->connect();
     if (err.has_value()) {
-        std::cerr << "Failed to connect to server: " << err.value() << std::endl;
+        std::cerr << "Failed to connect to server: " << err.value().msg << std::endl;
         return 1;
     }
 

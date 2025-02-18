@@ -32,7 +32,7 @@ int main() {
 
     auto err = server.listen();
     if (err.has_value()) {
-        std::cout << "Failed to listening: " + err.value() << std::endl;
+        std::cout << "Failed to listening: " + err.value().msg << std::endl;
         return 1;
     }
 

@@ -32,7 +32,8 @@ TcpClient::TcpClient(const std::string& ip, const std::string& service) {
     m_fd = ::socket(AF_INET, ::SOCK_STREAM, 0);
     if (m_fd == -1) {
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
+            auto error = GET_ERROR_MSG();
+            NET_LOG_ERROR(m_logger, "Failed to create socket: {}", error.msg);
         }
         throw std::system_error(errno, std::system_category(), "Failed to create socket");
     }
@@ -45,13 +46,13 @@ TcpClient::TcpClient(const std::string& ip, const std::string& service) {
     set_non_blocking_socket(m_fd);
 }
 
-std::optional<std::string> TcpClient::connect(std::size_t time_out) {
+std::optional<NetError> TcpClient::connect(std::size_t time_out) {
     if (time_out == 0) {
         while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
             if (errno == EALREADY || errno == EINPROGRESS) {
                 continue;
             } else {
-                return get_error_msg();
+                return GET_ERROR_MSG();
             }
         }
         m_status = SocketStatus::CONNECTED;
@@ -62,30 +63,34 @@ std::optional<std::string> TcpClient::connect(std::size_t time_out) {
     timer.async_start_timing();
     while (::connect(m_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
         if (errno != EALREADY && errno != EINPROGRESS) {
+            auto error = GET_ERROR_MSG();
             if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to connect to socket: {}", get_error_msg());
+                NET_LOG_ERROR(m_logger, "Failed to connect to socket: {}", error.msg);
             }
-            return get_error_msg();
+            return error;
         }
         if (timer.timeout()) {
+            auto error = GET_ERROR_MSG();
             if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Timeout to connect to socket, last error: {}", get_error_msg());
+                NET_LOG_ERROR(m_logger, "Timeout to connect to socket, last error: {}", error.msg);
             }
-            return std::format("Timeout to connect to socket, last error: {}", get_error_msg());
+            return NetError { NET_TIMEOUT_CODE,
+                              std::format("Timeout to connect to socket, last error: {}", error.msg) };
         }
     }
     m_status = SocketStatus::CONNECTED;
     return std::nullopt;
 }
 
-std::optional<std::string> TcpClient::connect_with_retry(std::size_t time_out, std::size_t retry_time_limit) {
+std::optional<NetError> TcpClient::connect_with_retry(std::size_t time_out, std::size_t retry_time_limit) {
     std::size_t tried_time = 0;
     while (true) {
         if (tried_time++ >= retry_time_limit) {
+            auto error = GET_ERROR_MSG();
             if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to connect to socket: {}", get_error_msg());
+                NET_LOG_ERROR(m_logger, "Failed to connect to socket: {}", error.msg);
             }
-            return get_error_msg();
+            return error;
         }
         auto ret = this->connect(time_out);
         if (!ret.has_value()) {
@@ -95,18 +100,19 @@ std::optional<std::string> TcpClient::connect_with_retry(std::size_t time_out, s
     return std::nullopt;
 }
 
-std::optional<std::string> TcpClient::close() {
+std::optional<NetError> TcpClient::close() {
     if (::close(m_fd) == -1) {
+        auto error = GET_ERROR_MSG();
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to close socket: {}", get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to close socket: {}", error.msg);
         }
-        return get_error_msg();
+        return error;
     }
     m_status = SocketStatus::DISCONNECTED;
     return std::nullopt;
 }
 
-std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size_t time_out) {
+std::optional<NetError> TcpClient::read(std::vector<uint8_t>& data, std::size_t time_out) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     data.clear();
     ssize_t num_bytes;
@@ -121,7 +127,7 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Timeout to read from socket");
             }
-            return "Timeout to read from socket";
+            return NetError { NET_TIMEOUT_CODE, "Timeout to read from socket" };
         }
         std::vector<uint8_t> buffer(1024);
         num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
@@ -132,16 +138,17 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size
                 }
                 break;
             }
+            auto error = GET_ERROR_MSG();
             if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+                NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", error.msg);
             }
-            return get_error_msg();
+            return error;
         }
         if (num_bytes == 0) {
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
             }
-            return "Connection reset by peer while reading";
+            return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while reading" };
         }
         buffer.resize(num_bytes);
         std::copy(buffer.begin(), buffer.end(), std::back_inserter(data));
@@ -149,7 +156,7 @@ std::optional<std::string> TcpClient::read(std::vector<uint8_t>& data, std::size
     return std::nullopt;
 }
 
-std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data, std::size_t time_out) {
+std::optional<NetError> TcpClient::write(const std::vector<uint8_t>& data, std::size_t time_out) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
     size_t bytes_has_send = 0;
@@ -164,7 +171,7 @@ std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data, st
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Timeout to write to socket");
             }
-            return "Timeout to write to socket";
+            return NetError { NET_TIMEOUT_CODE, "Timeout to write to socket" };
         }
         ssize_t num_bytes = ::send(m_fd, data.data() + bytes_has_send, data.size() - bytes_has_send, 0);
         if (num_bytes == -1) {
@@ -176,26 +183,27 @@ std::optional<std::string> TcpClient::write(const std::vector<uint8_t>& data, st
                     if (m_logger_set) {
                         NET_LOG_WARN(m_logger, "early end of socket");
                     }
-                    return "early end of socket";
+                    return NetError { NET_EARLY_END_OF_SOCKET, "early end of socket" };
                 }
+                auto error = GET_ERROR_MSG();
+                if (m_logger_set) {
+                    NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", error.msg);
+                }
+                return error;
             }
-            if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+            if (num_bytes == 0) {
+                if (m_logger_set) {
+                    NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+                }
+                return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while writing" };
             }
-            return get_error_msg();
-        }
-        if (num_bytes == 0) {
-            if (m_logger_set) {
-                NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
+            bytes_has_send += num_bytes;
+            if (bytes_has_send >= data.size()) {
+                return std::nullopt;
             }
-            return "Connection reset by peer while writing";
-        }
-        bytes_has_send += num_bytes;
-        if (bytes_has_send >= data.size()) {
-            return std::nullopt;
-        }
-    };
-    return std::nullopt;
+        };
+        return std::nullopt;
+    }
 }
 
 std::shared_ptr<TcpClient> TcpClient::get_shared() {
@@ -231,33 +239,36 @@ TcpServer::~TcpServer() {
     }
 }
 
-std::optional<std::string> TcpServer::listen() {
+std::optional<NetError> TcpServer::listen() {
     int opt = 1;
     auto ret = ::setsockopt(m_listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     if (ret == -1) {
+        auto error = GET_ERROR_MSG();
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to set socket options: {}", get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to set socket options: {}", error.msg);
         }
-        return get_error_msg();
+        return error;
     }
     if (::bind(m_listen_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
+        auto error = GET_ERROR_MSG();
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to bind socket: {}", get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to bind socket: {}", error.msg);
         }
-        return get_error_msg();
+        return error;
     }
     if (::listen(m_listen_fd, 10) == -1) {
+        auto error = GET_ERROR_MSG();
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to listen on socket: {}", get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to listen on socket: {}", error.msg);
         }
-        return get_error_msg();
+        return error;
     }
 
     m_status = SocketStatus::LISTENING;
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::close() {
+std::optional<NetError> TcpServer::close() {
     m_stop = true;
     m_accept_thread.join();
     m_event_loop.reset();
@@ -266,16 +277,17 @@ std::optional<std::string> TcpServer::close() {
         m_thread_pool.reset();
     }
     if (::close(m_listen_fd) == -1) {
+        auto error = GET_ERROR_MSG();
         if (m_logger_set) {
-            NET_LOG_ERROR(m_logger, "Failed to close socket: {}", get_error_msg());
+            NET_LOG_ERROR(m_logger, "Failed to close socket: {}", error.msg);
         }
-        return get_error_msg();
+        return error;
     }
     m_status = SocketStatus::DISCONNECTED;
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::start() {
+std::optional<NetError> TcpServer::start() {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(m_accept_handler != nullptr && "No handler set");
     m_stop = false;
@@ -287,12 +299,12 @@ std::optional<std::string> TcpServer::start() {
                     NET_LOG_ERROR(
                         m_logger,
                         "Failed to set non-blocking socket to listen fd, server will not start: {}",
-                        err.value()
+                        err.value().msg
                     );
                 }
                 std::cerr << std::format(
                     "Failed to set non-blocking socket to listen fd, server will not start: {}\n",
-                    err.value()
+                    err.value().msg
                 );
                 return;
             }
@@ -305,28 +317,30 @@ std::optional<std::string> TcpServer::start() {
                         if (errno == EAGAIN || errno == EWOULDBLOCK) {
                             break;
                         }
+                        auto error = GET_ERROR_MSG();
                         if (m_logger_set) {
-                            NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
+                            NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", error.msg);
                         }
-                        std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
+                        std::cerr << std::format("Failed to accept RemoteTarget: {}\n", error.msg);
                         continue;
                     }
                     auto err = set_non_blocking_socket(client_fd);
                     if (err.has_value()) {
                         if (m_logger_set) {
-                            NET_LOG_ERROR(m_logger, "Failed to set non-blocking socket: {}", err.value());
+                            NET_LOG_ERROR(m_logger, "Failed to set non-blocking socket: {}", err.value().msg);
                         }
-                        std::cerr << std::format("Failed to set non-blocking socket: {}\n", err.value());
+                        std::cerr << std::format("Failed to set non-blocking socket: {}\n", err.value().msg);
                         return;
                     }
                     add_remote_event(client_fd);
                 }
             };
             server_event_handler->m_on_error = [this](int server_fd) {
+                auto error = GET_ERROR_MSG();
                 if (m_logger_set) {
-                    NET_LOG_ERROR(m_logger, "Error on server socket: {}", get_error_msg());
+                    NET_LOG_ERROR(m_logger, "Error on server socket: {}", error.msg);
                 }
-                std::cerr << std::format("Error on server socket: {}\n", get_error_msg());
+                std::cerr << std::format("Error on server socket: {}\n", error.msg);
                 this->close();
             };
             auto server_event = std::make_shared<Event>(m_listen_fd, server_event_handler);
@@ -335,7 +349,7 @@ std::optional<std::string> TcpServer::start() {
                 try {
                     m_event_loop->wait_for_events();
                 } catch (std::runtime_error& e) {
-                    std::cerr << std::format("Failed to waiting for events: {}\n", get_error_msg()) << std::endl;
+                    std::cerr << std::format("Failed to waiting for events: {}\n", e.what()) << std::endl;
                 }
             }
         });
@@ -345,10 +359,11 @@ std::optional<std::string> TcpServer::start() {
                 addressResolver::address client_addr;
                 int client_fd = ::accept(m_listen_fd, &client_addr.m_addr, &client_addr.m_addr_len);
                 if (client_fd == -1) {
+                    auto error = GET_ERROR_MSG();
                     if (m_logger_set) {
-                        NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", get_error_msg());
+                        NET_LOG_ERROR(m_logger, "Failed to accept RemoteTarget: {}", error.msg);
                     }
-                    std::cerr << std::format("Failed to accept RemoteTarget: {}\n", get_error_msg());
+                    std::cerr << std::format("Failed to accept RemoteTarget: {}\n", error.msg);
                     continue;
                 }
                 m_remotes.add_remote(create_remote(client_fd));
@@ -365,7 +380,7 @@ std::optional<std::string> TcpServer::start() {
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+std::optional<NetError> TcpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
     ssize_t num_bytes;
     data.clear();
     do {
@@ -374,32 +389,29 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTar
         if (num_bytes == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if (data.size() <= 0) {
+                    auto error = GET_ERROR_MSG();
                     if (m_logger_set) {
-                        NET_LOG_ERROR(
-                            m_logger,
-                            "Failed to read from socket {} (Epoll) : {}",
-                            remote->fd(),
-                            get_error_msg()
-                        );
+                        NET_LOG_ERROR(m_logger, "Failed to read from socket {} (Epoll) : {}", remote->fd(), error.msg);
                     }
                     if (m_event_loop) {
                         m_event_loop->remove_event(remote->fd());
                     } else {
                         m_remotes.remove_remote(remote->fd());
                     }
-                    return get_error_msg();
+                    return error;
                 }
                 break;
             } else {
+                auto error = GET_ERROR_MSG();
                 if (m_logger_set) {
-                    NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote->fd(), get_error_msg());
+                    NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote->fd(), error.msg);
                 }
                 if (m_event_loop) {
                     m_event_loop->remove_event(remote->fd());
                 } else {
                     m_remotes.remove_remote(remote->fd());
                 }
-                return get_error_msg();
+                return error;
             }
         }
         if (num_bytes == 0) {
@@ -411,7 +423,7 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTar
             } else {
                 m_remotes.remove_remote(remote->fd());
             }
-            return "Connection reset by peer while reading";
+            return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while reading" };
         }
         if (num_bytes > 0) {
             read_buffer.resize(num_bytes);
@@ -421,7 +433,7 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTar
     return std::nullopt;
 }
 
-std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+std::optional<NetError> TcpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     ssize_t num_bytes;
@@ -429,15 +441,16 @@ std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, Re
     do {
         num_bytes = ::send(remote->fd(), data.data() + bytes_has_send, data.size() - bytes_has_send, MSG_NOSIGNAL);
         if (num_bytes == -1) {
+            auto error = GET_ERROR_MSG();
             if (m_logger_set) {
-                NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote->fd(), get_error_msg());
+                NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote->fd(), error.msg);
             }
             if (m_event_loop) {
                 m_event_loop->remove_event(remote->fd());
             } else {
                 m_remotes.remove_remote(remote->fd());
             }
-            return get_error_msg();
+            return error;
         }
         if (num_bytes == 0) {
             if (m_logger_set) {
@@ -448,7 +461,7 @@ std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, Re
             } else {
                 m_remotes.remove_remote(remote->fd());
             }
-            return "Connection reset by peer while writting";
+            return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while writting" };
         }
         bytes_has_send += num_bytes;
     } while (num_bytes > 0 && m_event_loop && bytes_has_send < data.size());

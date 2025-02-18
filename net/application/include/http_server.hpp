@@ -58,13 +58,13 @@ public:
 
     virtual void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler);
 
-    std::optional<std::string> listen();
+    std::optional<NetError> listen();
 
-    std::optional<std::string> close();
+    std::optional<NetError> close();
 
-    std::optional<std::string> start();
+    std::optional<NetError> start();
 
-    std::optional<std::string> enable_event_loop(EventLoopType type = EventLoopType::EPOLL);
+    std::optional<NetError> enable_event_loop(EventLoopType type = EventLoopType::EPOLL);
 
     void enable_thread_pool(std::size_t worker_num);
 

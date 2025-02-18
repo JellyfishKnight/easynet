@@ -56,13 +56,13 @@ std::shared_ptr<SocketClient> SocketClient::get_shared() {
     return shared_from_this();
 }
 
-std::optional<std::string> SocketClient::set_non_blocking_socket(int fd) {
+std::optional<NetError> SocketClient::set_non_blocking_socket(int fd) {
     int flag = ::fcntl(fd, F_GETFL, 0);
     if (flag == -1) {
-        return get_error_msg();
+        return GET_ERROR_MSG();
     }
     if (::fcntl(fd, F_SETFL, flag | O_NONBLOCK) == -1) {
-        return get_error_msg();
+        return GET_ERROR_MSG();
     }
     return std::nullopt;
 }
@@ -95,7 +95,7 @@ void SocketServer::enable_thread_pool(std::size_t worker_num) {
     m_thread_pool = std::make_shared<utils::ThreadPool>(worker_num);
 }
 
-std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type, int time_out) {
+std::optional<NetError> SocketServer::enable_event_loop(EventLoopType type, int time_out) {
     assert(
         m_status == SocketStatus::DISCONNECTED || m_status == SocketStatus::LISTENING && "Server is already connected"
     );
@@ -109,7 +109,7 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type, i
     } else if (type == EventLoopType::POLL) {
         m_event_loop = std::make_shared<PollEventLoop>(time_out);
     } else {
-        return "Invalid event loop type";
+        return NetError { NET_INVALID_EVENT_LOOP_CODE, "Invalid event loop type" };
     }
     return std::nullopt;
 }
@@ -134,16 +134,6 @@ void SocketServer::on_accept(CallBack handler) {
     m_on_accept = handler;
 }
 
-std::optional<std::string>
-SocketServer::get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info) {
-    if (::getpeername(fd, &info.m_addr, &info.m_addr_len) == 0) {
-        ip = ::inet_ntoa(((struct sockaddr_in*)&info.m_addr)->sin_addr);
-        service = std::to_string(ntohs(((struct sockaddr_in*)&info.m_addr)->sin_port));
-        return std::nullopt;
-    }
-    return std::format("Get peer info failed: {}", get_error_msg());
-}
-
 std::string SocketServer::get_ip() const {
     return m_ip;
 }
@@ -160,13 +150,13 @@ std::shared_ptr<SocketServer> SocketServer::get_shared() {
     return shared_from_this();
 }
 
-std::optional<std::string> SocketServer::set_non_blocking_socket(int fd) {
+std::optional<NetError> SocketServer::set_non_blocking_socket(int fd) {
     int flag = ::fcntl(fd, F_GETFL, 0);
     if (flag == -1) {
-        return get_error_msg();
+        return GET_ERROR_MSG();
     }
     if (::fcntl(fd, F_SETFL, flag | O_NONBLOCK) == -1) {
-        return get_error_msg();
+        return GET_ERROR_MSG();
     }
     return std::nullopt;
 }

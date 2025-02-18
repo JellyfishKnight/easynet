@@ -13,8 +13,13 @@ int main() {
     client.connect_server();
 
     net::HttpRequest update_req;
+    net::HttpResponse res;
+    auto err_opt = client.get(res, "/");
+    if (err_opt.has_value()) {
+        std::cout << err_opt.value().msg << std::endl;
+        return 1;
+    }
 
-    auto res = client.get("/");
     std::cout << "Http version: " << res.version() << std::endl;
     std::cout << "Status Code: " << static_cast<int>(res.status_code()) << std::endl;
     std::cout << "Reason: " << res.reason() << std::endl;
@@ -32,7 +37,7 @@ int main() {
             net::WebSocketFrame frame;
             auto err = client.read_ws(frame);
             if (err.has_value()) {
-                std::cout << err.value() << std::endl;
+                std::cout << err.value().msg << std::endl;
                 return;
             }
             std::cout << "Received: " << frame.payload() << std::endl;
@@ -51,7 +56,7 @@ int main() {
 
     auto err = client.upgrade(update_req);
     if (err.has_value()) {
-        std::cout << err.value() << std::endl;
+        std::cout << err.value().msg << std::endl;
         return 1;
     }
 

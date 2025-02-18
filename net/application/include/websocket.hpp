@@ -27,128 +27,146 @@ public:
 
     WebSocketClient(std::shared_ptr<TcpClient> client);
 
-    std::optional<std::string> close();
+    std::optional<NetError> close();
 
-    std::optional<std::string> read_ws(WebSocketFrame& data);
+    std::optional<NetError> read_ws(WebSocketFrame& data);
 
-    std::optional<std::string> write_ws(const WebSocketFrame& data);
+    std::optional<NetError> write_ws(const WebSocketFrame& data);
 
-    std::optional<std::string> upgrade(const HttpRequest& upgrade_req);
+    std::optional<NetError> upgrade(const HttpRequest& upgrade_req);
 
-    virtual HttpResponse
-    get(const std::string& path,
+    virtual std::optional<NetError>
+    get(HttpResponse& response,
+        const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1) override;
 
-    virtual std::future<HttpResponse> async_get(
+    virtual std::future<std::optional<NetError>> async_get(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse post(
-        const std::string& path,
-        const std::string& body,
-        const std::unordered_map<std::string, std::string>& headers = {},
-        const std::string& version = HTTP_VERSION_1_1
-    ) override;
-
-    virtual std::future<HttpResponse> async_post(
+    virtual std::optional<NetError> post(
+        HttpResponse& response,
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse
-    put(const std::string& path,
+    virtual std::future<std::optional<NetError>> async_post(
+        HttpResponse& response,
+        const std::string& path,
+        const std::string& body,
+        const std::unordered_map<std::string, std::string>& headers = {},
+        const std::string& version = HTTP_VERSION_1_1
+    ) override;
+
+    virtual std::optional<NetError>
+    put(HttpResponse& response,
+        const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1) override;
 
-    virtual std::future<HttpResponse> async_put(
+    virtual std::future<std::optional<NetError>> async_put(
+        HttpResponse& response,
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse
-    del(const std::string& path,
+    virtual std::optional<NetError>
+    del(HttpResponse& response,
+        const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1) override;
 
-    virtual std::future<HttpResponse> async_del(
+    virtual std::future<std::optional<NetError>> async_del(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse patch(
-        const std::string& path,
-        const std::string& body,
-        const std::unordered_map<std::string, std::string>& headers = {},
-        const std::string& version = HTTP_VERSION_1_1
-    ) override;
-
-    virtual std::future<HttpResponse> async_patch(
+    virtual std::optional<NetError> patch(
+        HttpResponse& response,
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse head(
+    virtual std::future<std::optional<NetError>> async_patch(
+        HttpResponse& response,
+        const std::string& path,
+        const std::string& body,
+        const std::unordered_map<std::string, std::string>& headers = {},
+        const std::string& version = HTTP_VERSION_1_1
+    ) override;
+
+    virtual std::optional<NetError> head(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual std::future<HttpResponse> async_head(
+    virtual std::future<std::optional<NetError>> async_head(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse options(
+    virtual std::optional<NetError> options(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual std::future<HttpResponse> async_options(
+    virtual std::future<std::optional<NetError>> async_options(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse connect(
+    virtual std::optional<NetError> connect(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& header = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual std::future<HttpResponse> async_connect(
+    virtual std::future<std::optional<NetError>> async_connect(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual HttpResponse trace(
+    virtual std::optional<NetError> trace(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual std::future<HttpResponse> async_trace(
+    virtual std::future<std::optional<NetError>> async_trace(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     ) override;
 
-    virtual std::optional<std::string> write_http(const HttpRequest& req) override;
+    virtual std::optional<NetError> write_http(const HttpRequest& req) override;
 
-    virtual std::optional<std::string> read_http(HttpResponse& res) override;
+    virtual std::optional<NetError> read_http(HttpResponse& res) override;
 
     std::shared_ptr<WebSocketClient> get_shared();
 
@@ -198,12 +216,12 @@ public:
 
     std::shared_ptr<WebSocketServer> get_shared();
 
-    std::optional<std::string> write_websocket_frame(const WebSocketFrame& frame, RemoteTarget::SharedPtr remote);
+    std::optional<NetError> write_websocket_frame(const WebSocketFrame& frame, RemoteTarget::SharedPtr remote);
 
-    std::optional<std::string> read_websocket_frame(WebSocketFrame& frame, RemoteTarget::SharedPtr remote);
+    std::optional<NetError> read_websocket_frame(WebSocketFrame& frame, RemoteTarget::SharedPtr remote);
 
 private:
-    std::optional<std::string> accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res);
+    std::optional<NetError> accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res);
 
     void set_handler() override;
 

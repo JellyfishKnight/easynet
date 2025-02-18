@@ -49,14 +49,13 @@ public:
 
     virtual ~SocketClient() = default;
 
-    virtual std::optional<std::string> connect(std::size_t time_out = 0) = 0;
+    virtual std::optional<NetError> connect(std::size_t time_out = 0) = 0;
 
-    virtual std::optional<std::string>
-    connect_with_retry(std::size_t time_out = 0, std::size_t retry_time_limit = 0) = 0;
+    virtual std::optional<NetError> connect_with_retry(std::size_t time_out = 0, std::size_t retry_time_limit = 0) = 0;
 
-    std::optional<std::string> start_event_loop();
+    std::optional<NetError> start_event_loop();
 
-    virtual std::optional<std::string> close() = 0;
+    virtual std::optional<NetError> close() = 0;
 
     std::shared_ptr<SocketClient> get_shared();
 
@@ -72,12 +71,12 @@ public:
 
     SocketStatus status() const;
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
+    virtual std::optional<NetError> read(std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
+    virtual std::optional<NetError> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
 
 protected:
-    std::optional<std::string> set_non_blocking_socket(int fd);
+    std::optional<NetError> set_non_blocking_socket(int fd);
 
     int m_fd;
     addressResolver m_addr_resolver;
@@ -110,11 +109,11 @@ public:
 
     virtual ~SocketServer() = default;
 
-    virtual std::optional<std::string> listen() = 0;
+    virtual std::optional<NetError> listen() = 0;
 
-    virtual std::optional<std::string> close() = 0;
+    virtual std::optional<NetError> close() = 0;
 
-    virtual std::optional<std::string> start() = 0;
+    virtual std::optional<NetError> start() = 0;
 
     std::shared_ptr<SocketServer> get_shared();
 
@@ -122,7 +121,7 @@ public:
 
     void enable_thread_pool(std::size_t worker_num);
 
-    std::optional<std::string> enable_event_loop(EventLoopType type = EventLoopType::EPOLL, int time_out = -1);
+    std::optional<NetError> enable_event_loop(EventLoopType type = EventLoopType::EPOLL, int time_out = -1);
 
     void set_logger(const utils::LoggerManager::Logger& logger);
 
@@ -144,9 +143,9 @@ public:
 
     void on_start(CallBack handler);
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
+    virtual std::optional<NetError> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
+    virtual std::optional<NetError> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
 
 protected:
     virtual void handle_connection(RemoteTarget::SharedPtr remote) = 0;
@@ -155,10 +154,8 @@ protected:
 
     virtual void add_remote_event(int fd) = 0;
 
-    std::optional<std::string>
-    get_peer_info(int fd, std::string& ip, std::string& service, addressResolver::address& info);
 
-    std::optional<std::string> set_non_blocking_socket(int fd);
+    std::optional<NetError> set_non_blocking_socket(int fd);
 
     int m_listen_fd;
     addressResolver m_addr_resolver;

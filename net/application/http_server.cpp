@@ -67,15 +67,15 @@ void HttpServer::patch(const std::string path, std::function<HttpResponse(const 
     m_handlers.at(HttpMethod::PATCH).insert_or_assign(path, handler);
 }
 
-std::optional<std::string> HttpServer::listen() {
+std::optional<NetError> HttpServer::listen() {
     return m_server->listen();
 }
 
-std::optional<std::string> HttpServer::close() {
+std::optional<NetError> HttpServer::close() {
     return m_server->close();
 }
 
-std::optional<std::string> HttpServer::start() {
+std::optional<NetError> HttpServer::start() {
     return m_server->start();
 }
 
@@ -103,7 +103,7 @@ void HttpServer::enable_thread_pool(std::size_t worker_num) {
     m_server->enable_thread_pool(worker_num);
 }
 
-std::optional<std::string> HttpServer::enable_event_loop(EventLoopType type) {
+std::optional<NetError> HttpServer::enable_event_loop(EventLoopType type) {
     return m_server->enable_event_loop(type);
 }
 
@@ -125,7 +125,7 @@ void HttpServer::set_handler() {
         std::vector<uint8_t> res;
         auto err = m_server->read(req, remote);
         if (err.has_value()) {
-            std::cerr << std::format("Failed to read from socket: {}\n", err.value()) << std::endl;
+            std::cerr << std::format("Failed to read from socket: {}\n", err.value().msg) << std::endl;
             erase_parser(remote->fd());
             return;
         }
@@ -182,7 +182,7 @@ void HttpServer::set_handler() {
             auto res = parser->write_res(response);
             auto err = m_server->write(res, remote);
             if (err.has_value()) {
-                std::cerr << std::format("Failed to write to socket: {}\n", err.value());
+                std::cerr << std::format("Failed to write to socket: {}\n", err.value().msg);
                 erase_parser(remote->fd());
                 break;
             }

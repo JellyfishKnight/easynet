@@ -20,15 +20,15 @@ public:
 
     ~TcpClient();
 
-    std::optional<std::string> connect(std::size_t time_out = 0) override;
+    std::optional<NetError> connect(std::size_t time_out = 0) override;
 
-    std::optional<std::string> connect_with_retry(std::size_t time_out, std::size_t retry_time_limit = 0) override;
+    std::optional<NetError> connect_with_retry(std::size_t time_out, std::size_t retry_time_limit = 0) override;
 
-    std::optional<std::string> close() override;
+    std::optional<NetError> close() override;
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, std::size_t time_out = 0) override;
+    std::optional<NetError> read(std::vector<uint8_t>& data, std::size_t time_out = 0) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) override;
+    std::optional<NetError> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) override;
 
     std::shared_ptr<TcpClient> get_shared();
 };
@@ -49,17 +49,17 @@ public:
 
     ~TcpServer();
 
-    std::optional<std::string> listen() override;
+    std::optional<NetError> listen() override;
 
-    std::optional<std::string> close() override;
+    std::optional<NetError> close() override;
 
-    std::optional<std::string> start() override;
+    std::optional<NetError> start() override;
 
     std::shared_ptr<TcpServer> get_shared();
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
+    std::optional<NetError> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
+    std::optional<NetError> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 
 protected:
     void handle_connection(RemoteTarget::SharedPtr remote) override;

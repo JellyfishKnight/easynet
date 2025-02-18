@@ -32,7 +32,7 @@ SSLClient::SSLClient(std::shared_ptr<SSLContext> ctx, const std::string& ip, con
     SSL_set_fd(m_ssl.get(), m_fd);
 }
 
-std::optional<std::string> SSLClient::ssl_connect(std::size_t time_out) {
+std::optional<NetError> SSLClient::ssl_connect(std::size_t time_out) {
     if (time_out == 0) {
         while (true) {
             int err = SSL_connect(m_ssl.get());
@@ -40,13 +40,13 @@ std::optional<std::string> SSLClient::ssl_connect(std::size_t time_out) {
                 return std::nullopt;
             }
             if (err == 0) {
-                return "Failed to connect to server";
+                return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while ssl connecting" };
             }
             int ssl_error = SSL_get_error(m_ssl.get(), err);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
                 continue;
             }
-            return ERR_error_string(ssl_error, nullptr);
+            return NetError { ssl_error, ERR_error_string(ssl_error, nullptr) };
         }
     }
     Timer timer;
@@ -54,14 +54,14 @@ std::optional<std::string> SSLClient::ssl_connect(std::size_t time_out) {
     timer.async_start_timing();
     while (true) {
         if (timer.timeout()) {
-            return "Timeout to connect to server";
+            return NetError { NET_TIMEOUT_CODE, "Timeout to connect to server" };
         }
         int err = SSL_connect(m_ssl.get());
         if (err == 1) {
             return std::nullopt;
         }
         if (err == 0) {
-            return "Failed to connect to server";
+            return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while ssl connecting" };
         }
         int ssl_error = SSL_get_error(m_ssl.get(), err);
         if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
@@ -70,7 +70,7 @@ std::optional<std::string> SSLClient::ssl_connect(std::size_t time_out) {
     }
 }
 
-std::optional<std::string> SSLClient::connect(std::size_t time_out) {
+std::optional<NetError> SSLClient::connect(std::size_t time_out) {
     auto opt = TcpClient::connect(time_out);
     if (opt.has_value()) {
         return opt.value();
@@ -78,7 +78,7 @@ std::optional<std::string> SSLClient::connect(std::size_t time_out) {
     return ssl_connect(time_out);
 }
 
-std::optional<std::string> SSLClient::connect_with_retry(std::size_t time_out, std::size_t retry_time_limit) {
+std::optional<NetError> SSLClient::connect_with_retry(std::size_t time_out, std::size_t retry_time_limit) {
     auto opt = TcpClient::connect_with_retry(time_out, retry_time_limit);
     if (opt.has_value()) {
         return opt.value();
@@ -86,7 +86,7 @@ std::optional<std::string> SSLClient::connect_with_retry(std::size_t time_out, s
     std::size_t tried_time = 0;
     while (true) {
         if (tried_time++ >= retry_time_limit) {
-            return "Failed to connect to server";
+            return NetError { NET_TIMEOUT_CODE, "Failed to connect to server" };
         }
         auto ret = ssl_connect(time_out);
         if (!ret.has_value()) {
@@ -96,7 +96,7 @@ std::optional<std::string> SSLClient::connect_with_retry(std::size_t time_out, s
     return std::nullopt;
 }
 
-std::optional<std::string> SSLClient::write(const std::vector<uint8_t>& data, std::size_t time_out) {
+std::optional<NetError> SSLClient::write(const std::vector<uint8_t>& data, std::size_t time_out) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     assert(data.size() > 0 && "Data buffer is empty");
     Timer timer;
@@ -108,7 +108,7 @@ std::optional<std::string> SSLClient::write(const std::vector<uint8_t>& data, st
     }
     while (true) {
         if (timer.timeout()) {
-            return "Timeout to write data";
+            return NetError { NET_TIMEOUT_CODE, "Timeout to write data" };
         }
         auto err = SSL_write(m_ssl.get(), data.data(), data.size());
         if (err > 0) {
@@ -117,7 +117,7 @@ std::optional<std::string> SSLClient::write(const std::vector<uint8_t>& data, st
                 return std::nullopt;
             }
         } else if (err == 0) {
-            return "Connection reset by peer while writing";
+            return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while writing" };
         } else {
             int ssl_error = SSL_get_error(m_ssl.get(), err);
             if ((ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE)) {
@@ -126,14 +126,14 @@ std::optional<std::string> SSLClient::write(const std::vector<uint8_t>& data, st
                 }
                 break;
             }
-            return ERR_error_string(ssl_error, nullptr);
+            return NetError { ssl_error, ERR_error_string(ssl_error, nullptr) };
         }
         return std::nullopt;
     }
     return std::nullopt;
 }
 
-std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size_t time_out) {
+std::optional<NetError> SSLClient::read(std::vector<uint8_t>& data, std::size_t time_out) {
     assert(m_status == SocketStatus::CONNECTED && "Client is not connected");
     data.clear();
     int num_bytes;
@@ -145,7 +145,7 @@ std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size
     }
     while (true) {
         if (timer.timeout()) {
-            return "Timeout to read data";
+            return NetError { NET_TIMEOUT_CODE, "Timeout to read data" };
         }
         std::vector<uint8_t> buffer(1024);
         num_bytes = SSL_read(m_ssl.get(), buffer.data(), buffer.size());
@@ -157,9 +157,9 @@ std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size
                 }
                 break;
             } else if (ssl_err == SSL_ERROR_SYSCALL) {
-                return "Connection reset by peer while reading";
+                return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while reading" };
             } else {
-                return ERR_error_string(ssl_err, nullptr);
+                return NetError { ssl_err, ERR_error_string(ssl_err, nullptr) };
             }
         }
         buffer.resize(num_bytes);
@@ -169,9 +169,9 @@ std::optional<std::string> SSLClient::read(std::vector<uint8_t>& data, std::size
     return std::nullopt;
 }
 
-std::optional<std::string> SSLClient::close() {
+std::optional<NetError> SSLClient::close() {
     if (SSL_shutdown(m_ssl.get()) == 0) {
-        return "Failed to shutdown SSL connection";
+        return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while ssl connecting" };
     }
     return TcpClient::close();
 }
@@ -184,11 +184,11 @@ SSLServer::SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, con
     TcpServer(ip, service),
     m_ctx(std::move(ctx)) {}
 
-std::optional<std::string> SSLServer::listen() {
+std::optional<NetError> SSLServer::listen() {
     return TcpServer::listen();
 }
 
-std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+std::optional<NetError> SSLServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
     auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
     int num_bytes;
     data.clear();
@@ -204,7 +204,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
                     } else {
                         m_remotes.remove_remote(remote->fd());
                     }
-                    return get_error_msg();
+                    return GET_ERROR_MSG();
                 }
                 break;
             } else if (ssl_error == SSL_ERROR_SYSCALL) {
@@ -221,7 +221,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
                 } else {
                     m_remotes.remove_remote(remote->fd());
                 }
-                return "Connection reset by peer while reading";
+                return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while writting" };
             } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(
@@ -236,7 +236,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
                 } else {
                     m_remotes.remove_remote(remote->fd());
                 }
-                return ERR_error_string(ssl_error, nullptr);
+                return NetError { ssl_error, ERR_error_string(ssl_error, nullptr) };
             }
         }
         if (num_bytes == 0) {
@@ -248,7 +248,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
             } else {
                 m_remotes.remove_remote(remote->fd());
             }
-            return "Connection reset by peer while reading";
+            return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while writting" };
         }
         if (num_bytes > 0) {
             read_buffer.resize(num_bytes);
@@ -258,7 +258,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+std::optional<NetError> SSLServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
     assert(m_status == SocketStatus::LISTENING && "Server is not listening");
     assert(data.size() > 0 && "Data buffer is empty");
     auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
@@ -271,25 +271,25 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Re
             if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
                 break;
             } else if (err == SSL_ERROR_SYSCALL) {
+                if (m_event_loop) {
+                    m_event_loop->remove_event(remote->fd());
+                } else {
+                    m_remotes.remove_remote(remote->fd());
+                }
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Connection reset by peer while writting");
                 }
+                return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while writting" };
+            } else {
                 if (m_event_loop) {
                     m_event_loop->remove_event(remote->fd());
                 } else {
                     m_remotes.remove_remote(remote->fd());
                 }
-                return "Connection reset by peer while writting";
-            } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", ERR_error_string(err, nullptr));
                 }
-                if (m_event_loop) {
-                    m_event_loop->remove_event(remote->fd());
-                } else {
-                    m_remotes.remove_remote(remote->fd());
-                }
-                return ERR_error_string(err, nullptr);
+                return NetError { err, ERR_error_string(err, nullptr) };
             }
         }
         if (num_bytes == 0) {
@@ -301,14 +301,14 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Re
             } else {
                 m_remotes.remove_remote(remote->fd());
             }
-            return "Connection reset by peer while writting";
+            return NetError { NET_CONNECTION_RESET_CODE, "Connection reset by peer while writting" };
         }
         bytes_has_send += num_bytes;
     } while (num_bytes > 0 && m_event_loop && bytes_has_send < data.size());
     return std::nullopt;
 }
 
-std::optional<std::string> SSLServer::close() {
+std::optional<NetError> SSLServer::close() {
     m_remotes.iterate([](auto remote) {
         auto ssl_remote = std::dynamic_pointer_cast<SSLRemoteTarget>(remote);
         SSL_shutdown(ssl_remote->get_ssl().get());
