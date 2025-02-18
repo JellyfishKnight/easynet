@@ -58,7 +58,7 @@ int main() {
 
     while (true) {
         std::string input;
-        std::cin >> input;
+            std::cin >> input;
         // std::cout << "Received input: " << input << std::endl;
         if (input == "exit") {
             http_server.close();

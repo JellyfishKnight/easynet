@@ -41,7 +41,7 @@ int main() {
     auto content = readFileToString(execDir + "/template/index/index.html");
 
     server.enable_thread_pool(96);
-    // server.enable_event_loop();
+    server.enable_event_loop();
     server.get("/", [&content](const net::HttpRequest& req) {
         net::HttpResponse res;
         res.set_version(HTTP_VERSION_1_1)

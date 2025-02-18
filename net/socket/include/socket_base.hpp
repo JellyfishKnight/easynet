@@ -5,6 +5,8 @@
 #include "logger.hpp"
 #include "remote_target.hpp"
 #include "thread_pool.hpp"
+#include "timer.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <future>
@@ -47,7 +49,12 @@ public:
 
     virtual ~SocketClient() = default;
 
-    virtual std::optional<std::string> connect() = 0;
+    virtual std::optional<std::string> connect(std::size_t time_out = 0) = 0;
+
+    virtual std::optional<std::string>
+    connect_with_retry(std::size_t time_out = 0, std::size_t retry_time_limit = 0) = 0;
+
+    std::optional<std::string> start_event_loop();
 
     virtual std::optional<std::string> close() = 0;
 
@@ -65,11 +72,13 @@ public:
 
     SocketStatus status() const;
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data) = 0;
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data) = 0;
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) = 0;
 
 protected:
+    std::optional<std::string> set_non_blocking_socket(int fd);
+
     int m_fd;
     addressResolver m_addr_resolver;
     addressResolver::address_info m_addr_info;
@@ -84,7 +93,7 @@ protected:
 };
 
 class SocketServer: std::enable_shared_from_this<SocketServer> {
-    using CallBack = std::function<void(const RemoteTarget& remote)>;
+    using CallBack = std::function<void(RemoteTarget::SharedPtr remote)>;
 
 public:
     NET_DECLARE_PTRS(SocketServer)
@@ -135,16 +144,14 @@ public:
 
     void on_start(CallBack handler);
 
-    virtual std::optional<std::string> read(std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
+    virtual std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
 
-    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, const RemoteTarget& remote) = 0;
+    virtual std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) = 0;
 
 protected:
-    virtual void handle_connection(const RemoteTarget& remote) = 0;
+    virtual void handle_connection(RemoteTarget::SharedPtr remote) = 0;
 
-    virtual RemoteTarget create_remote(int remote_fd) = 0;
-
-    virtual void erase_remote() = 0;
+    virtual RemoteTarget::SharedPtr create_remote(int remote_fd) = 0;
 
     virtual void add_remote_event(int fd) = 0;
 
@@ -165,9 +172,7 @@ protected:
     CallBack m_on_error;
     CallBack m_on_accept;
 
-    std::map<int, RemoteTarget> m_remotes;
-    std::shared_mutex m_remotes_mutex;
-    std::set<Event::SharedPtr> m_events;
+    RemotePool m_remotes;
 
     utils::ThreadPool::SharedPtr m_thread_pool;
     EventLoop::SharedPtr m_event_loop;

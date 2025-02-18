@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.hpp"
+#include "remote_target.hpp"
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -29,7 +30,7 @@ struct EventHandler {
     Callback m_on_error = nullptr;
 };
 
-class Event {
+class Event: virtual public RemoteTarget {
 public:
     NET_DECLARE_PTRS(Event)
 
@@ -37,9 +38,7 @@ public:
 
     virtual ~Event() = default;
 
-    EventType get_type() const;
-
-    int get_fd() const;
+    EventType type() const;
 
     void on_read();
 
@@ -51,7 +50,6 @@ public:
 
 private:
     EventType m_type;
-    int m_fd;
     std::shared_ptr<EventHandler> m_handler;
 };
 
@@ -61,11 +59,16 @@ public:
 
     virtual ~EventLoop() = default;
 
-    virtual void add_event(const std::shared_ptr<Event>& event) = 0;
+    virtual void add_event(std::shared_ptr<Event> event) = 0;
 
     virtual void remove_event(int event_fd) = 0;
 
     virtual void wait_for_events() = 0;
+
+    std::shared_ptr<Event> get_event(int event_fd);
+
+protected:
+    RemotePool m_remote_pool;
 };
 
 /**
@@ -79,7 +82,7 @@ public:
 
     SelectEventLoop(int time_out = -1);
 
-    void add_event(const std::shared_ptr<Event>& event) override;
+    void add_event(std::shared_ptr<Event> event) override;
 
     void remove_event(int event_fd) override;
 
@@ -87,7 +90,6 @@ public:
 
 private:
     fd_set read_fds, write_fds, error_fds;
-    std::unordered_map<int, std::shared_ptr<Event>> m_events;
     int m_max_fd;
     int time_out;
 };
@@ -98,7 +100,7 @@ public:
 
     PollEventLoop(int time_out = -1);
 
-    void add_event(const std::shared_ptr<Event>& event) override;
+    void add_event(std::shared_ptr<Event> event) override;
 
     void remove_event(int event_fd) override;
 
@@ -106,7 +108,6 @@ public:
 
 private:
     std::vector<pollfd> m_poll_fds;
-    std::unordered_map<int, std::shared_ptr<Event>> m_events;
     int time_out;
 };
 
@@ -118,7 +119,7 @@ public:
 
     ~EpollEventLoop();
 
-    void add_event(const std::shared_ptr<Event>& event) override;
+    void add_event(std::shared_ptr<Event> event) override;
 
     void remove_event(int event_fd) override;
 
@@ -126,7 +127,6 @@ public:
 
 private:
     int m_epoll_fd;
-    std::unordered_map<int, std::shared_ptr<Event>> m_events;
     int time_out;
 };
 

@@ -1,19 +1,38 @@
 #include "event_loop.hpp"
 #include "remote_target.hpp"
 #include "socket.hpp"
+#include "ssl.hpp"
 #include "timer.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <memory>
 #include <string_view>
 #include <vector>
 
+std::string getExecutablePath() {
+    char result[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+    if (count != -1) {
+        result[count] = '\0';
+        return std::string(result);
+    }
+    return "";
+}
+
 int main() {
-    std::shared_ptr<net::TcpServer> server;
+    auto ctx = net::SSLContext::create();
+    auto exe_path = getExecutablePath();
+    auto execDir = std::filesystem::path(exe_path).parent_path().string();
+
+    ctx->set_certificates(execDir + "/template/keys/certificate.crt", execDir + "/template/keys/private.key");
+
+    net::SSLServer::SharedPtr server;
+
     try {
-        server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
+        server = std::make_shared<net::SSLServer>(ctx, "127.0.0.1", "8080");
     } catch (std::exception const& e) {
         std::cerr << "Failed to create server: " << e.what() << std::endl;
         return 1;

@@ -21,6 +21,12 @@
 
 namespace net {
 
+/********************************************************************************/
+/********************************************************************************/
+/*********************************Socket Client**********************************/
+/********************************************************************************/
+/********************************************************************************/
+
 int SocketClient::get_fd() const {
     return m_fd;
 }
@@ -49,6 +55,23 @@ SocketStatus SocketClient::status() const {
 std::shared_ptr<SocketClient> SocketClient::get_shared() {
     return shared_from_this();
 }
+
+std::optional<std::string> SocketClient::set_non_blocking_socket(int fd) {
+    int flag = ::fcntl(fd, F_GETFL, 0);
+    if (flag == -1) {
+        return get_error_msg();
+    }
+    if (::fcntl(fd, F_SETFL, flag | O_NONBLOCK) == -1) {
+        return get_error_msg();
+    }
+    return std::nullopt;
+}
+
+/********************************************************************************/
+/********************************************************************************/
+/*********************************Socket Server**********************************/
+/********************************************************************************/
+/********************************************************************************/
 
 SocketType SocketServer::type() const {
     return m_socket_type;
@@ -91,7 +114,7 @@ std::optional<std::string> SocketServer::enable_event_loop(EventLoopType type, i
     return std::nullopt;
 }
 
-void SocketServer::on_start(std::function<void(const RemoteTarget&)> handler) {
+void SocketServer::on_start(std::function<void(RemoteTarget::SharedPtr)> handler) {
     m_accept_handler = handler;
 }
 
