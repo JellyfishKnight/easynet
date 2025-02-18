@@ -43,7 +43,7 @@ public:
 
 protected:
     int m_client_fd;
-    std::atomic<bool> m_status = false;
+    std::atomic<bool> m_status = true;
     std::mutex m_mutex;
 };
 

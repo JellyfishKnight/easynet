@@ -382,7 +382,11 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTar
                             get_error_msg()
                         );
                     }
-                    remote->close_remote();
+                    if (m_event_loop) {
+                        m_event_loop->remove_event(remote->fd());
+                    } else {
+                        m_remotes.remove_remote(remote->fd());
+                    }
                     return get_error_msg();
                 }
                 break;
@@ -390,7 +394,11 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTar
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Failed to read from socket {} : {}", remote->fd(), get_error_msg());
                 }
-                remote->close_remote();
+                if (m_event_loop) {
+                    m_event_loop->remove_event(remote->fd());
+                } else {
+                    m_remotes.remove_remote(remote->fd());
+                }
                 return get_error_msg();
             }
         }
@@ -398,7 +406,11 @@ std::optional<std::string> TcpServer::read(std::vector<uint8_t>& data, RemoteTar
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while reading");
             }
-            remote->close_remote();
+            if (m_event_loop) {
+                m_event_loop->remove_event(remote->fd());
+            } else {
+                m_remotes.remove_remote(remote->fd());
+            }
             return "Connection reset by peer while reading";
         }
         if (num_bytes > 0) {
@@ -420,14 +432,22 @@ std::optional<std::string> TcpServer::write(const std::vector<uint8_t>& data, Re
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Failed to write to socket {} : {}", remote->fd(), get_error_msg());
             }
-            remote->close_remote();
+            if (m_event_loop) {
+                m_event_loop->remove_event(remote->fd());
+            } else {
+                m_remotes.remove_remote(remote->fd());
+            }
             return get_error_msg();
         }
         if (num_bytes == 0) {
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while writting");
             }
-            remote->close_remote();
+            if (m_event_loop) {
+                m_event_loop->remove_event(remote->fd());
+            } else {
+                m_remotes.remove_remote(remote->fd());
+            }
             return "Connection reset by peer while writting";
         }
         bytes_has_send += num_bytes;
@@ -439,7 +459,6 @@ void TcpServer::handle_connection(RemoteTarget::SharedPtr remote) {
     while (m_status == SocketStatus::LISTENING && remote->is_active()) {
         m_accept_handler(remote);
     }
-    remote->close_remote();
 }
 
 RemoteTarget::SharedPtr TcpServer::create_remote(int remote_fd) {

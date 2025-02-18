@@ -62,7 +62,7 @@ std::shared_ptr<Event> EventLoop::get_event(int event_fd) {
 
 SelectEventLoop::SelectEventLoop(int time_out): m_max_fd(0), time_out(time_out) {}
 
-void SelectEventLoop::add_event(const std::shared_ptr<Event>& event) {
+void SelectEventLoop::add_event(std::shared_ptr<Event> event) {
     m_max_fd = std::max(m_max_fd, event->fd());
     if (static_cast<uint8_t>(event->type()) & static_cast<uint8_t>(EventType::READ)) {
         FD_SET(event->fd(), &read_fds);
@@ -115,7 +115,7 @@ void SelectEventLoop::wait_for_events() {
 
 PollEventLoop::PollEventLoop(int time_out): time_out(time_out) {}
 
-void PollEventLoop::add_event(const std::shared_ptr<Event>& event) {
+void PollEventLoop::add_event(std::shared_ptr<Event> event) {
     m_poll_fds.push_back({ event->fd(), POLLIN | POLLOUT | POLLERR | POLLHUP, 0 });
     m_remote_pool.add_remote(event);
 }
@@ -165,7 +165,7 @@ EpollEventLoop::~EpollEventLoop() {
     close(m_epoll_fd);
 }
 
-void EpollEventLoop::add_event(const std::shared_ptr<Event>& event) {
+void EpollEventLoop::add_event(std::shared_ptr<Event> event) {
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLET;
     ev.data.fd = event->fd();

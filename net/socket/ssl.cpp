@@ -16,6 +16,7 @@
 #include <openssl/types.h>
 #include <optional>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -184,11 +185,7 @@ SSLServer::SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, con
     m_ctx(std::move(ctx)) {}
 
 std::optional<std::string> SSLServer::listen() {
-    auto opt = TcpServer::listen();
-    if (opt.has_value()) {
-        return opt.value();
-    }
-    return std::nullopt;
+    return TcpServer::listen();
 }
 
 std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
@@ -204,7 +201,7 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
             int ssl_error = SSL_get_error(ssl_remote->get_ssl().get(), num_bytes);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
                 if (data.size() <= 0) {
-                    remote->close_remote();
+                    ssl_remote->close_remote();
                     return get_error_msg();
                 }
                 break;
@@ -213,22 +210,22 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
                     NET_LOG_ERROR(
                         m_logger,
                         "Connection reset by peer while reading",
-                        remote->fd(),
+                        ssl_remote->fd(),
                         ERR_error_string(ssl_error, nullptr)
                     );
                 }
-                remote->close_remote();
+                ssl_remote->close_remote();
                 return "Connection reset by peer while reading";
             } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(
                         m_logger,
                         "Failed to read from socket {} : {}",
-                        remote->fd(),
+                        ssl_remote->fd(),
                         ERR_error_string(ssl_error, nullptr)
                     );
                 }
-                remote->close_remote();
+                ssl_remote->close_remote();
                 return ERR_error_string(ssl_error, nullptr);
             }
         }
@@ -263,13 +260,13 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Re
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Connection reset by peer while writting");
                 }
-                remote->close_remote();
+                ssl_remote->close_remote();
                 return "Connection reset by peer while writting";
             } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", ERR_error_string(err, nullptr));
                 }
-                remote->close_remote();
+                ssl_remote->close_remote();
                 return ERR_error_string(err, nullptr);
             }
         }
@@ -277,7 +274,7 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Re
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while writting");
             }
-            remote->close_remote();
+            ssl_remote->close_remote();
             return "Connection reset by peer while writting";
         }
         bytes_has_send += num_bytes;
@@ -328,7 +325,7 @@ bool SSLServer::handle_ssl_handshake(RemoteTarget::SharedPtr remote) {
         if (err_code == SSL_ERROR_WANT_READ || err_code == SSL_ERROR_WANT_WRITE) {
             return false;
         }
-        remote->close_remote();
+        ssl_remote->close_remote();
         return false;
     } else {
         ssl_remote->set_ssl_handshaked(true);

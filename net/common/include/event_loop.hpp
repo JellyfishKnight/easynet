@@ -30,7 +30,7 @@ struct EventHandler {
     Callback m_on_error = nullptr;
 };
 
-class Event: public RemoteTarget {
+class Event: virtual public RemoteTarget {
 public:
     NET_DECLARE_PTRS(Event)
 
@@ -59,7 +59,7 @@ public:
 
     virtual ~EventLoop() = default;
 
-    virtual void add_event(const std::shared_ptr<Event>& event) = 0;
+    virtual void add_event(std::shared_ptr<Event> event) = 0;
 
     virtual void remove_event(int event_fd) = 0;
 
@@ -82,7 +82,7 @@ public:
 
     SelectEventLoop(int time_out = -1);
 
-    void add_event(const std::shared_ptr<Event>& event) override;
+    void add_event(std::shared_ptr<Event> event) override;
 
     void remove_event(int event_fd) override;
 
@@ -100,7 +100,7 @@ public:
 
     PollEventLoop(int time_out = -1);
 
-    void add_event(const std::shared_ptr<Event>& event) override;
+    void add_event(std::shared_ptr<Event> event) override;
 
     void remove_event(int event_fd) override;
 
@@ -119,7 +119,7 @@ public:
 
     ~EpollEventLoop();
 
-    void add_event(const std::shared_ptr<Event>& event) override;
+    void add_event(std::shared_ptr<Event> event) override;
 
     void remove_event(int event_fd) override;
 

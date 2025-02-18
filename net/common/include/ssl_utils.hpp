@@ -65,11 +65,13 @@ private:
     std::shared_ptr<SSL_CTX> m_ctx;
 };
 
-class SSLRemoteTarget: public RemoteTarget {
+class SSLRemoteTarget: virtual public RemoteTarget {
 public:
     NET_DECLARE_PTRS(SSLRemoteTarget)
 
-    explicit SSLRemoteTarget(int fd, std::shared_ptr<SSL> ssl): RemoteTarget(fd), m_ssl(ssl) {}
+    explicit SSLRemoteTarget(int fd, std::shared_ptr<SSL> ssl): RemoteTarget(fd), m_ssl(ssl) {
+        SSL_set_fd(m_ssl.get(), fd);
+    }
 
     std::shared_ptr<SSL> get_ssl() {
         return m_ssl;
@@ -97,13 +99,22 @@ protected:
     bool m_ssl_handshaked = false;
 };
 
-class SSLEvent: public Event {
+class SSLEvent: public Event, public SSLRemoteTarget {
 public:
     NET_DECLARE_PTRS(SSLRemoteTarget)
 
     explicit SSLEvent(int fd, std::shared_ptr<EventHandler> handler, std::shared_ptr<SSL> ssl):
+        RemoteTarget(fd),
         Event(fd, handler),
-        m_ssl(ssl) {}
+        SSLRemoteTarget(fd, ssl) {}
+
+    virtual ~SSLEvent() {
+        if (m_status.load()) {
+            m_status.store(false);
+            SSL_shutdown(m_ssl.get());
+            ::close(m_client_fd);
+        }
+    }
 
     std::shared_ptr<SSL> get_ssl() {
         return m_ssl;
@@ -125,10 +136,6 @@ public:
             ::close(m_client_fd);
         }
     }
-
-protected:
-    std::shared_ptr<SSL> m_ssl;
-    bool m_ssl_handshaked = false;
 };
 
 } // namespace net
