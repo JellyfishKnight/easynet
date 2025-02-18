@@ -196,12 +196,15 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
     do {
         std::vector<uint8_t> read_buffer(1024);
         num_bytes = SSL_read(ssl_remote->get_ssl().get(), read_buffer.data(), read_buffer.size());
-        std::cout << std::format("Reading fd {}, times {} \n", remote->fd(), i++) << std::endl;
         if (num_bytes == -1) {
             int ssl_error = SSL_get_error(ssl_remote->get_ssl().get(), num_bytes);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
                 if (data.size() <= 0) {
-                    ssl_remote->close_remote();
+                    if (m_event_loop) {
+                        m_event_loop->remove_event(remote->fd());
+                    } else {
+                        m_remotes.remove_remote(remote->fd());
+                    }
                     return get_error_msg();
                 }
                 break;
@@ -214,7 +217,11 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
                         ERR_error_string(ssl_error, nullptr)
                     );
                 }
-                ssl_remote->close_remote();
+                if (m_event_loop) {
+                    m_event_loop->remove_event(remote->fd());
+                } else {
+                    m_remotes.remove_remote(remote->fd());
+                }
                 return "Connection reset by peer while reading";
             } else {
                 if (m_logger_set) {
@@ -225,7 +232,11 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
                         ERR_error_string(ssl_error, nullptr)
                     );
                 }
-                ssl_remote->close_remote();
+                if (m_event_loop) {
+                    m_event_loop->remove_event(remote->fd());
+                } else {
+                    m_remotes.remove_remote(remote->fd());
+                }
                 return ERR_error_string(ssl_error, nullptr);
             }
         }
@@ -233,7 +244,11 @@ std::optional<std::string> SSLServer::read(std::vector<uint8_t>& data, RemoteTar
             if (m_logger_set) {
                 NET_LOG_ERROR(m_logger, "Connection reset by peer while reading");
             }
-            remote->close_remote();
+            if (m_event_loop) {
+                m_event_loop->remove_event(remote->fd());
+            } else {
+                m_remotes.remove_remote(remote->fd());
+            }
             return "Connection reset by peer while reading";
         }
         if (num_bytes > 0) {
@@ -260,13 +275,21 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Re
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Connection reset by peer while writting");
                 }
-                ssl_remote->close_remote();
+                if (m_event_loop) {
+                    m_event_loop->remove_event(remote->fd());
+                } else {
+                    m_remotes.remove_remote(remote->fd());
+                }
                 return "Connection reset by peer while writting";
             } else {
                 if (m_logger_set) {
                     NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", ERR_error_string(err, nullptr));
                 }
-                ssl_remote->close_remote();
+                if (m_event_loop) {
+                    m_event_loop->remove_event(remote->fd());
+                } else {
+                    m_remotes.remove_remote(remote->fd());
+                }
                 return ERR_error_string(err, nullptr);
             }
         }
@@ -274,7 +297,11 @@ std::optional<std::string> SSLServer::write(const std::vector<uint8_t>& data, Re
             if (m_logger_set) {
                 NET_LOG_WARN(m_logger, "Connection reset by peer while writting");
             }
-            ssl_remote->close_remote();
+            if (m_event_loop) {
+                m_event_loop->remove_event(remote->fd());
+            } else {
+                m_remotes.remove_remote(remote->fd());
+            }
             return "Connection reset by peer while writting";
         }
         bytes_has_send += num_bytes;

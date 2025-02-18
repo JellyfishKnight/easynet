@@ -8,9 +8,12 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/types.h>
+#include <signal.h>
 #include <string>
 
 namespace net {
+
+inline void signal_pipe_handler(int signal) {}
 
 class SSLContext {
 public:
@@ -27,6 +30,7 @@ public:
         if (m_ctx == nullptr) {
             throw std::runtime_error("Failed to create SSL context");
         }
+        signal(SIGPIPE, signal_pipe_handler);
     }
 
     ~SSLContext() {

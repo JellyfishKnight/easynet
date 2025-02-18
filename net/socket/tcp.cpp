@@ -204,7 +204,7 @@ std::shared_ptr<TcpClient> TcpClient::get_shared() {
 
 TcpClient::~TcpClient() {
     if (m_status == SocketStatus::CONNECTED) {
-        close();
+        this->close();
     }
 }
 
