@@ -108,6 +108,4 @@ protected:
     std::shared_ptr<TcpServer> m_server;
 };
 
-class HttpServerForwardProxy: public HttpServer {};
-
 } // namespace net

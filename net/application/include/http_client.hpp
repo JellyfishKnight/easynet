@@ -1,5 +1,6 @@
 #pragma once
 
+#include "defines.hpp"
 #include "http_parser.hpp"
 #include "remote_target.hpp"
 #include "socket_base.hpp"
@@ -206,6 +207,8 @@ protected:
 
 class HttpClientGroup {
 public:
+    NET_DECLARE_PTRS(HttpClientGroup)
+
     HttpClientGroup() = default;
 
     std::optional<NetError> connect(const std::string& ip, const std::string& service);
