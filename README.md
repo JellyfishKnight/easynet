@@ -20,8 +20,9 @@ If you find this project helpful, please give the repository a ⭐️ to show yo
 - [x] HTTP
 - [x] WebSocket
 - [x] SSL/TLS Encryption 🔐
-- [ ] Timer-based Client ⏲️
+- [x] Timer-based Client ⏲️
 - [ ] Reverse Proxy 🌍
+- [ ] Forward Proxy 🌍
 - [x] I/O Multiplexing 🔄
 - [x] Logging 📝
 - [x] Thread Pool 🏋️‍♂️
