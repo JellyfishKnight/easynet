@@ -282,50 +282,6 @@ SocketStatus WebSocketServer::status() const {
     return m_server->status();
 }
 
-void WebSocketServer::get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::get(path, handler);
-}
-
-void WebSocketServer::post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::post(path, handler);
-}
-
-void WebSocketServer::put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::put(path, handler);
-}
-
-void WebSocketServer::del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::del(path, handler);
-}
-
-void WebSocketServer::head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::head(path, handler);
-}
-
-void WebSocketServer::trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::trace(path, handler);
-}
-
-void WebSocketServer::connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::connect(path, handler);
-}
-
-void WebSocketServer::options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::options(path, handler);
-}
-
-void WebSocketServer::patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) {
-    assert(m_websocket_status != WebSocketStatus::CONNECTED && "Protocol has upgraded to websocket!");
-    HttpServer::patch(path, handler);
-}
 
 std::optional<NetError> WebSocketServer::accept_ws_connection(const HttpRequest& req, std::vector<uint8_t>& res) {
     if (req.headers().find("sec-websocket-key") == req.headers().end()) {
@@ -479,10 +435,6 @@ void WebSocketServer::erase_parser(int remote_fd) {
 }
 
 WebSocketServer::~WebSocketServer() {}
-
-WebSocketStatus WebSocketServer::ws_status() const {
-    return m_websocket_status;
-}
 
 void WebSocketServer::add_websocket_handler(std::function<void(RemoteTarget::SharedPtr remote)> handler) {
     m_ws_handler = std::move(handler);
