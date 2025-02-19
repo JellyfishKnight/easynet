@@ -19,7 +19,7 @@
 //     m_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
 //     if (m_fd == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to create socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to create socket: {}", GET_ERROR_MSG());
 //         }
 //         throw std::system_error(errno, std::system_category(), "Failed to create socket");
 //     }
@@ -37,7 +37,7 @@
 //     }
 // }
 
-// std::optional<std::string> UdpClient::read(std::vector<uint8_t>& data) {
+// std::optional<NetError> UdpClient::read(std::vector<uint8_t>& data) {
 //     assert(data.size() > 0 && "Data buffer is empty");
 //     ssize_t num_bytes = ::recvfrom(
 //         m_fd,
@@ -49,9 +49,9 @@
 //     );
 //     if (num_bytes == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", GET_ERROR_MSG());
 //         }
-//         return get_error_msg();
+//         return GET_ERROR_MSG();
 //     }
 //     if (num_bytes == 0) {
 //         if (m_logger_set) {
@@ -63,15 +63,15 @@
 //     return std::nullopt;
 // }
 
-// std::optional<std::string> UdpClient::write(const std::vector<uint8_t>& data) {
+// std::optional<NetError> UdpClient::write(const std::vector<uint8_t>& data) {
 //     assert(data.size() > 0 && "Data buffer is empty");
 //     ssize_t num_bytes =
 //         ::sendto(m_fd, data.data(), data.size(), 0, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len);
 //     if (num_bytes == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", GET_ERROR_MSG());
 //         }
-//         return get_error_msg();
+//         return GET_ERROR_MSG();
 //     }
 //     if (num_bytes == 0) {
 //         if (m_logger_set) {
@@ -82,18 +82,18 @@
 //     return std::nullopt;
 // }
 
-// std::optional<std::string> UdpClient::close() {
+// std::optional<NetError> UdpClient::close() {
 //     if (::close(m_fd) == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to close socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to close socket: {}", GET_ERROR_MSG());
 //         }
-//         return get_error_msg();
+//         return GET_ERROR_MSG();
 //     }
 //     m_status = SocketStatus::DISCONNECTED;
 //     return std::nullopt;
 // }
 
-// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
+// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<NetError>
 // UdpClient::connect() {
 //     return std::nullopt;
 // }
@@ -120,7 +120,7 @@
 //     // bind
 //     if (::bind(m_listen_fd, m_addr_info.get_address().m_addr, m_addr_info.get_address().m_len) == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to bind socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to bind socket: {}", GET_ERROR_MSG());
 //         }
 //         throw std::system_error(errno, std::system_category(), "Failed to bind socket");
 //     }
@@ -132,20 +132,20 @@
 //     }
 // }
 
-// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
+// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<NetError>
 // UdpServer::listen() {
 //     return std::nullopt;
 // }
 
-// std::optional<std::string> UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+// std::optional<NetError> UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
 //     addressResolver::address client_addr;
 //     ssize_t num_bytes =
 //         ::recvfrom(m_listen_fd, data.data(), data.size(), 0, &client_addr.m_addr, &client_addr.m_addr_len);
 //     if (num_bytes == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to read from socket: {}", GET_ERROR_MSG());
 //         }
-//         return get_error_msg();
+//         return GET_ERROR_MSG();
 //     }
 //     if (num_bytes == 0) {
 //         if (m_logger_set) {
@@ -167,15 +167,15 @@
 //     return std::nullopt;
 // }
 
-// std::optional<std::string> UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
+// std::optional<NetError> UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) {
 //     assert(remote != nullptr && "RemoteTarget is nullptr");
 //     ssize_t num_bytes =
 //         ::sendto(m_listen_fd, data.data(), data.size(), 0, &remote->m_addr.m_addr, remote->m_addr.m_addr_len);
 //     if (num_bytes == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to write to socket: {}", GET_ERROR_MSG());
 //         }
-//         return get_error_msg();
+//         return GET_ERROR_MSG();
 //     }
 //     if (num_bytes == 0) {
 //         if (m_logger_set) {
@@ -186,28 +186,28 @@
 //     return std::nullopt;
 // }
 
-// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
+// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<NetError>
 // UdpServer::read(std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr remote) {
 //     return std::nullopt;
 // }
 
-// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
+// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<NetError>
 // UdpServer::write(const std::vector<uint8_t>& data, RemoteTarget::ConstSharedPtr remote) {
 //     return std::nullopt;
 // }
 
-// std::optional<std::string> UdpServer::close() {
+// std::optional<NetError> UdpServer::close() {
 //     if (::close(m_listen_fd) == -1) {
 //         if (m_logger_set) {
-//             NET_LOG_ERROR(m_logger, "Failed to close socket: {}", get_error_msg());
+//             NET_LOG_ERROR(m_logger, "Failed to close socket: {}", GET_ERROR_MSG());
 //         }
-//         return get_error_msg();
+//         return GET_ERROR_MSG();
 //     }
 //     m_status = SocketStatus::DISCONNECTED;
 //     return std::nullopt;
 // }
 
-// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<std::string>
+// [[deprecated("Udp doesn't need connection, this function will cause no effect")]] std::optional<NetError>
 // UdpServer::start() {
 //     m_stop = false;
 //     if (m_epoll_enabled) {
@@ -216,9 +216,9 @@
 //                 int num_events = ::epoll_wait(m_epoll_fd, m_events.data(), m_events.size(), -1);
 //                 if (num_events == -1) {
 //                     if (m_logger_set) {
-//                         NET_LOG_ERROR(m_logger, "Failed to wait for events: {}", get_error_msg());
+//                         NET_LOG_ERROR(m_logger, "Failed to wait for events: {}", GET_ERROR_MSG());
 //                     }
-//                     std::cerr << std::format("Failed to wait for events: {}\n", get_error_msg());
+//                     std::cerr << std::format("Failed to wait for events: {}\n", GET_ERROR_MSG());
 //                     continue;
 //                 }
 //                 for (int i = 0; i < num_events; ++i) {

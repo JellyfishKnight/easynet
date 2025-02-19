@@ -28,124 +28,142 @@ public:
 
     virtual ~HttpClient();
 
-    virtual HttpResponse
-    get(const std::string& path,
+    virtual std::optional<NetError>
+    get(HttpResponse& response,
+        const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1);
 
-    virtual std::future<HttpResponse> async_get(
+    virtual std::future<std::optional<NetError>> async_get(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse post(
-        const std::string& path,
-        const std::string& body,
-        const std::unordered_map<std::string, std::string>& headers = {},
-        const std::string& version = HTTP_VERSION_1_1
-    );
-
-    virtual std::future<HttpResponse> async_post(
+    virtual std::optional<NetError> post(
+        HttpResponse& response,
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse
-    put(const std::string& path,
+    virtual std::future<std::optional<NetError>> async_post(
+        HttpResponse& response,
+        const std::string& path,
+        const std::string& body,
+        const std::unordered_map<std::string, std::string>& headers = {},
+        const std::string& version = HTTP_VERSION_1_1
+    );
+
+    virtual std::optional<NetError>
+    put(HttpResponse& response,
+        const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1);
 
-    virtual std::future<HttpResponse> async_put(
+    virtual std::future<std::optional<NetError>> async_put(
+        HttpResponse& response,
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse
-    del(const std::string& path,
+    virtual std::optional<NetError>
+    del(HttpResponse& response,
+        const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1);
 
-    virtual std::future<HttpResponse> async_del(
+    virtual std::future<std::optional<NetError>> async_del(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse patch(
-        const std::string& path,
-        const std::string& body,
-        const std::unordered_map<std::string, std::string>& headers = {},
-        const std::string& version = HTTP_VERSION_1_1
-    );
-
-    virtual std::future<HttpResponse> async_patch(
+    virtual std::optional<NetError> patch(
+        HttpResponse& response,
         const std::string& path,
         const std::string& body,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse head(
+    virtual std::future<std::optional<NetError>> async_patch(
+        HttpResponse& response,
+        const std::string& path,
+        const std::string& body,
+        const std::unordered_map<std::string, std::string>& headers = {},
+        const std::string& version = HTTP_VERSION_1_1
+    );
+
+    virtual std::optional<NetError> head(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual std::future<HttpResponse> async_head(
+    virtual std::future<std::optional<NetError>> async_head(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse options(
+    virtual std::optional<NetError> options(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual std::future<HttpResponse> async_options(
+    virtual std::future<std::optional<NetError>> async_options(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse connect(
+    virtual std::optional<NetError> connect(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& header = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual std::future<HttpResponse> async_connect(
+    virtual std::future<std::optional<NetError>> async_connect(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual HttpResponse trace(
+    virtual std::optional<NetError> trace(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual std::future<HttpResponse> async_trace(
+    virtual std::future<std::optional<NetError>> async_trace(
+        HttpResponse& response,
         const std::string& path,
         const std::unordered_map<std::string, std::string>& headers = {},
         const std::string& version = HTTP_VERSION_1_1
     );
 
-    virtual std::optional<std::string> write_http(const HttpRequest& req);
+    virtual std::optional<NetError> write_http(const HttpRequest& req);
 
-    virtual std::optional<std::string> read_http(HttpResponse& res);
+    virtual std::optional<NetError> read_http(HttpResponse& res);
 
-    std::optional<std::string> connect_server();
+    std::optional<NetError> connect_server();
 
-    std::optional<std::string> close();
+    std::optional<NetError> close();
 
     int get_fd() const;
 

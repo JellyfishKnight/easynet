@@ -75,7 +75,7 @@ int main() {
 
         auto err = server.write_websocket_frame(frame, remote);
         if (err.has_value()) {
-            std::cerr << "Failed to write to socket: " << err.value() << std::endl;
+            std::cerr << "Failed to write to socket: " << err.value().msg << std::endl;
             return;
         }
 

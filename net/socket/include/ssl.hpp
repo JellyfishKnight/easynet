@@ -30,20 +30,20 @@ public:
     SSLClient& operator=(const SSLClient&) = delete;
     SSLClient& operator=(SSLClient&&) = delete;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) override;
+    std::optional<NetError> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) override;
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, std::size_t time_out = 0) override;
+    std::optional<NetError> read(std::vector<uint8_t>& data, std::size_t time_out = 0) override;
 
-    std::optional<std::string> connect(std::size_t time_out = 0) override;
+    std::optional<NetError> connect(std::size_t time_out = 0) override;
 
-    std::optional<std::string> connect_with_retry(std::size_t time_out, std::size_t retry_time_limit = 0) override;
+    std::optional<NetError> connect_with_retry(std::size_t time_out, std::size_t retry_time_limit = 0) override;
 
-    std::optional<std::string> close() override;
+    std::optional<NetError> close() override;
 
     std::shared_ptr<SSLClient> get_shared();
 
 protected:
-    std::optional<std::string> ssl_connect(std::size_t time_out = 0);
+    std::optional<NetError> ssl_connect(std::size_t time_out = 0);
 
     std::shared_ptr<SSL> m_ssl;
     std::shared_ptr<SSLContext> m_ctx;
@@ -62,15 +62,15 @@ public:
     SSLServer& operator=(const SSLServer&) = delete;
     SSLServer& operator=(SSLServer&&) = delete;
 
-    std::optional<std::string> close() override;
+    std::optional<NetError> close() override;
 
-    std::optional<std::string> listen() override;
+    std::optional<NetError> listen() override;
 
     std::shared_ptr<SSLServer> get_shared();
 
-    std::optional<std::string> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
+    std::optional<NetError> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 
-    std::optional<std::string> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
+    std::optional<NetError> write(const std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 
 protected:
     bool handle_ssl_handshake(RemoteTarget::SharedPtr remote);

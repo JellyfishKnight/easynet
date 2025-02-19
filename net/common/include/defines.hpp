@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <system_error>
 
 namespace net {
@@ -12,7 +13,20 @@ namespace net {
     using UniquePtr = std::unique_ptr<CLASS>; \
     using ConstUniquePtr = std::unique_ptr<const CLASS>;
 
-inline std::string get_error_msg() {
-    return std::system_category().message(errno);
-}
+struct NetError {
+    int error_code;
+    std::string msg;
+};
+
+#define NET_CONNECTION_RESET_CODE 0
+#define NET_TIMEOUT_CODE 1
+#define NET_INVALID_EVENT_LOOP_CODE 2
+#define NET_WEBSOCKET_PARSE_WANT_READ 3
+#define NET_INVALID_WEBSOCKET_UPGRADE_CODE 4
+#define NET_HTTP_PARSE_WANT_READ 5
+#define NET_EARLY_END_OF_SOCKET 6
+
+#define GET_ERROR_MSG() \
+    NetError { errno, std::system_category().message(errno) }
+
 } // namespace net

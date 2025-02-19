@@ -37,7 +37,12 @@ int main() {
         if (input == "s") {
             input.clear();
         }
-        auto res = client.get("/" + input);
+        net::HttpResponse res;
+        auto err = client.get(res, "/" + input);
+        if (err.has_value()) {
+            std::cerr << "Failed to get from server: " << err.value().msg << std::endl;
+            continue;
+        }
         std::cout << "Http version: " << res.version() << std::endl;
         std::cout << "Status Code: " << static_cast<int>(res.status_code()) << std::endl;
         std::cout << "Reason: " << res.reason() << std::endl;

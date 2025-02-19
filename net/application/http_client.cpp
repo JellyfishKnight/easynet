@@ -17,7 +17,7 @@ HttpClient::HttpClient(std::shared_ptr<TcpClient> client) {
     m_client = std::move(client);
 }
 
-std::optional<std::string> HttpClient::read_http(HttpResponse& res) {
+std::optional<NetError> HttpClient::read_http(HttpResponse& res) {
     std::vector<uint8_t> buffer(1024);
     std::optional<HttpResponse> res_opt;
     do {
@@ -33,7 +33,7 @@ std::optional<std::string> HttpClient::read_http(HttpResponse& res) {
     return std::nullopt;
 }
 
-std::optional<std::string> HttpClient::write_http(const HttpRequest& req) {
+std::optional<NetError> HttpClient::write_http(const HttpRequest& req) {
     auto buffer = m_parser->write_req(req);
     if (buffer.empty()) {
         return std::nullopt;
@@ -45,7 +45,8 @@ std::optional<std::string> HttpClient::write_http(const HttpRequest& req) {
     return std::nullopt;
 }
 
-HttpResponse HttpClient::get(
+std::optional<NetError> HttpClient::get(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
@@ -54,25 +55,29 @@ HttpResponse HttpClient::get(
     req.set_method(HttpMethod::GET).set_url(path).set_headers(headers).set_version(version);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_get(
+std::future<std::optional<NetError>> HttpClient::async_get(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() { return get(path, headers, version); });
+    return std::async(std::launch::async, [this, path, &headers, &version, &response]() {
+        return get(response, path, headers, version);
+    });
 }
 
-HttpResponse HttpClient::post(
+std::optional<NetError> HttpClient::post(
+    HttpResponse& response,
     const std::string& path,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
@@ -82,28 +87,30 @@ HttpResponse HttpClient::post(
     req.set_method(HttpMethod::POST).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_post(
+std::future<std::optional<NetError>> HttpClient::async_post(
+    HttpResponse& response,
     const std::string& path,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &body, &headers, &version]() {
-        return post(path, body, headers, version);
+    return std::async(std::launch::async, [this, path, &body, &headers, &version, &response]() {
+        return post(response, path, body, headers, version);
     });
 }
 
-HttpResponse HttpClient::put(
+std::optional<NetError> HttpClient::put(
+    HttpResponse& response,
     const std::string& path,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
@@ -113,28 +120,30 @@ HttpResponse HttpClient::put(
     req.set_method(HttpMethod::PUT).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_put(
+std::future<std::optional<NetError>> HttpClient::async_put(
+    HttpResponse& response,
     const std::string& path,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &body, &headers, &version]() {
-        return put(path, body, headers, version);
+    return std::async(std::launch::async, [this, path, &body, &headers, &version, &response]() {
+        return put(response, path, body, headers, version);
     });
 }
 
-HttpResponse HttpClient::del(
+std::optional<NetError> HttpClient::del(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
@@ -143,25 +152,29 @@ HttpResponse HttpClient::del(
     req.set_method(HttpMethod::DELETE).set_url(path).set_headers(headers).set_version(version);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_del(
+std::future<std::optional<NetError>> HttpClient::async_del(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() { return del(path, headers, version); });
+    return std::async(std::launch::async, [this, path, &headers, &version, &response]() {
+        return del(response, path, headers, version);
+    });
 }
 
-HttpResponse HttpClient::patch(
+std::optional<NetError> HttpClient::patch(
+    HttpResponse& response,
     const std::string& path,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
@@ -171,28 +184,30 @@ HttpResponse HttpClient::patch(
     req.set_method(HttpMethod::PATCH).set_url(path).set_headers(headers).set_version(version).set_body(body);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_patch(
+std::future<std::optional<NetError>> HttpClient::async_patch(
+    HttpResponse& response,
     const std::string& path,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &body, &headers, &version]() {
-        return patch(path, body, headers, version);
+    return std::async(std::launch::async, [this, path, &body, &headers, &version, &response]() {
+        return patch(response, path, body, headers, version);
     });
 }
 
-HttpResponse HttpClient::head(
+std::optional<NetError> HttpClient::head(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
@@ -201,25 +216,29 @@ HttpResponse HttpClient::head(
     req.set_method(HttpMethod::HEAD).set_url(path).set_headers(headers).set_version(version);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_head(
+std::future<std::optional<NetError>> HttpClient::async_head(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() { return head(path, headers, version); });
+    return std::async(std::launch::async, [this, path, &headers, &version, &response]() {
+        return head(response, path, headers, version);
+    });
 }
 
-HttpResponse HttpClient::options(
+std::optional<NetError> HttpClient::options(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
@@ -228,27 +247,29 @@ HttpResponse HttpClient::options(
     req.set_method(HttpMethod::OPTIONS).set_url(path).set_headers(headers).set_version(version);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_options(
+std::future<std::optional<NetError>> HttpClient::async_options(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() {
-        return options(path, headers, version);
+    return std::async(std::launch::async, [this, path, &headers, &version, &response]() {
+        return options(response, path, headers, version);
     });
 }
 
-HttpResponse HttpClient::connect(
+std::optional<NetError> HttpClient::connect(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
@@ -257,27 +278,29 @@ HttpResponse HttpClient::connect(
     req.set_method(HttpMethod::CONNECT).set_url(path).set_headers(headers).set_version(version);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_connect(
+std::future<std::optional<NetError>> HttpClient::async_connect(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() {
-        return this->connect(path, headers, version);
+    return std::async(std::launch::async, [this, path, &headers, &version, &response]() {
+        return this->connect(response, path, headers, version);
     });
 }
 
-HttpResponse HttpClient::trace(
+std::optional<NetError> HttpClient::trace(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
@@ -286,29 +309,32 @@ HttpResponse HttpClient::trace(
     req.set_method(HttpMethod::TRACE).set_url(path).set_headers(headers).set_version(version);
     auto err = write_http(req);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
     HttpResponse res;
     err = read_http(res);
     if (err.has_value()) {
-        throw std::runtime_error(err.value());
+        return err;
     }
-    return res;
+    std::nullopt;
 }
 
-std::future<HttpResponse> HttpClient::async_trace(
+std::future<std::optional<NetError>> HttpClient::async_trace(
+    HttpResponse& response,
     const std::string& path,
     const std::unordered_map<std::string, std::string>& headers,
     const std::string& version
 ) {
-    return std::async(std::launch::async, [this, path, &headers, &version]() { return trace(path, headers, version); });
+    return std::async(std::launch::async, [this, path, &headers, &version, &response]() {
+        return trace(response, path, headers, version);
+    });
 }
 
-std::optional<std::string> HttpClient::connect_server() {
+std::optional<NetError> HttpClient::connect_server() {
     return m_client->connect();
 }
 
-std::optional<std::string> HttpClient::close() {
+std::optional<NetError> HttpClient::close() {
     return m_client->close();
 }
 

@@ -96,7 +96,8 @@ void SelectEventLoop::wait_for_events() {
 
     int result = select(m_max_fd + 1, &temp_read_fds, &temp_write_fds, &temp_error_fds, &tv);
     if (result < 0) {
-        throw std::runtime_error(get_error_msg());
+        auto error = GET_ERROR_MSG();
+        throw std::runtime_error(error.msg);
     }
 
     m_remote_pool.iterate([&temp_read_fds, &temp_write_fds, &temp_error_fds](RemoteTarget::SharedPtr remote) {
@@ -134,7 +135,8 @@ void PollEventLoop::remove_event(int event_fd) {
 void PollEventLoop::wait_for_events() {
     int result = ::poll(m_poll_fds.data(), m_poll_fds.size(), time_out);
     if (result < 0) {
-        throw std::runtime_error(get_error_msg());
+        auto error = GET_ERROR_MSG();
+        throw std::runtime_error(error.msg);
     }
 
     for (size_t i = 0; i < m_poll_fds.size(); ++i) {
@@ -187,7 +189,8 @@ void EpollEventLoop::wait_for_events() {
 
     int num_events = epoll_wait(m_epoll_fd, events.data(), events.size(), time_out);
     if (num_events < 0) {
-        throw std::runtime_error(get_error_msg());
+        auto error = GET_ERROR_MSG();
+        throw std::runtime_error(error.msg);
     }
 
     for (int i = 0; i < num_events; ++i) {
