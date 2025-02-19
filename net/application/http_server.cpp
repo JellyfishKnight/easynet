@@ -29,7 +29,7 @@ HttpServer::HttpServer(const std::string& ip, const std::string& service, std::s
         { HttpMethod::HEAD, m_head_handler },
     } {
     if (ctx) {
-        m_server = std::make_shared<SSLServer>(ip, service, ctx);
+        m_server = std::make_shared<SSLServer>(ctx, ip, service);
     } else {
         m_server = std::make_shared<TcpServer>(ip, service);
     }

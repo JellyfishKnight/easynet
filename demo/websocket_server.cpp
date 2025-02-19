@@ -33,8 +33,6 @@ int main() {
     auto exe_path = getExecutablePath();
     auto execDir = std::filesystem::path(exe_path).parent_path().string();
 
-    net::TcpServer::SharedPtr tcp_server = std::make_shared<net::TcpServer>();
-
     net::WebSocketServer server("127.0.0.1", "8080");
 
     server.allowed_path("/");

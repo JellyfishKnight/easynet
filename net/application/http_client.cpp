@@ -1,4 +1,5 @@
 #include "http_client.hpp"
+#include "defines.hpp"
 #include "http_parser.hpp"
 #include "print.hpp"
 #include "ssl.hpp"
@@ -8,6 +9,7 @@
 #include <cassert>
 #include <memory>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -408,6 +410,61 @@ void HttpClient::unset_proxy() {
     } else {
         m_client = std::make_shared<TcpClient>(m_target_ip, m_target_service);
     }
+}
+
+std::optional<NetError> HttpClientGroup::connect(const std::string& ip, const std::string& service) {
+    auto client = get_client(ip, service);
+    if (!client) {
+        return NetError { NET_NO_CLIENT_FOUND, "No client found int group" };
+    }
+    auto err = add_client(ip, service);
+    if (err.has_value()) {
+        return err;
+    }
+    return std::nullopt;
+}
+
+std::optional<NetError> HttpClientGroup::close(const std::string& ip, const std::string& service) {
+    auto client = get_client(ip, service);
+    if (!client) {
+        return NetError { NET_NO_CLIENT_FOUND, "No client found int group" };
+    }
+    auto err = remove_client(ip, service);
+    if (err.has_value()) {
+        return err;
+    }
+    return std::nullopt;
+}
+
+std::shared_ptr<HttpClient> HttpClientGroup::get_client(const std::string& ip, const std::string& service) {
+    std::shared_lock lock(m_mutex);
+    auto it = m_clients.find(std::make_tuple(ip, service));
+    if (it == m_clients.end()) {
+        return nullptr;
+    }
+    return it->second;
+}
+
+std::optional<NetError> HttpClientGroup::remove_client(const std::string& ip, const std::string& service) {
+    std::unique_lock lock(m_mutex);
+    auto it = m_clients.find(std::make_tuple(ip, service));
+    if (it == m_clients.end()) {
+        return NetError { NET_NO_CLIENT_FOUND, "No client found in group" };
+    }
+    m_clients.erase(it);
+    return std::nullopt;
+}
+
+std::optional<NetError>
+HttpClientGroup::add_client(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx) {
+    std::unique_lock lock(m_mutex);
+    auto it = m_clients.find(std::make_tuple(ip, service));
+    if (it != m_clients.end()) {
+        return NetError { NET_CLIENT_ALREADY_EXISTS, "Client already exists in group" };
+    }
+    auto client = std::make_shared<HttpClient>(ip, service, ctx);
+    m_clients[std::make_tuple(ip, service)] = client;
+    return std::nullopt;
 }
 
 } // namespace net

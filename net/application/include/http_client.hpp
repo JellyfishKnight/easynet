@@ -7,9 +7,12 @@
 #include "ssl_utils.hpp"
 #include "tcp.hpp"
 #include <future>
+#include <map>
 #include <memory>
 #include <optional>
+#include <shared_mutex>
 #include <string>
+#include <tuple>
 
 namespace net {
 
@@ -199,6 +202,28 @@ protected:
     std::string m_proxy_password;
 
     std::shared_ptr<SSLContext> m_ssl_ctx;
+};
+
+class HttpClientGroup {
+public:
+    HttpClientGroup() = default;
+
+    std::optional<NetError> connect(const std::string& ip, const std::string& service);
+
+    std::optional<NetError> close(const std::string& ip, const std::string& service);
+
+    std::shared_ptr<HttpClient> get_client(const std::string& ip, const std::string& service);
+
+    std::optional<NetError> remove_client(const std::string& ip, const std::string& service);
+
+    std::optional<NetError>
+    add_client(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
+
+    ~HttpClientGroup() = default;
+
+private:
+    std::shared_mutex m_mutex;
+    std::map<std::tuple<std::string, std::string>, std::shared_ptr<HttpClient>> m_clients;
 };
 
 } // namespace net
