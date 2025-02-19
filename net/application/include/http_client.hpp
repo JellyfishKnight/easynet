@@ -7,9 +7,12 @@
 #include "ssl_utils.hpp"
 #include "tcp.hpp"
 #include <future>
+#include <map>
 #include <memory>
 #include <optional>
+#include <shared_mutex>
 #include <string>
+#include <tuple>
 
 namespace net {
 
@@ -176,9 +179,51 @@ public:
 
     SocketStatus status() const;
 
+    void set_proxy(
+        const std::string& ip,
+        const std::string& service,
+        const std::string& username = {},
+        const std::string& password = {}
+    );
+
+    void unset_proxy();
+
 protected:
     std::shared_ptr<HttpParser> m_parser;
     std::shared_ptr<TcpClient> m_client;
+
+    std::string m_target_ip;
+    std::string m_target_service;
+
+    bool m_use_proxy = false;
+    std::string m_proxy_ip;
+    std::string m_proxy_service;
+    std::string m_proxy_username;
+    std::string m_proxy_password;
+
+    std::shared_ptr<SSLContext> m_ssl_ctx;
+};
+
+class HttpClientGroup {
+public:
+    HttpClientGroup() = default;
+
+    std::optional<NetError> connect(const std::string& ip, const std::string& service);
+
+    std::optional<NetError> close(const std::string& ip, const std::string& service);
+
+    std::shared_ptr<HttpClient> get_client(const std::string& ip, const std::string& service);
+
+    std::optional<NetError> remove_client(const std::string& ip, const std::string& service);
+
+    std::optional<NetError>
+    add_client(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
+
+    ~HttpClientGroup() = default;
+
+private:
+    std::shared_mutex m_mutex;
+    std::map<std::tuple<std::string, std::string>, std::shared_ptr<HttpClient>> m_clients;
 };
 
 } // namespace net

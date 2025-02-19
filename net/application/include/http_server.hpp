@@ -28,7 +28,7 @@ class HttpServer {
 public:
     NET_DECLARE_PTRS(HttpServer)
 
-    HttpServer(std::shared_ptr<TcpServer> server);
+    HttpServer(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
 
     HttpServer(const HttpServer&) = delete;
 
@@ -107,5 +107,7 @@ protected:
 
     std::shared_ptr<TcpServer> m_server;
 };
+
+class HttpServerForwardProxy: public HttpServer {};
 
 } // namespace net

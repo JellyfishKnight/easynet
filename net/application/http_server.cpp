@@ -3,6 +3,7 @@
 #include "event_loop.hpp"
 #include "http_parser.hpp"
 #include "remote_target.hpp"
+#include "ssl.hpp"
 #include "timer.hpp"
 #include <cassert>
 #include <format>
@@ -19,15 +20,19 @@
 
 namespace net {
 
-HttpServer::HttpServer(std::shared_ptr<TcpServer> server):
+HttpServer::HttpServer(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx):
     m_handlers {
         { HttpMethod::GET, m_get_handlers },        { HttpMethod::POST, m_post_handlers },
         { HttpMethod::PUT, m_put_handlers },        { HttpMethod::TRACE, m_trace_handler },
         { HttpMethod::DELETE, m_delete_handlers },  { HttpMethod::OPTIONS, m_options_handler },
         { HttpMethod::CONNECT, m_connect_handler }, { HttpMethod::PATCH, m_patch_handler },
         { HttpMethod::HEAD, m_head_handler },
-    },
-    m_server(std::move(server)) {
+    } {
+    if (ctx) {
+        m_server = std::make_shared<SSLServer>(ctx, ip, service);
+    } else {
+        m_server = std::make_shared<TcpServer>(ip, service);
+    }
     set_handler();
 }
 

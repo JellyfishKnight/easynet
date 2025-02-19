@@ -184,31 +184,11 @@ class WebSocketServer: public HttpServer {
 public:
     NET_DECLARE_PTRS(WebSocketServer)
 
-    WebSocketServer(std::shared_ptr<TcpServer> client);
+    WebSocketServer(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
 
     ~WebSocketServer();
 
-    WebSocketStatus ws_status() const;
-
     SocketStatus status() const;
-
-    void get(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void post(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void put(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void del(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void head(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void trace(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void connect(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void options(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
-
-    void patch(const std::string path, std::function<HttpResponse(const HttpRequest&)> handler) override;
 
     void add_websocket_handler(std::function<void(RemoteTarget::SharedPtr remote)> handler);
 
@@ -233,7 +213,6 @@ private:
     std::mutex m_ws_parsers_mutex;
 
     std::function<void(RemoteTarget::SharedPtr remote)> m_ws_handler;
-    WebSocketStatus m_websocket_status = WebSocketStatus::DISCONNECTED;
 };
 
 } // namespace net

@@ -33,13 +33,10 @@ int main() {
     auto exe_path = getExecutablePath();
     auto execDir = std::filesystem::path(exe_path).parent_path().string();
 
-    net::TcpServer::SharedPtr tcp_server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
-
-    tcp_server->enable_thread_pool(96);
-
-    net::WebSocketServer server(tcp_server);
+    net::WebSocketServer server("127.0.0.1", "8080");
 
     server.allowed_path("/");
+    server.enable_thread_pool(96);
 
     auto content = readFileToString(execDir + "/template/index/index.html");
     server.get("/", [&content](const net::HttpRequest& req) {
