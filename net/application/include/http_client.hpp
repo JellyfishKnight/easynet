@@ -4,6 +4,7 @@
 #include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "ssl.hpp"
+#include "ssl_utils.hpp"
 #include "tcp.hpp"
 #include <future>
 #include <memory>
@@ -12,11 +13,11 @@
 
 namespace net {
 
-class HttpClient: public std::enable_shared_from_this<HttpClient> {
+class HttpClient {
 public:
     NET_DECLARE_PTRS(HttpClient)
 
-    HttpClient(std::shared_ptr<TcpClient> client);
+    HttpClient(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
 
     HttpClient(const HttpClient&) = delete;
 
@@ -174,8 +175,6 @@ public:
     std::string get_service() const;
 
     SocketStatus status() const;
-
-    std::shared_ptr<HttpClient> get_shared();
 
 protected:
     std::shared_ptr<HttpParser> m_parser;

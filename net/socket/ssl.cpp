@@ -176,10 +176,6 @@ std::optional<NetError> SSLClient::close() {
     return TcpClient::close();
 }
 
-std::shared_ptr<SSLClient> SSLClient::get_shared() {
-    return std::static_pointer_cast<SSLClient>(TcpClient::get_shared());
-}
-
 SSLServer::SSLServer(std::shared_ptr<SSLContext> ctx, const std::string& ip, const std::string& service):
     TcpServer(ip, service),
     m_ctx(std::move(ctx)) {}
@@ -336,9 +332,6 @@ RemoteTarget::SharedPtr SSLServer::create_remote(int remote_fd) {
     return remote;
 }
 
-std::shared_ptr<SSLServer> SSLServer::get_shared() {
-    return std::dynamic_pointer_cast<SSLServer>(TcpServer::get_shared());
-}
 
 bool SSLServer::handle_ssl_handshake(RemoteTarget::SharedPtr remote) {
     auto ssl_remote = std::dynamic_pointer_cast<SSLEvent>(remote);

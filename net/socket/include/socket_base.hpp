@@ -33,7 +33,7 @@ enum class SocketType : uint8_t {
 
 enum class SocketStatus { CONNECTED = 0, LISTENING, DISCONNECTED };
 
-class SocketClient: std::enable_shared_from_this<SocketClient> {
+class SocketClient {
 public:
     NET_DECLARE_PTRS(SocketClient)
 
@@ -56,8 +56,6 @@ public:
     std::optional<NetError> start_event_loop();
 
     virtual std::optional<NetError> close() = 0;
-
-    std::shared_ptr<SocketClient> get_shared();
 
     int get_fd() const;
 
@@ -91,7 +89,7 @@ protected:
     utils::LoggerManager::Logger m_logger;
 };
 
-class SocketServer: std::enable_shared_from_this<SocketServer> {
+class SocketServer {
     using CallBack = std::function<void(RemoteTarget::SharedPtr remote)>;
 
 public:
@@ -114,8 +112,6 @@ public:
     virtual std::optional<NetError> close() = 0;
 
     virtual std::optional<NetError> start() = 0;
-
-    std::shared_ptr<SocketServer> get_shared();
 
     int get_fd() const;
 
@@ -153,7 +149,6 @@ protected:
     virtual RemoteTarget::SharedPtr create_remote(int remote_fd) = 0;
 
     virtual void add_remote_event(int fd) = 0;
-
 
     std::optional<NetError> set_non_blocking_socket(int fd);
 

@@ -206,10 +206,6 @@ std::optional<NetError> TcpClient::write(const std::vector<uint8_t>& data, std::
     }
 }
 
-std::shared_ptr<TcpClient> TcpClient::get_shared() {
-    return std::static_pointer_cast<TcpClient>(SocketClient::get_shared());
-}
-
 TcpClient::~TcpClient() {
     if (m_status == SocketStatus::CONNECTED) {
         this->close();
@@ -476,10 +472,6 @@ void TcpServer::handle_connection(RemoteTarget::SharedPtr remote) {
 
 RemoteTarget::SharedPtr TcpServer::create_remote(int remote_fd) {
     return std::make_shared<RemoteTarget>(remote_fd);
-}
-
-std::shared_ptr<TcpServer> TcpServer::get_shared() {
-    return std::static_pointer_cast<TcpServer>(SocketServer::get_shared());
 }
 
 void TcpServer::add_remote_event(int client_fd) {

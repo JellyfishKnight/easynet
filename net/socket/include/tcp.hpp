@@ -29,8 +29,6 @@ public:
     std::optional<NetError> read(std::vector<uint8_t>& data, std::size_t time_out = 0) override;
 
     std::optional<NetError> write(const std::vector<uint8_t>& data, std::size_t time_out = 0) override;
-
-    std::shared_ptr<TcpClient> get_shared();
 };
 
 class TcpServer: public SocketServer {
@@ -54,8 +52,6 @@ public:
     std::optional<NetError> close() override;
 
     std::optional<NetError> start() override;
-
-    std::shared_ptr<TcpServer> get_shared();
 
     std::optional<NetError> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 

@@ -25,7 +25,7 @@ class WebSocketClient: public HttpClient {
 public:
     NET_DECLARE_PTRS(WebSocketClient)
 
-    WebSocketClient(std::shared_ptr<TcpClient> client);
+    WebSocketClient(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
 
     std::optional<NetError> close();
 

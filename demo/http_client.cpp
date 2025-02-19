@@ -4,8 +4,7 @@
 #include <memory>
 
 int main() {
-    net::TcpClient::SharedPtr tcp_client = std::make_shared<net::TcpClient>("127.0.0.1", "8080");
-    net::HttpClient client(tcp_client);
+    net::HttpClient client("127.0.0.1", "8080");
 
     auto err = client.connect_server();
     if (err.has_value()) {

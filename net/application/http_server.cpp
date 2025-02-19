@@ -218,10 +218,6 @@ std::shared_ptr<TcpServer> HttpServer::convert2tcp() {
     return std::move(m_server);
 }
 
-std::shared_ptr<HttpServer> HttpServer::get_shared() {
-    return shared_from_this();
-}
-
 void HttpServer::erase_parser(int remote_fd) {
     std::lock_guard<std::mutex> lock_guard(m_parsers_mutex);
     m_parsers.erase(remote_fd);
