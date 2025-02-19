@@ -33,9 +33,7 @@ int main() {
 
     ctx->set_certificates(execDir + "/template/keys/certificate.crt", execDir + "/template/keys/private.key");
 
-    net::SSLServer::SharedPtr server = std::make_shared<net::SSLServer>(ctx, "127.0.0.1", "8080");
-
-    net::HttpServer http_server(server);
+    net::HttpServer http_server("127.0.0.1", "8080", ctx);
 
     http_server.listen();
 
@@ -58,7 +56,7 @@ int main() {
 
     while (true) {
         std::string input;
-            std::cin >> input;
+        std::cin >> input;
         // std::cout << "Received input: " << input << std::endl;
         if (input == "exit") {
             http_server.close();

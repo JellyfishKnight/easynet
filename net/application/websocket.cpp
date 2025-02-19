@@ -273,7 +273,8 @@ std::optional<NetError> WebSocketClient::read_http(HttpResponse& res) {
 /*************************WebSocket Server************************ */
 /*************************WebSocket Server************************ */
 
-WebSocketServer::WebSocketServer(std::shared_ptr<TcpServer> server): HttpServer(server) {
+WebSocketServer::WebSocketServer(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx):
+    HttpServer(ip, service, ctx) {
     set_handler();
 }
 

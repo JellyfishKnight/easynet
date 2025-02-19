@@ -184,7 +184,7 @@ class WebSocketServer: public HttpServer {
 public:
     NET_DECLARE_PTRS(WebSocketServer)
 
-    WebSocketServer(std::shared_ptr<TcpServer> client);
+    WebSocketServer(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
 
     ~WebSocketServer();
 

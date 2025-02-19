@@ -27,8 +27,7 @@ std::string getExecutablePath() {
 }
 
 int main() {
-    net::TcpServer::SharedPtr tcp_server = std::make_shared<net::TcpServer>("127.0.0.1", "8080");
-    net::HttpServer server(tcp_server);
+    net::HttpServer server("127.0.0.1", "8080");
 
     auto err = server.listen();
     if (err.has_value()) {
