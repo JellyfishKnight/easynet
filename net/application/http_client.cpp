@@ -57,12 +57,11 @@ std::optional<NetError> HttpClient::get(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_get(
@@ -89,12 +88,11 @@ std::optional<NetError> HttpClient::post(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_post(
@@ -122,12 +120,11 @@ std::optional<NetError> HttpClient::put(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_put(
@@ -154,12 +151,11 @@ std::optional<NetError> HttpClient::del(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_del(
@@ -186,12 +182,11 @@ std::optional<NetError> HttpClient::patch(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_patch(
@@ -218,12 +213,11 @@ std::optional<NetError> HttpClient::head(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_head(
@@ -249,12 +243,11 @@ std::optional<NetError> HttpClient::options(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_options(
@@ -280,12 +273,11 @@ std::optional<NetError> HttpClient::connect(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_connect(
@@ -311,12 +303,11 @@ std::optional<NetError> HttpClient::trace(
     if (err.has_value()) {
         return err;
     }
-    HttpResponse res;
-    err = read_http(res);
+    err = read_http(response);
     if (err.has_value()) {
         return err;
     }
-    std::nullopt;
+    return std::nullopt;
 }
 
 std::future<std::optional<NetError>> HttpClient::async_trace(
