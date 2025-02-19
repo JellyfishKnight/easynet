@@ -21,9 +21,7 @@ int main() {
 
     ctx->set_certificates(execDir + "/template/keys/certificate.crt", execDir + "/template/keys/private.key");
 
-    net::SSLClient::SharedPtr ssl_client = std::make_shared<net::SSLClient>(ctx, "127.0.0.1", "8080");
-
-    net::HttpClient client(ssl_client);
+    net::HttpClient client("127.0.0.1", "8080", ctx);
 
     client.connect_server();
 

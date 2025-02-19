@@ -12,9 +12,13 @@
 
 namespace net {
 
-HttpClient::HttpClient(std::shared_ptr<TcpClient> client) {
-    m_parser = std::make_shared<HttpParser>();
-    m_client = std::move(client);
+HttpClient::HttpClient(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx):
+    m_parser(std::make_shared<HttpParser>()) {
+    if (ctx) {
+        m_client = std::make_shared<SSLClient>(ctx, ip, service);
+    } else {
+        m_client = std::make_shared<TcpClient>(ip, service);
+    }
 }
 
 std::optional<NetError> HttpClient::read_http(HttpResponse& res) {
@@ -359,6 +363,5 @@ std::string HttpClient::get_service() const {
 SocketStatus HttpClient::status() const {
     return m_client->status();
 }
-
 
 } // namespace net

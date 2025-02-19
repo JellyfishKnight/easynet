@@ -6,9 +6,7 @@
 #include <thread>
 
 int main() {
-    net::TcpClient::SharedPtr socket_client = std::make_shared<net::TcpClient>("127.0.0.1", "8080");
-
-    net::WebSocketClient client(socket_client);
+    net::WebSocketClient client("127.0.0.1", "8080");
 
     client.connect_server();
 

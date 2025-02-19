@@ -15,9 +15,9 @@
 
 namespace net {
 
-WebSocketClient::WebSocketClient(std::shared_ptr<TcpClient> client): HttpClient(client) {
-    m_parser = std::make_shared<WebSocketParser>();
-}
+WebSocketClient::WebSocketClient(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx):
+    HttpClient(ip, service, ctx),
+    m_parser(std::make_shared<WebSocketParser>()) {}
 
 std::optional<NetError> WebSocketClient::upgrade(const HttpRequest& upgrade_req) {
     HttpResponse res;

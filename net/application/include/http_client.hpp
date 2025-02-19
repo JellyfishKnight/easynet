@@ -4,6 +4,7 @@
 #include "remote_target.hpp"
 #include "socket_base.hpp"
 #include "ssl.hpp"
+#include "ssl_utils.hpp"
 #include "tcp.hpp"
 #include <future>
 #include <memory>
@@ -16,7 +17,7 @@ class HttpClient {
 public:
     NET_DECLARE_PTRS(HttpClient)
 
-    HttpClient(std::shared_ptr<TcpClient> client);
+    HttpClient(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx = nullptr);
 
     HttpClient(const HttpClient&) = delete;
 
