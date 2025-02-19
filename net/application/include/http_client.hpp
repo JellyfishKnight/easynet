@@ -176,9 +176,29 @@ public:
 
     SocketStatus status() const;
 
+    void set_proxy(
+        const std::string& ip,
+        const std::string& service,
+        const std::string& username = {},
+        const std::string& password = {}
+    );
+
+    void unset_proxy();
+
 protected:
     std::shared_ptr<HttpParser> m_parser;
     std::shared_ptr<TcpClient> m_client;
+
+    std::string m_target_ip;
+    std::string m_target_service;
+
+    bool m_use_proxy = false;
+    std::string m_proxy_ip;
+    std::string m_proxy_service;
+    std::string m_proxy_username;
+    std::string m_proxy_password;
+
+    std::shared_ptr<SSLContext> m_ssl_ctx;
 };
 
 } // namespace net

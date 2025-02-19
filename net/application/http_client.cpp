@@ -1,7 +1,9 @@
 #include "http_client.hpp"
 #include "http_parser.hpp"
+#include "print.hpp"
 #include "ssl.hpp"
 #include "tcp.hpp"
+#include "websocket_utils.hpp"
 #include <algorithm>
 #include <cassert>
 #include <memory>
@@ -13,11 +15,14 @@
 namespace net {
 
 HttpClient::HttpClient(const std::string& ip, const std::string& service, std::shared_ptr<SSLContext> ctx):
-    m_parser(std::make_shared<HttpParser>()) {
+    m_parser(std::make_shared<HttpParser>()),
+    m_target_ip(ip),
+    m_target_service(service),
+    m_ssl_ctx(ctx) {
     if (ctx) {
-        m_client = std::make_shared<SSLClient>(ctx, ip, service);
+        m_client = std::make_shared<SSLClient>(ctx, m_target_ip, m_target_service);
     } else {
-        m_client = std::make_shared<TcpClient>(ip, service);
+        m_client = std::make_shared<TcpClient>(m_target_ip, m_target_service);
     }
 }
 
@@ -38,6 +43,16 @@ std::optional<NetError> HttpClient::read_http(HttpResponse& res) {
 }
 
 std::optional<NetError> HttpClient::write_http(const HttpRequest& req) {
+    if (m_use_proxy) {
+        // Prepare the proxy request (for example, set the proxy URL and headers)
+        auto& proxy_req = const_cast<HttpRequest&>(req);
+        if (!m_proxy_username.empty() && !m_proxy_password.empty()) {
+            proxy_req.set_headers({ { "Proxy-Authorization",
+                                      "Basic " + base64_encode(m_proxy_username + ":" + m_proxy_password) } });
+        }
+        proxy_req.set_headers({ { "Host", m_target_ip + ":" + m_target_service } });
+        proxy_req.set_url("http://" + m_target_ip + ":" + m_target_service + req.url());
+    }
     auto buffer = m_parser->write_req(req);
     if (buffer.empty()) {
         return std::nullopt;
@@ -362,6 +377,37 @@ std::string HttpClient::get_service() const {
 
 SocketStatus HttpClient::status() const {
     return m_client->status();
+}
+
+void HttpClient::set_proxy(
+    const std::string& ip,
+    const std::string& service,
+    const std::string& username,
+    const std::string& password
+) {
+    m_use_proxy = true;
+    m_proxy_ip = ip;
+    m_proxy_service = service;
+    m_proxy_username = username;
+    m_proxy_password = password;
+    if (m_ssl_ctx) {
+        m_client = std::make_shared<SSLClient>(m_ssl_ctx, m_proxy_ip, m_proxy_service);
+    } else {
+        m_client = std::make_shared<TcpClient>(m_proxy_ip, m_proxy_service);
+    }
+}
+
+void HttpClient::unset_proxy() {
+    m_use_proxy = false;
+    m_proxy_ip.clear();
+    m_proxy_service.clear();
+    m_proxy_username.clear();
+    m_proxy_password.clear();
+    if (m_ssl_ctx) {
+        m_client = std::make_shared<SSLClient>(m_ssl_ctx, m_target_ip, m_target_service);
+    } else {
+        m_client = std::make_shared<TcpClient>(m_target_ip, m_target_service);
+    }
 }
 
 } // namespace net

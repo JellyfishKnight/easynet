@@ -130,7 +130,7 @@ std::optional<NetError> TcpClient::read(std::vector<uint8_t>& data, std::size_t 
             return NetError { NET_TIMEOUT_CODE, "Timeout to read from socket" };
         }
         std::vector<uint8_t> buffer(1024);
-        num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), 0);
+        num_bytes = ::recv(m_fd, buffer.data(), buffer.size(), MSG_NOSIGNAL);
         if (num_bytes == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if (data.size() <= 0) {
@@ -173,7 +173,7 @@ std::optional<NetError> TcpClient::write(const std::vector<uint8_t>& data, std::
             }
             return NetError { NET_TIMEOUT_CODE, "Timeout to write to socket" };
         }
-        ssize_t num_bytes = ::send(m_fd, data.data() + bytes_has_send, data.size() - bytes_has_send, 0);
+        ssize_t num_bytes = ::send(m_fd, data.data() + bytes_has_send, data.size() - bytes_has_send, MSG_NOSIGNAL);
         if (num_bytes == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if (bytes_has_send <= 0) {
