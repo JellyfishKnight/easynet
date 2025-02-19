@@ -40,8 +40,6 @@ public:
 
     std::optional<NetError> close() override;
 
-    std::shared_ptr<SSLClient> get_shared();
-
 protected:
     std::optional<NetError> ssl_connect(std::size_t time_out = 0);
 
@@ -65,8 +63,6 @@ public:
     std::optional<NetError> close() override;
 
     std::optional<NetError> listen() override;
-
-    std::shared_ptr<SSLServer> get_shared();
 
     std::optional<NetError> read(std::vector<uint8_t>& data, RemoteTarget::SharedPtr remote) override;
 

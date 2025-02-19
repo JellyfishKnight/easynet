@@ -52,10 +52,6 @@ SocketStatus SocketClient::status() const {
     return m_status;
 }
 
-std::shared_ptr<SocketClient> SocketClient::get_shared() {
-    return shared_from_this();
-}
-
 std::optional<NetError> SocketClient::set_non_blocking_socket(int fd) {
     int flag = ::fcntl(fd, F_GETFL, 0);
     if (flag == -1) {
@@ -144,10 +140,6 @@ std::string SocketServer::get_service() const {
 
 SocketStatus SocketServer::status() const {
     return m_status;
-}
-
-std::shared_ptr<SocketServer> SocketServer::get_shared() {
-    return shared_from_this();
 }
 
 std::optional<NetError> SocketServer::set_non_blocking_socket(int fd) {

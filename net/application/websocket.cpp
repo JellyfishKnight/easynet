@@ -265,10 +265,6 @@ std::optional<NetError> WebSocketClient::read_http(HttpResponse& res) {
     return HttpClient::read_http(res);
 }
 
-std::shared_ptr<WebSocketClient> WebSocketClient::get_shared() {
-    return std::static_pointer_cast<WebSocketClient>(HttpClient::get_shared());
-}
-
 /*************************WebSocket Server************************ */
 /*************************WebSocket Server************************ */
 /*************************WebSocket Server************************ */
@@ -493,10 +489,6 @@ void WebSocketServer::add_websocket_handler(std::function<void(RemoteTarget::Sha
 
 void WebSocketServer::allowed_path(const std::string& path) {
     m_allowed_paths.insert(path);
-}
-
-std::shared_ptr<WebSocketServer> WebSocketServer::get_shared() {
-    return std::static_pointer_cast<WebSocketServer>(HttpServer::get_shared());
 }
 
 std::optional<NetError>

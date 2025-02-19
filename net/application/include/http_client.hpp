@@ -12,7 +12,7 @@
 
 namespace net {
 
-class HttpClient: public std::enable_shared_from_this<HttpClient> {
+class HttpClient {
 public:
     NET_DECLARE_PTRS(HttpClient)
 
@@ -174,8 +174,6 @@ public:
     std::string get_service() const;
 
     SocketStatus status() const;
-
-    std::shared_ptr<HttpClient> get_shared();
 
 protected:
     std::shared_ptr<HttpParser> m_parser;
