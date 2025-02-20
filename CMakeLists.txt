@@ -64,6 +64,8 @@ add_library(net::application ALIAS net_application)
 target_include_directories(net_application PUBLIC ./net/application/include ${OPENSSL_INCLUDE_DIR})
 target_link_libraries(net_application PUBLIC net::utils net::socket net::common OpenSSL::SSL OpenSSL::Crypto)
 
+#demo test
+
 add_executable(TcpServerTest ./demo/tcp_server.cpp)
 target_link_libraries(TcpServerTest PUBLIC net::utils net::socket)
 add_executable(TcpClientTest ./demo/tcp_client.cpp)
@@ -85,6 +87,8 @@ add_executable(WebSocketServerTest ./demo/websocket_server.cpp)
 target_link_libraries(WebSocketServerTest PUBLIC net::utils net::socket net::application)
 add_executable(WebSocketClientTest ./demo/websocket_client.cpp)
 target_link_libraries(WebSocketClientTest PUBLIC net::utils net::socket net::application)
+add_executable(HttpForwardProxyServerTest ./demo/http_forward_proxy_server.cpp)
+target_link_libraries(HttpForwardProxyServerTest PUBLIC net::utils net::socket net::application)
 
 # install headers
 

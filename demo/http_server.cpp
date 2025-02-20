@@ -1,4 +1,5 @@
 #include "http_server.hpp"
+#include "http_parser.hpp"
 #include "tcp.hpp"
 #include <filesystem>
 #include <fstream>
@@ -42,6 +43,12 @@ int main() {
     server.enable_thread_pool(96);
     server.enable_event_loop();
     server.get("/", [&content](const net::HttpRequest& req) {
+        // cout req
+        std::cout << "Request: " << utils::dump_enum(req.method()) << " " << req.url() << std::endl;
+        for (auto& [key, value]: req.headers()) {
+            std::cout << key << ": " << value << std::endl;
+        }
+        // create response
         net::HttpResponse res;
         res.set_version(HTTP_VERSION_1_1)
             .set_status_code(net::HttpResponseCode::OK)
@@ -49,6 +56,35 @@ int main() {
             .set_header("Content-Type", "text/html")
             .set_header("Content-Length", std::to_string(content.size()))
             .set_body(content);
+        return res;
+    });
+
+    server.get("/d", [](const net::HttpRequest& req) {
+        std::cout << "Request: " << utils::dump_enum(req.method()) << " " << req.url() << std::endl;
+        for (auto& [key, value]: req.headers()) {
+            std::cout << key << ": " << value << std::endl;
+        }
+
+        net::HttpResponse res;
+        res.set_version(HTTP_VERSION_1_1)
+            .set_status_code(net::HttpResponseCode::OK)
+            .set_reason("OK")
+            .set_header("Content-Type", "text/plain")
+            .set_body("Response from /d endpoint");
+        return res;
+    });
+
+    server.add_error_handler(net::HttpResponseCode::NOT_FOUND, [](const net::HttpRequest& req) {
+        std::cout << "Request: " << utils::dump_enum(req.method()) << " " << req.url() << std::endl;
+        for (auto& [key, value]: req.headers()) {
+            std::cout << key << ": " << value << std::endl;
+        }
+        net::HttpResponse res;
+        res.set_version(HTTP_VERSION_1_1)
+            .set_status_code(net::HttpResponseCode::NOT_FOUND)
+            .set_reason("Not Found")
+            .set_header("Content-Type", "text/plain")
+            .set_body("404 Not Found");
         return res;
     });
 
