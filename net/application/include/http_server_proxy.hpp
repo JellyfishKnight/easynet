@@ -7,7 +7,7 @@
 
 namespace net {
 
-class HttpServerProxyForward: HttpServer {
+class HttpServerProxyForward: public HttpServer {
 public:
     NET_DECLARE_PTRS(HttpServerProxyForward)
 

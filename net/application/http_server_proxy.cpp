@@ -1,6 +1,7 @@
 #include "http_server_proxy.hpp"
 #include "http_parser.hpp"
 #include "remote_target.hpp"
+#include "socket_base.hpp"
 
 namespace net {
 
@@ -11,6 +12,7 @@ HttpServerProxyForward::HttpServerProxyForward(
 ):
     HttpServer(ip, service, ctx) {
     m_clients = std::make_shared<HttpClientGroup>();
+    this->set_handler();
 }
 
 void HttpServerProxyForward::set_handler() {
@@ -42,9 +44,10 @@ void HttpServerProxyForward::set_handler() {
             auto& request = req_opt.value();
             // find the path in the request
             size_t third_slash_pos = request.url().find("/", request.url().find("/", request.url().find("/") + 1) + 1);
-            request.set_url(request.url().substr(third_slash_pos - 1));
-            auto target = request.headers().find("Host");
+            request.set_url(request.url().substr(third_slash_pos));
+            auto target = request.headers().find("host");
             if (target == request.headers().end()) {
+                // if the target is not found, return a 400 Bad Request response
                 auto handler = m_error_handlers.find(HttpResponseCode::BAD_REQUEST);
                 if (handler == m_error_handlers.end()) {
                     res.set_version(HTTP_VERSION_1_1)
@@ -58,15 +61,25 @@ void HttpServerProxyForward::set_handler() {
 
             std::string target_ip = target->second.substr(0, target->second.find(':'));
             std::string target_service = target->second.substr(target->second.find(':') + 1);
-            auto err = m_clients->add_client(target_ip, target_service);
-            if (err.has_value()) {
-                std::cerr << std::format("Failed to add client: {}\n", err.value().msg) << std::endl;
-                return;
-            }
             auto client = m_clients->get_client(target_ip, target_service);
             if (!client) {
-                std::cerr << std::format("No client {}:{}\n", target_ip, target_service) << std::endl;
-                return;
+                auto err = m_clients->add_client(target_ip, target_service);
+                if (err.has_value()) {
+                    std::cerr << std::format("Failed to add client: {}\n", err.value().msg) << std::endl;
+                    return;
+                }
+                client = m_clients->get_client(target_ip, target_service);
+                if (!client) {
+                    std::cerr << "Failed to get client" << std::endl;
+                    return;
+                }
+            }
+            if (client->status() == SocketStatus::DISCONNECTED) {
+                err = client->connect_server();
+                if (err.has_value()) {
+                    std::cerr << std::format("Failed to connect to client: {}\n", err.value().msg) << std::endl;
+                    return;
+                }
             }
             err = client->write_http(request);
             if (err.has_value()) {
