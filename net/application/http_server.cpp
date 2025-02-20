@@ -117,6 +117,16 @@ void HttpServer::set_logger(const utils::LoggerManager::Logger& logger) {
     m_server->set_logger(logger);
 }
 
+void HttpServer::write_http_res(const HttpResponse& res, RemoteTarget::SharedPtr remote) {
+    auto& parser = m_parsers.at(remote->fd());
+    auto buffer = parser->write_res(res);
+    auto err = m_server->write(buffer, remote);
+    if (err.has_value()) {
+        std::cerr << std::format("Failed to write to socket: {}\n", err.value().msg) << std::endl;
+        erase_parser(remote->fd());
+    }
+}
+
 void HttpServer::set_handler() {
     auto handler_thread_func = [this](RemoteTarget::SharedPtr remote) {
         {
@@ -158,43 +168,38 @@ void HttpServer::set_handler() {
                         .set_reason(std::string(utils::dump_enum(HttpResponseCode::METHOD_NOT_ALLOWED)))
                         .set_header("Content-Length", "0");
                 }
-            } else {
-                // if method is correct but path is wrong
-                if (m_handlers.at(method).find(path) == m_handlers.at(method).end()) {
-                    if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
-                        response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
-                    } else {
-                        response.set_version(HTTP_VERSION_1_1)
-                            .set_status_code(HttpResponseCode::NOT_FOUND)
-                            .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
-                            .set_header("Content-Length", "0");
-                    }
+                write_http_res(response, remote);
+                continue;
+            }
+            // if method is correct but path is wrong
+            if (m_handlers.at(method).find(path) == m_handlers.at(method).end()) {
+                if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
                 } else {
-                    // if method and path are correct
-                    handler = m_handlers.at(method).at(path);
-                    try {
-                        response = handler(request);
-                    } catch (const HttpResponseCode& e) {
-                        if (m_error_handlers.find(e) != m_error_handlers.end()) {
-                            response = m_error_handlers.at(e)(request);
-                        } else {
-                            response.set_version(HTTP_VERSION_1_1)
-                                .set_status_code(e)
-                                .set_reason(std::string(utils::dump_enum(e)))
-                                .set_header("Content-Length", "0");
-                        }
-                    }
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(HttpResponseCode::NOT_FOUND)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                        .set_header("Content-Length", "0");
+                }
+                write_http_res(response, remote);
+                continue;
+            }
+            // if method and path are correct
+            handler = m_handlers.at(method).at(path);
+            try {
+                response = handler(request);
+
+            } catch (const HttpResponseCode& e) {
+                if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(e)(request);
+                } else {
+                    response.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(e)
+                        .set_reason(std::string(utils::dump_enum(e)))
+                        .set_header("Content-Length", "0");
                 }
             }
-
-            // write response to socket
-            auto res = parser->write_res(response);
-            auto err = m_server->write(res, remote);
-            if (err.has_value()) {
-                std::cerr << std::format("Failed to write to socket: {}\n", err.value().msg);
-                erase_parser(remote->fd());
-                break;
-            }
+            write_http_res(response, remote);
         };
     };
     m_server->on_start(handler_thread_func);

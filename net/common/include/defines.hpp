@@ -27,6 +27,8 @@ struct NetError {
 #define NET_EARLY_END_OF_SOCKET 6
 #define NET_NO_CLIENT_FOUND 7
 #define NET_CLIENT_ALREADY_EXISTS 8
+#define NET_HTTP_PROXY_INVALID_URL 9
+
 
 #define GET_ERROR_MSG() \
     NetError { errno, std::system_category().message(errno) }

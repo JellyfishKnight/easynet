@@ -1,4 +1,5 @@
 #include "http_server_proxy.hpp"
+#include "defines.hpp"
 #include "http_parser.hpp"
 #include "remote_target.hpp"
 #include "socket_base.hpp"
@@ -17,6 +18,48 @@ HttpServerProxyForward::HttpServerProxyForward(
 
 void HttpServerProxyForward::custom_routed_requests(std::function<void(HttpRequest&)> handler) {
     m_request_custom_handler = handler;
+}
+
+bool HttpServerProxyForward::request_url_valid(const HttpRequest& request) {
+    // judge if url is valid
+    const std::string& url = request.url();
+    if (url.empty() || url.find("://") == std::string::npos) {
+        return false;
+    }
+    return true;
+}
+
+bool HttpServerProxyForward::https_proxy_required(const HttpRequest& request) {
+    return request.url().find("https://") != std::string::npos;
+}
+
+std::optional<NetError>
+HttpServerProxyForward::get_target_ip_service(const HttpRequest& request, std::string& ip, std::string& service) {
+    // find the path in the request
+    auto url_start = request.url().find("://");
+    if (url_start == std::string::npos) {
+        return NetError { NET_HTTP_PROXY_INVALID_URL, "Invalid url" };
+    }
+    auto ssl_required = https_proxy_required(request);
+    auto url_end = request.url().find("/", url_start + 3);
+    auto colon_pos = request.url().find(":", url_start + 3);
+    if (url_end == std::string::npos) {
+        if (colon_pos == std::string::npos) {
+            ip = request.url().substr(url_start + 3);
+            service = ssl_required ? "443" : "80";
+        } else {
+            ip = request.url().substr(url_start + 3, colon_pos - url_start - 3);
+            service = request.url().substr(colon_pos + 1);
+        }
+    } else {
+        ip = request.url().substr(url_start + 3, url_end - url_start - 3);
+        if (colon_pos == std::string::npos || colon_pos > url_end) {
+            service = ssl_required ? "443" : "80";
+        } else {
+            service = request.url().substr(colon_pos + 1, url_end - colon_pos - 1);
+        }
+    }
+    return std::nullopt;
 }
 
 void HttpServerProxyForward::set_handler() {
@@ -46,6 +89,21 @@ void HttpServerProxyForward::set_handler() {
                 break;
             }
             auto& request = req_opt.value();
+            if (!request_url_valid(request)) {
+                // if the url is not valid, return a 400 Bad Request response
+                auto handler = m_error_handlers.find(HttpResponseCode::BAD_REQUEST);
+                if (handler == m_error_handlers.end()) {
+                    res.set_version(HTTP_VERSION_1_1)
+                        .set_status_code(HttpResponseCode::BAD_REQUEST)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
+                        .set_header("Content-Length", "0");
+                } else {
+                    res = handler->second(request);
+                }
+                write_http_res(res, remote);
+                continue;
+            }
+
             // find the path in the request
             size_t third_slash_pos = request.url().find("/", request.url().find("/", request.url().find("/") + 1) + 1);
             request.set_url(request.url().substr(third_slash_pos));
@@ -61,6 +119,8 @@ void HttpServerProxyForward::set_handler() {
                 } else {
                     res = handler->second(request);
                 }
+                write_http_res(res, remote);
+                continue;
             }
 
             std::string target_ip = target->second.substr(0, target->second.find(':'));

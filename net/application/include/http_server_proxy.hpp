@@ -5,6 +5,7 @@
 #include "http_parser.hpp"
 #include "http_server.hpp"
 #include <functional>
+#include <tuple>
 
 namespace net {
 
@@ -27,7 +28,13 @@ public:
     void custom_routed_requests(std::function<void(HttpRequest&)> handler);
 
 private:
-    virtual void set_handler() override;
+    bool request_url_valid(const HttpRequest& request);
+
+    std::optional<NetError> get_target_ip_service(const HttpRequest& request, std::string& ip, std::string& service);
+
+    bool https_proxy_required(const HttpRequest& request);
+
+    void set_handler() override;
 
     std::function<void(HttpRequest&)> m_request_custom_handler = nullptr;
 

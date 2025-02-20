@@ -87,6 +87,8 @@ protected:
 
     virtual void erase_parser(int remote_fd);
 
+    void write_http_res(const HttpResponse& res, RemoteTarget::SharedPtr remote);
+
     using MethodHandlers = std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>;
     MethodHandlers m_get_handlers;
     MethodHandlers m_post_handlers;
