@@ -4,7 +4,7 @@
 #include <memory>
 
 int main() {
-    net::HttpClient client("www.baidu.com", "80");
+    net::HttpClient client("127.0.0.1", "8080");
     client.set_proxy("127.0.0.1", "2196");
 
     auto err = client.connect_server();
