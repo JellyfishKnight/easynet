@@ -7,6 +7,7 @@
 #include "timer.hpp"
 #include <cassert>
 #include <format>
+#include <functional>
 #include <future>
 #include <iostream>
 #include <memory>
@@ -145,44 +146,47 @@ void HttpServer::set_handler() {
             HttpResponse response;
             auto method = request.method();
             auto path = request.url();
-            std::unordered_map<std::string, std::function<HttpResponse(const HttpRequest&)>>::iterator handler;
+
+            std::function<HttpResponse(const HttpRequest&)> handler;
             // if method is wrong
-            try {
-                handler = m_handlers.at(method).find(path);
-            } catch (const std::out_of_range& e) {
-                if (m_error_handlers.find(HttpResponseCode::BAD_REQUEST) != m_error_handlers.end()) {
-                    response = m_error_handlers.at(HttpResponseCode::BAD_REQUEST)(request);
+            if (m_handlers.find(method) == m_handlers.end()) {
+                if (m_error_handlers.find(HttpResponseCode::METHOD_NOT_ALLOWED) != m_error_handlers.end()) {
+                    response = m_error_handlers.at(HttpResponseCode::METHOD_NOT_ALLOWED)(request);
                 } else {
                     response.set_version(HTTP_VERSION_1_1)
-                        .set_status_code(HttpResponseCode::BAD_REQUEST)
-                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::BAD_REQUEST)))
-                        .set_header("Content-Length", "0");
-                }
-            }
-            // if no handler for the path in this method is not found
-            if (handler == m_handlers.at(method).end()) {
-                if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
-                    response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
-                } else {
-                    response.set_version(HTTP_VERSION_1_1)
-                        .set_status_code(HttpResponseCode::NOT_FOUND)
-                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
+                        .set_status_code(HttpResponseCode::METHOD_NOT_ALLOWED)
+                        .set_reason(std::string(utils::dump_enum(HttpResponseCode::METHOD_NOT_ALLOWED)))
                         .set_header("Content-Length", "0");
                 }
             } else {
-                try {
-                    response = handler->second(request);
-                } catch (const HttpResponseCode& e) {
-                    if (m_error_handlers.find(e) != m_error_handlers.end()) {
-                        response = m_error_handlers.at(e)(request);
+                // if method is correct but path is wrong
+                if (m_handlers.at(method).find(path) == m_handlers.at(method).end()) {
+                    if (m_error_handlers.find(HttpResponseCode::NOT_FOUND) != m_error_handlers.end()) {
+                        response = m_error_handlers.at(HttpResponseCode::NOT_FOUND)(request);
                     } else {
                         response.set_version(HTTP_VERSION_1_1)
-                            .set_status_code(e)
-                            .set_reason(std::string(utils::dump_enum(e)))
+                            .set_status_code(HttpResponseCode::NOT_FOUND)
+                            .set_reason(std::string(utils::dump_enum(HttpResponseCode::NOT_FOUND)))
                             .set_header("Content-Length", "0");
+                    }
+                } else {
+                    // if method and path are correct
+                    handler = m_handlers.at(method).at(path);
+                    try {
+                        response = handler(request);
+                    } catch (const HttpResponseCode& e) {
+                        if (m_error_handlers.find(e) != m_error_handlers.end()) {
+                            response = m_error_handlers.at(e)(request);
+                        } else {
+                            response.set_version(HTTP_VERSION_1_1)
+                                .set_status_code(e)
+                                .set_reason(std::string(utils::dump_enum(e)))
+                                .set_header("Content-Length", "0");
+                        }
                     }
                 }
             }
+
             // write response to socket
             auto res = parser->write_res(response);
             auto err = m_server->write(res, remote);
@@ -191,12 +195,11 @@ void HttpServer::set_handler() {
                 erase_parser(remote->fd());
                 break;
             }
-        }
+        };
     };
-
     m_server->on_start(handler_thread_func);
     m_server->on_read(handler_thread_func);
-}
+};
 
 HttpServer::~HttpServer() {
     if (m_server) {
