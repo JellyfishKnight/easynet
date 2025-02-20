@@ -15,6 +15,10 @@ HttpServerProxyForward::HttpServerProxyForward(
     this->set_handler();
 }
 
+void HttpServerProxyForward::custom_routed_requests(std::function<void(HttpRequest&)> handler) {
+    m_request_custom_handler = handler;
+}
+
 void HttpServerProxyForward::set_handler() {
     auto handler_thread_func = [this](RemoteTarget::SharedPtr remote) {
         {
@@ -80,6 +84,9 @@ void HttpServerProxyForward::set_handler() {
                     std::cerr << std::format("Failed to connect to client: {}\n", err.value().msg) << std::endl;
                     return;
                 }
+            }
+            if (m_request_custom_handler) {
+                m_request_custom_handler(request);
             }
             err = client->write_http(request);
             if (err.has_value()) {
